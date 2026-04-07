@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Custom Canvas — Weekly Tasks",
+  "version": "0.2.0",
+  "description": "Customize the appearance of Canvas LMS — dashboard cards, sidebar, theme, and a weekly task list.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://canvas.unl.edu/*"],
+  "action": {
+    "default_title": "Customize Canvas"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://canvas.unl.edu/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
