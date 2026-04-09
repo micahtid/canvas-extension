@@ -48,6 +48,177 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 - **What:** 20×20px grid at `rgba(15,23,42,0.04)` applied via two crossed `linear-gradient` backgrounds on the column. The `.cc-preview` card itself kept its original 135° gradient — grid now sits *behind* the card so it reads as a floating element on a gridded backdrop.
 - **Initial mistake:** first put the grid on `.cc-preview` (the card interior) — reverted.
 
+### Sidebar color pickers — double-pass detection
+- **Bug:** even with live DOM detection, the active-item text picker showed white because `getComputedStyle()` returned `rgb(255,255,255)` at the moment `tabSidebar()` first ran — Canvas hadn't fully applied its active-link styles yet. Diagnostic later confirmed the real color was `rgb(123, 50, 50)` once the DOM settled.
+- **Fix:** new `syncSidebarPickerFallbacks()` re-reads `detectSidebarColors()` and updates any unset-setting picker's `value` + `setAttribute('value', …)` in place. Called from a new `postRenderTabPane()` hook at the end of `renderTabPane()`. Runs three times when the Left Sidebar tab opens:
+  1. Synchronously (immediately after render)
+  2. `requestAnimationFrame` (next paint)
+  3. `setTimeout(120ms)` (catches late Canvas React updates)
+- **Why triple-call:** Canvas sometimes delays applying `--active` styles depending on the current route. The rAF catches render-cycle updates; the 120ms timeout catches async React state updates. Only picks up colors for settings the user hasn't already overridden.
+
+### Sidebar color pickers — detect real DOM values
+- **Where:** new `detectSidebarColors()`, `rgbToHex()`, `parseRgbString()`, `flattenColor()`, `findOpaqueAncestorBg()` helpers in `src/content.js`. `tabSidebar()` calls them at render time.
+- **What:** instead of passing static hex guesses (`#2d3b45`, `#ffffff`) as picker fallbacks, each sidebar color picker now reads the *actual current computed color* from the live sidebar DOM. For the active item's translucent overlay, the rgba is flattened against the first opaque ancestor background so the hex picker shows the visible blended color rather than `#ffffff`.
+- **Why:** my previous fallbacks were guessing at Canvas defaults. On UNL Canvas, `#header.ic-app-header` is actually `rgb(69, 69, 69)` (#454545), not `#2d3b45`. The active item overlay is `rgba(255,255,255,0.16)` which blends to something like `#5C6569` on the dark header — not pure white. The pickers now show exactly what the user sees.
+
+### Color picker prefilled values
+- **Where:** `colorControl()` in `src/content.js` + every call site.
+- **What:** `colorControl(key)` now accepts a second `fallback` argument (default still `#000000`). Each call site passes a semantically correct fallback so the picker shows the real current effective color when the setting is unset:
+  - `sidebarBgColor` → `#2d3b45` (Canvas's stock dark nav)
+  - `sidebarTextColor` / `sidebarActiveTextColor` / `sidebarActiveColor` → `#ffffff`
+  - `bgColor` → `#ffffff`
+  - `textColor` → `#2d3b45` (Canvas's stock body text)
+  - `modalAccentColor` → `#fc5050` (the design-system red)
+  - `accentColor` → `#008ee2` (Canvas link blue)
+- **Why:** `<input type="color">` requires a hex value and can't represent "unset" or "transparent" — before this, every unset color picker showed black, making it look like the current color was black even when it was actually white/red/etc.
+
+### FOUC fix — hide Canvas until the extension is applied
+- **Manifest:** `run_at` changed from `document_idle` → `document_start`. Content script CSS and JS are now injected before Canvas parses its HTML, so our styles are in the cascade when the default UI would otherwise paint.
+- **CSS FOUC guard:** new rule at the top of `content.css`:
+  ```css
+  html:not(.cc-ready) body { opacity: 0 !important; pointer-events: none !important; }
+  html.cc-ready body { opacity: 1; transition: opacity 160ms ease; }
+  ```
+  Canvas body is invisible (and non-interactive) until `<html>` gains the `cc-ready` class, then fades in softly.
+- **Bootstrap split into two phases.**
+  - **`earlyInit()`** runs immediately at document_start: `await loadSettings()` → `applySettings(settings)` (sets CSS vars + data attrs on `<html>`, which is available even before body is parsed). Adds `cc-ready` in a `finally` block so body is always revealed even on error.
+  - **`domInit()`** runs on `DOMContentLoaded`: `applyBgInline()`, mutation observer, first `tick()`.
+- **Safe fallbacks.** `applyBgInline()` now bails if `document.body` is null (document_start). `ensurePageFont()` re-queues itself on `DOMContentLoaded` if `document.head` is null. A `setTimeout(markReady, 3000)` safety net force-reveals body after 3s no matter what, so a crash in early init can't leave Canvas permanently invisible.
+- **Result:** on cold load and SPA navigation, users see a brief blank (~20–100ms while settings load + CSS computes) followed by a smooth fade-in with all customizations already applied. No more flash of stock Canvas.
+
+### Ring gap — reinstated at 3px (real) / 2px (preview)
+- **Where:** `gap` constants in `activityRingsSvg()` and preview ring SVG generation.
+- **What:** bumped real widget gap 0 → 3 (r1=75, r2=62, r3=49, inner diameter 88px). Preview gap 0 → 2 (r1=54.5, r2=43.5, r3=32.5, inner diameter ~56px). Still leaves plenty of margin around the 56×56 / 38×38 center text boxes.
+
+### Master kill switch + monochrome ring tracks
+- **Extension master toggle.** New `extensionEnabled: true` setting in `DEFAULTS`. New `Extension` group at the top of the General tab with a single toggle "Enable Custom Canvas". When flipped off, `applySettings` runs `tearDownOverrides()` which removes all `CC_DATA_ATTRS` (`ccCardShadow`, `ccSidebarBg`, etc.) from `<html>`, removes all `CC_CSS_VARS` (`--cc-card-radius`, `--cc-bg-color`, etc.), clears inline bg styles via `clearBgInline()`, and removes the Weekly Tasks widget. `injectWidget()`, `tick()`, and `applyBgInline()` all bail immediately when the flag is false, so the mutation observer can't resurrect anything. Canvas returns to stock look instantly. Flipping the toggle back on reapplies everything.
+- **Monochrome ring tracks.** New `hexToRgba(hex, alpha)` helper. `activityRingsSvg()` now computes each ring's track stroke as `hexToRgba(color, 0.18)` — i.e. the course's own color at 18% opacity instead of a neutral `#eaedf1`. When a ring is empty, the track is a pastel version of the filled arc's color, which reads as a cohesive palette instead of a gray background.
+- **Gap removed between rings.** Changed `gap` from 6 → 0 in both real widget and preview ring SVGs. Rings now touch at their stroke boundaries (no visible space between concentric circles). With gap 0: real widget r1=75, r2=65, r3=55 (inner diameter 100px); preview r1=54.5, r2=45.5, r3=36.5 (inner diameter ~64px). Both give comfortable margins for the center text.
+
+### Preview reactivity bug fixes
+- **`refreshPreview()` was silently broken.** It was looking for `.cc-preview-wrap`, but I'd renamed that class to `.cc-preview-content` when removing the card-in-card wrapper a few turns back. The function became a no-op, so dropdown changes in Tasks Widget (progress style, sort, filter toggles) didn't re-render the preview. Fixed the selector and added a null-check for `cfg.preview` (General tab returns null).
+- **`cardColumns` preview didn't react.** `.cc-preview-card-grid` had hardcoded `grid-template-columns: repeat(3, 1fr)` with no reactive rule. Added `[data-cc-card-columns="2/3/4/5/auto"]` CSS rules that mirror the real dashboard. Plus a `transition` on `grid-template-columns` for a smooth reflow.
+- **Sidebar active-item text color.** New `sidebarActiveTextColor` setting paired with `sidebarActiveColor`. The Active Item row is now two rows (background + text). Real sidebar CSS sets `color` on the active link text and `fill`/`color` on the active link's SVG icons (all gated on `data-cc-sidebar-active-text`). Preview sidebar `.cc-preview-sidebar-item.active` picks up the same var.
+
+### Row labels — vertically centered with stable position
+- **Where:** `.cc-row-label` in `src/content.css`.
+- **What:** removed the fixed `padding-top: 10px`. Replaced with `min-height: 44px` (matches trigger height) + `display: flex; flex-direction: column; justify-content: center;`.
+- **Result:** the label's box is **always 44px tall** regardless of how tall the row's control side gets. Inside that box, title + hint are flex-centered vertically. The row keeps `align-items: flex-start` so the box itself sits at the top and doesn't shift when a shell expands.
+- **Why it fixes both issues at once:** previously, a long `title + hint` label with `padding-top: 10px` sat ~24-52px from the row top, making it look bottom-heavy next to the 44px trigger. Now the label content is centered in a 44px box at the top of the row → visual midline exactly matches the trigger's midline. And because the label box has a fixed height (min-height) and is anchored to `flex-start`, it can't move when the shell's row grows.
+
+### Modal accent color — now customizable
+- **Setting:** new `modalAccentColor: '#fc5050'` in `DEFAULTS`.
+- **Wiring:** `applySettings` writes `--cc-modal-accent` on `<html>`. `.cc-modal-root`'s local `--cc-ds-accent` definition now reads `var(--cc-modal-accent, #fc5050)` — so setting the variable on html cascades into the modal and replaces the red throughout (selected dropdown options, toggle-on state, range slider thumb, active tab).
+- **Active tab now uses the accent.** `.cc-tab.active` color switched from `var(--cc-ds-text)` (dark gray) to `var(--cc-ds-accent)` (default red, now user-controllable). White background + accent-color text per the user's spec.
+- **UI:** new "Modal" group in the General tab with a single color picker.
+
+### Left Sidebar — color customization
+- **Settings:** `sidebarBgColor`, `sidebarTextColor`, `sidebarActiveColor` in `DEFAULTS`. Empty default = use Canvas's stock colors.
+- **`applySettings`:** writes three CSS variables with Canvas's defaults as fallback values (`#2d3b45` for bg, `#ffffff` for text, `rgba(255,255,255,0.18)` for active), and three data attributes (`data-cc-sidebar-bg/text/active`) gating the override rules.
+- **UI:** new "Colors" group in `tabSidebar()` with three color pickers: Background, Text & icons, Active item.
+- **Real-sidebar CSS:** gated rules target `#header.ic-app-header`, `.ic-app-header__logomark-container` for bg; `.ic-app-header__menu-list-link`, `.menu-item__text`, `.ic-app-header svg / .ic-icon-svg / svg path` for text/icon color (both `color` and `fill` so icon SVGs pick it up); the active link selectors for active bg.
+- **Preview sidebar CSS:** rewritten to read from the same `--cc-sidebar-bg/text/active` vars so dragging a color picker updates both the preview mockup and the real sidebar in lockstep.
+- **Why gating:** when the user hasn't set a color, the `[data-cc-sidebar-*]` attributes are `"off"` and none of the override rules fire — Canvas keeps its default look.
+
+### Borderless shells, stable text, hidden scrollbars, auto scroll
+- **No border on the shell — ever.** Removed `border`, hover border-color, and the open-state `border-bottom` divider. `.cc-select` is now a borderless rounded container with `background: var(--cc-ds-bg)` as the only chrome. Trigger hover is `rgba(0,0,0,0.04)` bg tint. Menu has no border and inherits the parent's background. No visible seam, no outline in any state.
+- **Stable label/text position.** Root cause of the "text moves slightly" issue was twofold: (a) `.cc-row` switched from `align-items: center` to `flex-start` via the `.cc-row-expanded` class when a shell opened, and (b) the trigger gained a `border-bottom` on open, adding 0.8px to its height. Fix: `.cc-row` now uses `align-items: flex-start` **always** with `.cc-row-label { padding-top: 10px }` and `.cc-row-control { align-self: flex-start }`, so the label's vertical position is identical regardless of the row's height. Combined with the borderless trigger (no more 0.8px shift), nothing moves when a shell opens or closes. `.cc-row-expanded` class is still toggled by JS but no longer has CSS effects.
+- **Hidden scrollbars inside the modal.** Added `.cc-modal-root * { scrollbar-width: none }` and `.cc-modal-root *::-webkit-scrollbar { display: none }`. Wheel/trackpad/touch scrolling still works, just no visible scrollbars (Firefox + WebKit).
+- **Auto-scroll shell into view.** New `scrollSelectIntoView(el)` helper: when a shell expands and part of it would be clipped by the controls column, the column smooth-scrolls to center the shell vertically. If the shell is taller than the column, the top is anchored with 16px padding instead. Called from `setSelectState(..., true)` via `setTimeout(280ms)` — slightly after the 250ms grid-template-rows transition completes so the final height is known. Uses `getBoundingClientRect()` to check current visibility + `col.scrollBy({ top, behavior: 'smooth' })` for the scroll.
+
+### Shell dropdown polish + layout + tab transitions
+- **Dropdown shell refactor.** Border moved from trigger/menu individually to the `.cc-select` parent. Both inner elements (`.cc-select-trigger`, `.cc-select-menu`) are now borderless and transparent. When open, a single `0.8px` divider between trigger and menu is produced by `border-bottom` on the trigger. Result: the whole thing reads as one continuous shadcn/Radix-style component instead of two abutting boxes. Trigger hover gets a subtle bg tint.
+- **Row top-alignment when expanded.** New `setSelectState(el, open)` helper toggles `.cc-row-expanded` on the parent `.cc-row` alongside the select's `open` class. CSS rule `.cc-row.cc-row-expanded { align-items: flex-start; }` + `padding-top: 11px` on `.cc-row-label` keeps the label pinned to the top when the shell expands instead of drifting to the vertical center. Non-dropdown rows (toggles, ranges, color pickers) keep center alignment. Helper is used consistently in trigger-click, option-click, outside-click, ESC, and close-siblings paths.
+- **General tab — no preview column.** `tabGeneral()` returns `preview: null`. `renderTabPane()` detects this and adds `.cc-pane-layout--full` to the layout wrapper, which skips the preview column entirely and gives the controls column full width (`max-width: 680px`, centered, larger padding).
+- **Course Cards preview — 2 rows × 3 cols.** `previewCards()` now returns 6 mock cards instead of 3 (Linear Algebra, Database Design, Business Strategy, Discrete Math, Operating Systems, World History, each with unique accent colors). Grid is still 3 columns so it wraps to 2 rows naturally. Card header height shrunk from `55%` → `42%` of the real height var, body padding tightened, code text 10→9px, title 13→11px with ellipsis truncation, so all 6 cards fit in the preview column height.
+- **Dots in preview backdrop.** Added a subtle `radial-gradient` dot pattern (18×18px, 8% opacity) on `.cc-preview-col`. Makes the preview column visually distinct from the controls column at a glance.
+- **Smoother tab transitions.** `.cc-tab` now has `border: 0.8px solid transparent` by default (reserves border space so switching to active doesn't cause a 1px layout jump), and the transition list explicitly covers `background`, `color`, `border-color`, `font-weight` at 220ms ease. Active state no longer changes padding (padding was being adjusted to compensate for the new border, now it's always reserved).
+- **"Reset all to defaults" → "Reset".**
+
+### Ring center text — fix margin once and for all
+- **Geometry recalculated.** Real widget: SVG 168, strokeW **10** (was 12), gap 6 → 3 rings at radius 75/59/43. Innermost ring spans r=38–48, so the empty inner space is 76px diameter. Preview: SVG **124** (was 116), strokeW **8** (was 10), gap **4** (was 5) → 3 rings at radius 55/43/31, inner space 54px diameter.
+- **Center container is now a fixed box, not `inset: 0`.** Real widget: `position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 56px; height: 56px;`. Preview: same trick at `38×38`. Because the box is *physically smaller* than the innermost ring's inner diameter, the text **cannot reach the rings** no matter the font weight or value.
+- **Font shrunk substantially.** Real widget percentage: 36px → **22px**. Preview: 24px → **14px**.
+- **Resulting margin (real widget):** "100%" at 22px ≈ 46px wide, fits in 56-box with 5px on each side, and the box itself sits 10px inside the inner ring's edge. Total visual gap from text to inner ring: **~15px**.
+
+### General — text color + font family
+- **Settings:** new `textColor: ''` and `fontFamily: 'default'` in `DEFAULTS`. Persisted in `chrome.storage.sync` like everything else.
+- **`applySettings`:** writes `--cc-text-color` and `--cc-font-family` CSS variables, sets `data-cc-text-color` / `data-cc-font` on `<html>`, and calls `ensurePageFont(family)` which lazy-loads the matching Google Fonts stylesheet on first use (idempotent: skips if already loaded).
+- **UI:** new `Text` and `Font` groups in `tabGeneral()`. Background settings consolidated into a single `Background` group. Font dropdown offers Default / System UI / Inter / Sora / Roboto / Lato / Poppins / Open Sans / Nunito / Source Sans 3 / Merriweather (serif).
+- **Text-color CSS:** scoped to Canvas's main content containers (`.ic-app-main-content`, `#content`, `#dashboard`, `nav#breadcrumbs`, `.header-bar`, `.ic-Dashboard-header__layout`) plus their descendants — but explicitly **excludes** `svg` / `svg *` (icons keep their own colors). Also `revert !important` on `.menu-item__badge`, `[class*="badge"]`, `.ic-DashboardCard__action-badge`, `.Button--primary`, `.btn-primary` so badges and primary buttons stay distinct. Modal and `#cc-weekly-tasks` widget live outside `.ic-app-main-content` so they're naturally unaffected.
+- **Font CSS:** broad `body, body *, button, input, select, textarea` sweep with `!important` (fonts cascade naturally and don't break contrast). Modal and widget protected with their own `!important` Sora rule that wins via specificity + `!important`.
+- **Why scoped not global text color:** an unscoped `body *` rule would have nuked the modal's intentional color hierarchy and the widget's design tokens. Containing it to `.ic-app-main-content` and friends keeps custom colors out of our own UI surfaces.
+
+### Sub-page background coverage — course toolbar + breadcrumbs
+- **Where:** `BG_TARGETS` in `src/content.js`.
+- **What:** added `nav#breadcrumbs`, `.breadcrumbs`, `.header-bar-outer-container`, `.sticky-toolbar`, `.header-bar`, `.page-toolbar`, `#course_home_content`, `#wiki_page_show`, `#course_show_secondary`, `.course-menu` to the inline-style sweep.
+- **Why:** Diagnostic on a course wiki page showed the breadcrumb bar (`nav#breadcrumbs`) and the sticky course title toolbar (`div.header-bar.page-toolbar.as-course-home`) were still painting white. The diagnostic also revealed which elements should *not* be repainted: the dark left nav (`#header.ic-app-header`), notification badges (`.menu-item__badge`), button surfaces (`.btn`, `.css-*-baseButton__content`), jQuery UI dialogs (`.ui-dialog*`), and dropdown menus (`.al-options`) — all need contrast against the page bg to remain readable, so they were deliberately excluded.
+
+### Recent Feedback — repaint the `::after` fade gradient
+- **Where:** new CSS rule `[data-cc-bg-color="on"] .event-details::after` in `src/content.css`. Added `.event-details`, `.recent_feedback_icon`, `a.recent_feedback_icon` to `FEEDBACK_TARGETS` in `src/content.js`.
+- **What:** F12 found the gradient lives on `div.event-details::after` (parent `a.recent_feedback_icon`), with value `linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgb(255, 255, 255) 80%)`. The right edge of each Recent Feedback item fades into white to fake text truncation. Pseudo-elements can't be touched via `element.style.setProperty` (inline-style approach), so it had to be a CSS rule. The new rule overrides the gradient end-stop with `var(--cc-bg-color)` so the fade now matches the user's chosen color seamlessly. Parent containers also added to the inline-style sweep so the rest of the row matches.
+
+### Background — patch the Dashboard header layout strip
+- **Where:** `BG_TARGETS` in `src/content.js`.
+- **What:** added `.ic-Dashboard-header__layout`, `[class*="Dashboard-header__layout"]`, `[class*="ic-Dashboard-header"]`, `.ic-dashboard-app`, `.ic-DashboardCard__box`.
+- **Why:** F12 inspection on the user's UNL Canvas revealed the sticky header strip above the dashboard cards is a `div.medium.ic-Dashboard-header__layout` with `rgba(255, 255, 255, 0.95)` background — a selector my previous list didn't cover. Every other element in `#main` was correctly painting the user's color (verified via diagnostic), so this was the one missing piece.
+
+### Flat sections, simpler preview, ring polish v2
+- **Live Preview — no more card-in-card.** Removed the inner `.cc-preview` wrapper (gradient bg + border + "LIVE PREVIEW" label) from `previewGeneral`, `previewCards`, `previewSidebar`, `previewWidget`. Each preview function now returns just the content. The preview column has plain `var(--cc-ds-bg)` background (no dots, no inner card). Content sits directly in `.cc-preview-content`. The "Live preview" label is gone — column position makes its purpose obvious.
+- **Collapsibles → flat sections.** Industry research (macOS System Preferences, Linear, Figma, Stripe, Notion, 1Password, Vercel, Raycast) shows the consensus: navigation selects topic, content shows all settings flat with subtle visual section headers. Collapsibles are reserved for dozens of advanced options. We have 3-10 settings per tab — a perfect fit for flat. Replaced `<details>`/`<summary>` markup with plain `.cc-section` blocks. Section title is small uppercase muted text above each card, rows live in a card below (macOS style). No expand/collapse, no chevrons, no interaction overhead — just visual grouping.
+- **Tab description removed.** Per the minimalism push: dropped `cfg.desc` from the controls header. Section titles + row labels carry enough context.
+- **Ring widget — major aesthetic rework.**
+  - **Neutral gray tracks** (`#eaedf1`) instead of course-tinted-at-16%-opacity. The previous "rainbow tracks" effect (4 different colors stacked at low opacity) competed with the actual progress arcs. Now the tracks are uniform light gray and only the filled arcs carry the course color, exactly like Apple Activity Rings.
+  - **Cap visible rings at 3** (down from 4). Each ring is thicker (`strokeW: 12`, was 10) with bigger gap (`6`, was 4). Innermost ring radius is now ~50px (was ~36) → 100px inner diameter for the center text.
+  - **Bigger center text:** `36px` percentage (was 26px), perfectly readable, no more cramped feel.
+  - **Subtitle removed** ("X OF Y DONE") — user requested. Just the percentage now.
+  - **Removed the gradient backdrop card** — the rings stand on their own without a card behind them, consistent with the new "no card-in-card" rule.
+  - **Removed the drop-shadow filter** — was over-styled.
+  - **Preview ring matches:** size 116px, stroke 10, gap 5, max 3 rings, center 24px, no subtitle, no backdrop. Same neutral gray tracks.
+
+### Bulletproof bg, shell dropdowns, ring polish, minimal chrome
+- **Background — bypass the CSS cascade entirely.** Previous CSS-only attempts kept losing to Canvas's painted layers (could not isolate which specific selector). Switched to JS-driven inline styles: new `applyBgInline()` walks a list of `BG_TARGETS` (`body`, `#wrapper`, `#main`, `#dashboard`, `#right-side`, `.ic-Layout-*`, `.ic-app-main-content*`, `#DashboardCard_Container`, etc.) and `style.setProperty('background-color', color, 'important')` on each. Inline `!important` beats every external CSS rule. Re-applied on every mutation tick so React re-renders don't wipe it. When the user clears the color, `clearBgInline()` removes the inline overrides. Old `[data-cc-bg-color="on"]` CSS kept as a backup.
+- **Recent Feedback gradient — same JS sweep.** Added `FEEDBACK_TARGETS` covering `#right-side .events_list li`, `.recent_feedback li`, `.Sidebar__RecentFeedbackContainer li`, `[class*="recent"|"Recent"|"feedback"|"Feedback"] li`, `.ToDoSidebarItem`. Each gets `background-image: none !important` (kills the white fade gradient) and the matching bg color inline.
+- **Dropdowns are now inline shells.** Replaced the `position: absolute` popover with the modern grid trick: `.cc-select-menu-wrap { display: grid; grid-template-rows: 0fr; }` → `.cc-select.open { grid-template-rows: 1fr; }`. The inner `.cc-select-menu` has `overflow: hidden; min-height: 0` so it collapses cleanly. The trigger's bottom corners square off when open and the menu joins it as one continuous shell. No height measurement needed; transitions smoothly between any natural heights.
+- **Ring widget — aesthetic upgrade.** Added a subtle `linear-gradient(180deg, #fafbfc → transparent)` backdrop with 12px radius around the ring + legend so they feel grouped. Drop-shadow on the SVG (`filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05))`) gives soft depth. Center now stacks `26px` percentage + tiny uppercase `X OF Y DONE` caption. Legend rows have more breathing room (gap 6px), the dot has a 2px white outline (Apple Activity Ring style), and the count text is one notch lighter. Same polish applied to the preview ring.
+- **Minimal modal chrome.**
+  - **Header:** removed the "Customize how Canvas looks" subtitle. Logo shrunk 40→30px, title 20→16px, header padding 16/32 → 14/24. Just logo + name + close button.
+  - **Footer removed entirely.** "Changes saved automatically" indicator deleted.
+  - **Reset button** moved into the bottom of the left tab rail. Tab nav is now `flex-direction: column` with `.cc-tabs-list { flex: 1 1 auto }` (tabs at top) and `.cc-modal-reset { flex: 0 0 auto; margin-top: 16px }` (reset pinned at bottom). Ghost styling, accent on hover.
+
+### Deep fixes: page bg cascade, feedback gradient, ring overlap cap, preview fit
+- **Page background — proper cascade.** Previous fix only targeted `html, body, .ic-app, #application`, which Canvas doesn't paint. Canvas's inner panels (`#main`, `#dashboard`, `#not_right_side`, `.ic-Layout-wrapper/columns/contentWrapper/contentMain`, `.ic-app-main-content`, `#right-side`, `#DashboardCard_Container`, etc.) all carry their own white backgrounds that covered the body-level color. Now every one of those containers gets `background-color: var(--cc-bg-color)` gated on a new `[data-cc-bg-color="on"]` data attribute set by `applySettings` when a color is picked. The rule only fires when the user has actually chosen a color, so the default look is preserved otherwise.
+- **Recent Feedback gradient.** Canvas's right-sidebar list items have a right-side fade-out `linear-gradient` (to fake truncation on long text) that bled through as a mismatched white bar on top of the custom bg. Added rules that clear `background-image` and force `background-color: var(--cc-bg-color)` on `#right-side .events_list li`, `.recent_feedback li`, `.Sidebar__RecentFeedbackContainer li`, their `::before`/`::after` pseudo-elements, any `[class*="recent"|"Recent"|"feedback"|"Feedback"] li`, and `.ToDoSidebarItem` for good measure.
+- **Ring overlap — hard cap at 4 visible rings.** Previous fix was insufficient: with `strokeW=11, gap=4`, a user with 5+ courses had an innermost ring of radius ~14.5 (diameter 29px) while the center "%" text at 22px is ~50px wide — text visibly sat on top of the inner rings. Now `MAX_VISIBLE_RINGS = 4` with `strokeW=10, gap=4`, so the innermost ring has radius ~34 (diameter 68px) — comfortably larger than the 20px "%" text. Courses beyond 4 still appear in the legend (with 0.7 opacity so it's clear they're not in the chart).
+- **Preview fit — measured to fit.** Computed worst-case preview card height was ~558px but preview column usable height is ~554px on an 800px-tall viewport. Shrunk preview ring from 120 → **104px**, stroke 9 → 8, center text 17 → 15px, `.cc-preview-widget-rings` gap 10 → 8 / margin-bottom 12 → 10, `.cc-preview` padding trimmed, preview list capped at **3 items in ring mode** (4 in other modes), legend capped at 4. New computed worst-case: ~430px, fits comfortably with margin.
+- **Theme tab merged into Course Cards:** removed `tabTheme` / `previewTheme` from `src/content.js`, added their rows (Accent color, Density, Border radius) to the existing "Theme" group in `tabCards()`. `TABS` and `TAB_RENDERERS` updated. Theme tab no longer appears.
+- **Page background now applies to the whole page:** background rules in `src/content.css` now target `html, body, .ic-app, #application` for color, and `body` (with `body::before` for blur overlay) for image. Previously they only touched `#dashboard` and `.ic-app-main-content`, which only covered the card container.
+- **Ring style: header counter no longer overlaps rings:** when `widgetProgressStyle === 'ring'`, `renderWidget()` and `previewWidget()` skip rendering the header `done/total` badge — the ring's center already shows the overall %, making the badge redundant. Widget root gets `data-style="ring"` so CSS can add extra `margin-bottom` on the header.
+- **Preview fits the ring:** shrunk preview ring from 140×140 → 120×120, stroke 10→9, and widened `.cc-preview-widget-frame` max-width from 320px → 340px. The ring now sits comfortably inside the preview card with padding on all sides.
+
+### Activity rings — multi-course progress visualization
+- **Where:** `progressMarkup()`, new `groupByCourse()`, `activityRingsSvg()`, `activityRingsMarkup()`, `fetchCourseColors()`, `courseColorFor()` in `src/content.js`. New `.cc-progress-rings*` + `.cc-ring-legend-*` rules in `src/content.css`. Preview widget ring style rewritten to match.
+- **What:** the `ring` progress style now renders as concentric Apple-Activity-Ring-style circles, one per course, with their own track + filled arc. Ring container is **168×168px** (real widget) / 140×140 (preview), stroke 11px, 4px gap between rings. Center shows overall %. Below the rings is a legend listing each course with a colored dot and `done/total`.
+- **Course colors:** fetched once from `GET /api/v1/users/self/colors` (Canvas's per-user course color map), cached in `courseColorCache`. Falls back to a rotating palette (`#fc5050`, `#008ee2`, `#00c389`, …) if the API fails or a course has no custom color.
+- **API wiring:** `injectWidget()` now `Promise.all([fetchPlannerItems(), fetchCourseColors()])` so the widget has both before first render. `normalize()` grabs a `contextCode` (`course_<id>`) per task so colors can be looked up.
+- **Research:** confirmed this style is actually from **Tasks for Canvas**, not BetterCampus. BetterCampus does have a "colorful chart with various rings color coded by course" per its listing, but the definitive multi-ring pattern is Tasks for Canvas's.
+
+### General tab
+- **Where:** new `tabGeneral()` + `previewGeneral()` in `src/content.js`. Added `{ id: 'general', label: 'General' }` to `TABS`; `currentTab` now defaults to `'general'`. Reuses existing `bgColor`/`bgImage`/`bgBlur` settings and their `applySettings` wiring and Canvas-targeting CSS (both of which had been left in place when the Background tab was removed).
+- **Groups:** Background color (page bg color picker), Background image (URL + blur slider).
+- **Preview:** reinstates the framed background preview block that was removed with the old Background tab (same `.cc-preview-bg-*` CSS).
+- **Why:** user asked for a place to change the overall page background color.
+
+### Dropdown bug fix — preview + widget reactivity
+- **Where:** custom dropdown option-click handler in `renderTabPane()` in `src/content.js`.
+- **What:** handler now calls `refreshPreview()` and `rerenderWidget()` after save, mirroring the logic already present in the `input`-event path used by ranges/toggles/color pickers.
+- **Why:** the dropdown handler returned early without the reactivity calls, so changing Progress Style (or any other reactive dropdown setting like Card Theme or Sort) wouldn't update the preview or the live widget until the modal was reopened.
+
+### Live preview label — breathing room
+- **Where:** `.cc-preview` and `.cc-preview-label` in `src/content.css`.
+- **What:** label is now a normal-flow block with `margin-bottom: 18px` instead of `position: absolute`. Preview padding adjusted to `14px 20px 22px` to account for the label being in the flow.
+- **Why:** previously the absolutely-positioned label hovered ~8px above the preview content with no real separation. Now there's an obvious gap below the label and the mock content never risks overlapping it.
+
 ### Course Cards — Theme presets
 - **Where:** new `cardTheme` setting in `DEFAULTS`, `applySettings` (writes `data-cc-card-theme`), new `Theme` group in `tabCards()`, theme rules in `src/content.css` under `[data-cc-card-theme="*"]`.
 - **Presets:** Default / Pastel / Monochrome / Vibrant / Warm / Cool / Dark.
