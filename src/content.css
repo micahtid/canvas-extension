@@ -1,5 +1,17 @@
 /* Custom Canvas — Weekly Tasks widget */
 
+/* FOUC guard — hide Canvas body until the extension has applied settings.
+   The content script adds `cc-ready` to <html> once early init finishes,
+   which removes the hide. Prevents a flash of default Canvas UI on navigation. */
+html:not(.cc-ready) body {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+html.cc-ready body {
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
 #cc-weekly-tasks {
   margin-bottom: 20px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Lato", sans-serif;
@@ -35,6 +47,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Header gets extra breathing room before the rings so nothing visually collides */
+#cc-weekly-tasks .cc-widget[data-style="ring"] .cc-header {
+  margin-bottom: 14px;
+}
+
 #cc-weekly-tasks .cc-progress {
   height: 8px;
   background: #eef1f3;
@@ -58,34 +75,92 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Progress — ring variant */
-#cc-weekly-tasks .cc-progress-ring {
+/* Progress — activity rings (multi-course concentric, polished).
+   Neutral gray tracks (in JS), thicker rings, generous center, no clutter. */
+#cc-weekly-tasks .cc-progress-rings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 18px 4px 14px;
+}
+#cc-weekly-tasks .cc-progress-rings-svg {
+  position: relative;
+  width: 168px;
+  height: 168px;
+}
+#cc-weekly-tasks .cc-progress-rings-svg svg {
+  display: block;
+}
+/* Center is a fixed 56x56 box, smaller than the innermost ring's 76px inner
+   diameter — physically impossible for the text to touch the rings. */
+#cc-weekly-tasks .cc-progress-rings-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  position: relative;
+  pointer-events: none;
 }
-#cc-weekly-tasks .cc-progress-ring svg {
-  flex: 0 0 auto;
-}
-#cc-weekly-tasks .cc-progress-ring-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-}
-#cc-weekly-tasks .cc-progress-ring-pct {
-  font-size: 18px;
+#cc-weekly-tasks .cc-progress-rings-pct {
+  font-size: 22px;
   font-weight: 700;
   color: #2d3b45;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
-#cc-weekly-tasks .cc-progress-ring-count {
-  font-size: 11px;
+#cc-weekly-tasks .cc-progress-rings-legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 6px;
+}
+#cc-weekly-tasks .cc-ring-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #2d3b45;
+  padding: 2px 0;
+}
+#cc-weekly-tasks .cc-ring-legend-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+#cc-weekly-tasks .cc-ring-legend-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+#cc-weekly-tasks .cc-ring-legend-count {
+  flex: 0 0 auto;
+  font-weight: 600;
   color: #6b7780;
   font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+#cc-weekly-tasks .cc-progress-rings-empty {
+  text-align: center;
+  padding: 24px 0;
+  color: #95a3ab;
+  font-size: 13px;
+}
+
+/* Courses beyond the visible-ring cap still appear in the legend, dimmed. */
+#cc-weekly-tasks .cc-ring-legend-extra {
+  opacity: 0.6;
 }
 
 /* Progress — segments variant */
@@ -288,6 +363,48 @@
   margin: 0 4px !important;
 }
 
+/* User-customizable sidebar colors */
+[data-cc-sidebar-bg="on"] #header.ic-app-header,
+[data-cc-sidebar-bg="on"] .ic-app-header,
+[data-cc-sidebar-bg="on"] .ic-app-header__logomark-container {
+  background-color: var(--cc-sidebar-bg) !important;
+}
+
+[data-cc-sidebar-text="on"] .ic-app-header .ic-app-header__menu-list-link,
+[data-cc-sidebar-text="on"] .ic-app-header .menu-item__text,
+[data-cc-sidebar-text="on"] .ic-app-header .ic-app-header__menu-list-link div {
+  color: var(--cc-sidebar-text) !important;
+}
+[data-cc-sidebar-text="on"] .ic-app-header svg,
+[data-cc-sidebar-text="on"] .ic-app-header .ic-icon-svg,
+[data-cc-sidebar-text="on"] .ic-app-header__menu-list-link svg path {
+  fill: var(--cc-sidebar-text) !important;
+  color: var(--cc-sidebar-text) !important;
+}
+
+[data-cc-sidebar-active="on"] .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link,
+[data-cc-sidebar-active="on"] .ic-app-header__menu-list-item .ic-app-header__menu-list-link.ic-app-header__menu-list-link--active,
+[data-cc-sidebar-active="on"] .ic-app-header__menu-list-item .ic-app-header__menu-list-link[aria-current="page"] {
+  background-color: var(--cc-sidebar-active) !important;
+}
+
+/* Active item text + icon color (pairs with the active background) */
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active .menu-item__text,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link div,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item .ic-app-header__menu-list-link.ic-app-header__menu-list-link--active,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item .ic-app-header__menu-list-link[aria-current="page"] {
+  color: var(--cc-sidebar-active-text) !important;
+}
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active svg,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active svg path,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-item--active .ic-icon-svg,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-link[aria-current="page"] svg,
+[data-cc-sidebar-active-text="on"] .ic-app-header__menu-list-link[aria-current="page"] svg path {
+  fill: var(--cc-sidebar-active-text) !important;
+  color: var(--cc-sidebar-active-text) !important;
+}
+
 [data-cc-sidebar-restyle="on"] .ic-app-header__menu-list-item--active::before,
 [data-cc-sidebar-restyle="on"] .ic-app-header__menu-list-item .ic-app-header__menu-list-link--active::before {
   display: none !important;
@@ -444,27 +561,144 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   border-radius: var(--cc-radius, 8px) !important;
 }
 
-/* ---------- Background ---------- */
+/* ---------- Background (whole page) ---------- */
 
-[data-cc-bg-image="on"] #dashboard,
-[data-cc-bg-image="on"] .ic-app-main-content {
+/* When the user sets a bg color, cascade it through EVERY Canvas layout container
+   so Canvas's own white panel backgrounds don't cover it. Gated on a data attr
+   so the rule only fires when there's an actual color to apply. */
+[data-cc-bg-color="on"] html,
+[data-cc-bg-color="on"] body,
+[data-cc-bg-color="on"] .ic-app,
+[data-cc-bg-color="on"] #application,
+[data-cc-bg-color="on"] #wrapper,
+[data-cc-bg-color="on"] #main,
+[data-cc-bg-color="on"] #not_right_side,
+[data-cc-bg-color="on"] #content,
+[data-cc-bg-color="on"] #content-wrapper,
+[data-cc-bg-color="on"] #dashboard,
+[data-cc-bg-color="on"] #right-side,
+[data-cc-bg-color="on"] #right-side-wrapper,
+[data-cc-bg-color="on"] .ic-Layout-wrapper,
+[data-cc-bg-color="on"] .ic-Layout-columns,
+[data-cc-bg-color="on"] .ic-Layout-contentWrapper,
+[data-cc-bg-color="on"] .ic-Layout-contentMain,
+[data-cc-bg-color="on"] .ic-app-main-content,
+[data-cc-bg-color="on"] .ic-app-main-content__primary,
+[data-cc-bg-color="on"] .ic-app-main-content__secondary,
+[data-cc-bg-color="on"] .ic-DashboardCard__box,
+[data-cc-bg-color="on"] #DashboardCard_Container {
+  background-color: var(--cc-bg-color) !important;
+}
+
+/* Canvas's Recent Feedback list items use `.event-details::after` as a
+   right-edge fade-out gradient (rgba(255,255,255,0) → rgb(255,255,255))
+   to fake text truncation. On a custom bg, that fades into mismatched white.
+   Repaint the gradient end-stop with the user's color via the CSS var.
+   Pseudo-elements can't be touched with element.style, so this MUST be CSS. */
+[data-cc-bg-color="on"] #right-side .event-details::after,
+[data-cc-bg-color="on"] .event-details::after {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, var(--cc-bg-color) 80%) !important;
+}
+
+/* Belt-and-suspenders: also clear background-image on the parents in case
+   any of them carry a gradient too. */
+[data-cc-bg-color="on"] #right-side .events_list,
+[data-cc-bg-color="on"] #right-side .events_list li,
+[data-cc-bg-color="on"] #right-side .events_list li::before,
+[data-cc-bg-color="on"] #right-side .events_list li::after,
+[data-cc-bg-color="on"] #right-side .recent_feedback,
+[data-cc-bg-color="on"] #right-side .recent_feedback li,
+[data-cc-bg-color="on"] #right-side .recent_feedback_icon,
+[data-cc-bg-color="on"] #right-side a.recent_feedback_icon,
+[data-cc-bg-color="on"] #right-side .event-details,
+[data-cc-bg-color="on"] #right-side .Sidebar__RecentFeedbackContainer,
+[data-cc-bg-color="on"] #right-side .Sidebar__RecentFeedbackContainer li,
+[data-cc-bg-color="on"] #right-side .Sidebar__RecentFeedbackContainer li::before,
+[data-cc-bg-color="on"] #right-side .Sidebar__RecentFeedbackContainer li::after,
+[data-cc-bg-color="on"] #right-side section li,
+[data-cc-bg-color="on"] #right-side section li::before,
+[data-cc-bg-color="on"] #right-side section li::after,
+[data-cc-bg-color="on"] #right-side .ToDoSidebarItem,
+[data-cc-bg-color="on"] #right-side [class*="recent"] li,
+[data-cc-bg-color="on"] #right-side [class*="Recent"] li,
+[data-cc-bg-color="on"] #right-side [class*="feedback"] li,
+[data-cc-bg-color="on"] #right-side [class*="Feedback"] li {
+  background-image: none !important;
+  background-color: var(--cc-bg-color) !important;
+}
+
+/* Image: attach to body so it covers the entire viewport, fixed on scroll. */
+[data-cc-bg-image="on"] body {
   background-image: var(--cc-bg-image, none) !important;
   background-size: cover !important;
   background-position: center !important;
   background-attachment: fixed !important;
 }
 
-#dashboard {
-  background-color: var(--cc-bg-color, transparent);
-}
-
-[data-cc-bg-image="on"] #dashboard::before {
+/* Blur overlay — sits below Canvas content so the UI stays crisp. */
+[data-cc-bg-image="on"] body::before {
   content: '';
   position: fixed;
   inset: 0;
   backdrop-filter: blur(var(--cc-bg-blur, 0px));
+  -webkit-backdrop-filter: blur(var(--cc-bg-blur, 0px));
   pointer-events: none;
   z-index: 0;
+}
+
+/* With a bg image, make inner panels transparent so the image bleeds through. */
+[data-cc-bg-image="on"] #main,
+[data-cc-bg-image="on"] .ic-app-main-content,
+[data-cc-bg-image="on"] #dashboard,
+[data-cc-bg-image="on"] #right-side {
+  background-color: transparent !important;
+}
+
+/* ---------- User text color ---------- */
+/* Scoped to Canvas's main content containers so the modal and our weekly-tasks
+   widget (which sit outside #content / .ic-app-main-content) keep their own colors. */
+[data-cc-text-color="on"] .ic-app-main-content,
+[data-cc-text-color="on"] .ic-app-main-content *:not(svg):not(svg *),
+[data-cc-text-color="on"] #content,
+[data-cc-text-color="on"] #content *:not(svg):not(svg *),
+[data-cc-text-color="on"] #dashboard,
+[data-cc-text-color="on"] #dashboard *:not(svg):not(svg *),
+[data-cc-text-color="on"] nav#breadcrumbs,
+[data-cc-text-color="on"] nav#breadcrumbs *,
+[data-cc-text-color="on"] .header-bar,
+[data-cc-text-color="on"] .header-bar *,
+[data-cc-text-color="on"] .ic-Dashboard-header__layout,
+[data-cc-text-color="on"] .ic-Dashboard-header__layout * {
+  color: var(--cc-text-color) !important;
+}
+
+/* Don't recolor things that need to stay distinct (badges, pills, error boxes) */
+[data-cc-text-color="on"] .menu-item__badge,
+[data-cc-text-color="on"] [class*="badge"],
+[data-cc-text-color="on"] .ic-DashboardCard__action-badge,
+[data-cc-text-color="on"] .Button--primary,
+[data-cc-text-color="on"] .btn-primary {
+  color: revert !important;
+}
+
+/* ---------- User font ---------- */
+/* Broad sweep — fonts cascade naturally and don't break visual contrast.
+   Our modal and widget are protected below with !important font-family. */
+[data-cc-font="on"] body,
+[data-cc-font="on"] body *,
+[data-cc-font="on"] button,
+[data-cc-font="on"] input,
+[data-cc-font="on"] select,
+[data-cc-font="on"] textarea {
+  font-family: var(--cc-font-family) !important;
+}
+
+/* Protect our own UI from the user's font override */
+.cc-modal-root,
+.cc-modal-root *,
+#cc-weekly-tasks,
+#cc-weekly-tasks * {
+  font-family: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
 /* ---------- Customization Modal (Sora + pressed-3d design system) ---------- */
@@ -477,7 +711,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   font-family: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #333333;
   --cc-ds-primary: #333333;
-  --cc-ds-accent: #fc5050;
+  --cc-ds-accent: var(--cc-modal-accent, #fc5050);
   --cc-ds-accent-shadow: #7c3232;
   --cc-ds-bg: #f6f8fa;
   --cc-ds-surface: #ffffff;
@@ -494,6 +728,17 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-modal-locked {
   overflow: hidden !important;
+}
+
+/* Hide scrollbars everywhere inside the modal — keep the chrome clean.
+   Scrolling still works via wheel/trackpad/touch. */
+.cc-modal-root * {
+  scrollbar-width: none; /* Firefox */
+}
+.cc-modal-root *::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
+  width: 0;
+  height: 0;
 }
 
 .cc-modal-backdrop {
@@ -531,32 +776,31 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
-/* Header — nav-style: logo left, links center, action right */
+/* Header — minimal: logo + name + close */
 .cc-modal-header {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
+  padding: 14px 24px;
   border-bottom: 0.8px solid var(--cc-ds-border);
   background: var(--cc-ds-surface);
-  min-height: 72px;
 }
 
 .cc-modal-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .cc-modal-logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: var(--cc-ds-primary);
   color: var(--cc-ds-surface);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -566,30 +810,22 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 .cc-modal-header h1 {
   margin: 0;
   font-family: "Sora", sans-serif;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--cc-ds-text);
   letter-spacing: normal;
   line-height: 1.2;
 }
 
-.cc-modal-subtitle {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--cc-ds-body);
-  font-weight: 400;
-  letter-spacing: 0.32px;
-}
-
 .cc-modal-close {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--cc-ds-body);
-  font-size: 22px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 400;
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
@@ -609,29 +845,58 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   background: var(--cc-ds-bg);
 }
 
-/* Tab nav — compact ghost buttons that go solid when active */
+/* Tab nav — compact ghost buttons that go solid when active.
+   Tabs at top, Reset pinned to bottom via flex. */
 .cc-modal-tabs {
   flex: 0 0 168px;
   padding: 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   background: var(--cc-ds-bg);
   border-right: 0.8px solid var(--cc-ds-border);
+}
+
+.cc-tabs-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-modal-reset {
+  flex: 0 0 auto;
+  font-family: "Sora", sans-serif;
+  margin-top: 16px;
+  padding: 9px 12px;
+  border: 0.8px solid var(--cc-ds-border);
+  background: transparent;
+  border-radius: 8px;
+  color: var(--cc-ds-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+.cc-modal-reset:hover {
+  background: var(--cc-ds-surface);
+  color: var(--cc-ds-text);
+  border-color: var(--cc-ds-muted);
 }
 
 .cc-tab {
   font-family: "Sora", sans-serif;
   text-align: left;
   padding: 9px 12px;
-  border: none;
+  border: 0.8px solid transparent;
   background: transparent;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--cc-ds-body);
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, font-weight 0.22s ease;
   letter-spacing: 0.2px;
 }
 
@@ -642,11 +907,9 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-tab.active {
   background: var(--cc-ds-surface);
-  color: var(--cc-ds-text);
+  color: var(--cc-ds-accent);
   font-weight: 600;
-  border: 0.8px solid var(--cc-ds-border);
-  border-radius: 8px;
-  padding: 8px 11px;
+  border-color: var(--cc-ds-border);
 }
 
 /* Pane — container for the split layout */
@@ -667,28 +930,38 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 /* Preview column — sticky/stationary, vertically centered.
-   Subtle dotted backdrop so the preview card reads as "floating on a surface". */
+   Subtle dotted backdrop so it visually reads as a distinct "canvas" area. */
 .cc-preview-col {
   flex: 1 1 48%;
-  padding: 32px 28px;
+  padding: 36px 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-right: 0.8px solid var(--cc-ds-border);
   overflow: hidden;
   background-color: var(--cc-ds-bg);
-  background-image: radial-gradient(rgba(15, 23, 42, 0.11) 1px, transparent 1.1px);
-  background-size: 16px 16px;
-  background-position: 0 0;
+  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1.2px);
+  background-size: 18px 18px;
 }
 
-.cc-preview-wrap {
+.cc-preview-content {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.cc-preview-wrap .cc-preview {
-  margin-bottom: 0;
+/* When a tab has no preview (General), the controls column takes the full pane */
+.cc-pane-layout--full .cc-controls-col {
+  flex: 1 1 100%;
+}
+.cc-pane-layout--full {
+  justify-content: center;
+}
+.cc-pane-layout--full .cc-controls-col {
+  max-width: 680px;
+  padding: 40px 48px;
 }
 
 /* Controls column — the only scrolling axis */
@@ -700,12 +973,8 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   background: var(--cc-ds-bg);
 }
 
-.cc-controls-header {
-  margin-bottom: 20px;
-}
-
 .cc-pane-title {
-  margin: 0 0 6px;
+  margin: 0 0 24px;
   font-family: "Sora", sans-serif;
   font-size: 22px;
   font-weight: 600;
@@ -713,73 +982,37 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   line-height: 1.2;
 }
 
-.cc-pane-desc {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--cc-ds-body);
-  line-height: 20px;
-  letter-spacing: 0.32px;
+/* Flat sections — title above, rows in a card below. macOS / Linear style. */
+.cc-section {
+  margin-bottom: 22px;
+}
+.cc-section:last-child {
+  margin-bottom: 0;
 }
 
-/* Collapsible groups — native <details>/<summary>.
-   No overflow:hidden so custom dropdown menus can extend past the group edge. */
-.cc-group {
+.cc-section-title {
+  font-family: "Sora", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cc-ds-muted);
+  margin: 0 0 8px 4px;
+}
+
+.cc-section-rows {
+  background: var(--cc-ds-surface);
   border: 0.8px solid var(--cc-ds-border);
   border-radius: 12px;
-  background: var(--cc-ds-surface);
-  margin-bottom: 10px;
 }
 
-.cc-group-summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  user-select: none;
-  transition: background 0.15s ease;
-  border-radius: 12px;
-}
-.cc-group[open] .cc-group-summary {
-  border-radius: 12px 12px 0 0;
-}
-.cc-group-summary::-webkit-details-marker { display: none; }
-.cc-group-summary::marker { content: ''; }
-
-.cc-group-summary:hover {
-  background: var(--cc-ds-bg);
-}
-
-.cc-group-title {
-  font-family: "Sora", sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cc-ds-text);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.cc-group-chevron {
-  width: 18px;
-  height: 18px;
-  color: var(--cc-ds-muted);
-  transition: transform 0.2s ease;
-  flex: 0 0 auto;
-}
-.cc-group[open] .cc-group-chevron {
-  transform: rotate(180deg);
-}
-
-.cc-group-body {
-  border-top: 0.8px solid var(--cc-ds-border);
-}
-
-/* Rows — inside groups they're flat dividers, not cards */
+/* Rows — flat dividers inside the section card.
+   Always top-aligned so the label never moves when a shell expands.
+   The label gets a consistent padding-top that roughly matches the
+   midline of most controls. */
 .cc-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   padding: 14px 18px;
@@ -795,6 +1028,10 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-row-label {
   flex: 1 1 auto;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .cc-row-title {
@@ -819,6 +1056,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   display: flex;
   align-items: center;
   gap: 12px;
+  align-self: flex-start;
 }
 
 /* Form controls */
@@ -859,10 +1097,16 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   border-color: var(--cc-ds-text);
 }
 
-/* Custom dropdown — expands downward */
+/* Custom dropdown shell — borderless. Background tint is the only chrome.
+   Single continuous rounded container; menu extends below the trigger. */
 .cc-select {
-  position: relative;
-  min-width: 150px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--cc-ds-bg);
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .cc-select-trigger {
@@ -873,21 +1117,19 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   gap: 10px;
   width: 100%;
   padding: 11px 14px;
-  border: 0.8px solid var(--cc-ds-border);
-  border-radius: 10px;
-  background: var(--cc-ds-surface);
+  border: none;
+  background: transparent;
   color: var(--cc-ds-text);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.32px;
   cursor: pointer;
-  transition: border-color 0.15s ease;
   text-align: left;
+  transition: background 0.15s ease;
 }
 
-.cc-select-trigger:hover,
-.cc-select.open .cc-select-trigger {
-  border-color: var(--cc-ds-text);
+.cc-select-trigger:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .cc-select-label {
@@ -902,35 +1144,33 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   height: 16px;
   color: var(--cc-ds-muted);
   flex: 0 0 auto;
-  transition: transform 0.2s ease;
+  transition: transform 0.25s ease;
 }
 .cc-select.open .cc-select-chevron {
   transform: rotate(180deg);
 }
 
+/* Shell wrap — animates from collapsed (0fr) to natural height (1fr) */
+.cc-select-menu-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.cc-select.open .cc-select-menu-wrap {
+  grid-template-rows: 1fr;
+}
+
 .cc-select-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  min-width: 100%;
-  background: var(--cc-ds-surface);
-  border: 0.8px solid var(--cc-ds-border);
-  border-radius: 10px;
   overflow: hidden;
-  z-index: 20;
-  display: none;
-  padding: 4px;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  border-top: none;
 }
 
+/* Inner padding only when open (so collapsed state is truly 0 height) */
 .cc-select.open .cc-select-menu {
-  display: block;
-  animation: cc-select-in 0.15s ease;
-}
-
-@keyframes cc-select-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  padding: 4px;
 }
 
 .cc-select-option {
@@ -938,7 +1178,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border: none;
   background: transparent;
   color: var(--cc-ds-text);
@@ -1009,85 +1249,35 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   transform: translateX(20px);
 }
 
-/* Footer — dark section like the design system footer */
-.cc-modal-footer {
-  flex: 0 0 auto;
-  padding: 20px 32px;
-  border-top: 0.8px solid #000000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--cc-ds-footer);
-}
-
-/* Buttons — flat, with the design-system color tokens */
-.cc-btn {
-  font-family: "Sora", sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 12px 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-  letter-spacing: 0.32px;
-}
-
-.cc-btn-ghost {
-  background: var(--cc-ds-surface);
-  color: var(--cc-ds-text);
-  border: 0.8px solid var(--cc-ds-border);
-}
-.cc-btn-ghost:hover {
-  background: var(--cc-ds-bg);
-  border-color: var(--cc-ds-muted);
-}
-
-.cc-btn-primary {
-  background: var(--cc-ds-accent);
-  color: var(--cc-ds-surface);
-  border: 0.8px solid var(--cc-ds-accent-shadow);
-}
-.cc-btn-primary:hover {
-  background: #e84444;
-}
-
-.cc-saved {
-  font-family: "Sora", sans-serif;
-  font-size: 14px;
-  color: var(--cc-ds-muted);
-  font-weight: 400;
-  letter-spacing: 0.32px;
-}
+/* (modal footer removed — Reset moved into the left tab rail) */
 
 /* ---------- Live previews inside the modal ---------- */
 
-.cc-preview {
-  position: relative;
-  background: linear-gradient(135deg, #f7f9fb 0%, #eef2f6 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 28px 24px 24px;
-  margin-bottom: 24px;
-  overflow: hidden;
-}
-
-.cc-preview-label {
-  position: absolute;
-  top: 10px;
-  left: 14px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-/* Course card preview — uses same vars/attrs as real cards */
+/* Course card preview — default 2 rows × 3 cols = 6 mock cards.
+   Preview grid reacts to cardColumns data attribute so the dropdown
+   updates the preview in real time, same as the real dashboard. */
 .cc-preview-card-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: auto;
   gap: var(--cc-card-gap, 18px);
-  max-width: 100%;
+  width: 100%;
+  max-width: 460px;
+  transition: grid-template-columns 0.2s ease;
+}
+
+[data-cc-card-columns="2"] .cc-preview-card-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+[data-cc-card-columns="3"] .cc-preview-card-grid,
+[data-cc-card-columns="auto"] .cc-preview-card-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+[data-cc-card-columns="4"] .cc-preview-card-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+[data-cc-card-columns="5"] .cc-preview-card-grid {
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .cc-preview-card {
@@ -1109,8 +1299,8 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-preview-card-header {
   position: relative;
-  height: calc(var(--cc-card-header-height, 110px) * 0.55);
-  min-height: 50px;
+  height: calc(var(--cc-card-header-height, 110px) * 0.42);
+  min-height: 38px;
   transition: height 0.2s;
 }
 
@@ -1128,27 +1318,30 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 .cc-preview-card-body {
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
 }
 
 .cc-preview-card-code {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .cc-preview-card-title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #1a202c;
-  line-height: 1.3;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Sidebar preview */
+/* Sidebar preview — reactive to the same CSS vars as the real sidebar */
 .cc-preview-sidebar-frame {
-  background: #2d3b45;
+  background: var(--cc-sidebar-bg, #2d3b45);
   border-radius: 12px;
   padding: 8px 6px;
   display: flex;
@@ -1156,6 +1349,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   gap: 4px;
   width: 92px;
   margin: 0 auto;
+  transition: background 0.2s ease;
 }
 
 .cc-preview-sidebar-item {
@@ -1165,9 +1359,9 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   padding: 8px 4px;
   border-radius: 8px;
   margin: 0 4px;
-  color: #fff;
+  color: var(--cc-sidebar-text, #fff);
   cursor: default;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.2s ease;
   gap: 3px;
 }
 
@@ -1175,6 +1369,9 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   width: var(--cc-sidebar-icon-size, 22px);
   height: var(--cc-sidebar-icon-size, 22px);
   transition: width 0.15s, height 0.15s;
+}
+.cc-preview-sidebar-item svg path {
+  fill: currentColor;
 }
 
 .cc-preview-sidebar-label {
@@ -1190,7 +1387,12 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 .cc-preview-sidebar-item.active {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--cc-sidebar-active, rgba(255, 255, 255, 0.18));
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+[data-cc-sidebar-active-text="on"] .cc-preview-sidebar-item.active {
+  color: var(--cc-sidebar-active-text) !important;
 }
 
 [data-cc-sidebar-restyle="off"] .cc-preview-sidebar-item {
@@ -1303,7 +1505,8 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   border: 1px solid #e8eaec;
   border-radius: 10px;
   padding: 16px;
-  max-width: 320px;
+  max-width: 340px;
+  width: 100%;
   margin: 0 auto;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -1313,6 +1516,10 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 10px;
+}
+
+.cc-preview-widget-frame[data-style="ring"] .cc-preview-widget-header {
+  margin-bottom: 14px;
 }
 
 .cc-preview-widget-title {
@@ -1341,26 +1548,88 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   border-radius: 999px;
 }
 
-.cc-preview-widget-ring {
+/* Preview widget — activity rings (multi-course, polished) */
+.cc-preview-widget-rings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 12px 0 4px;
+}
+.cc-preview-widget-rings-svg {
+  position: relative;
+  flex: 0 0 auto;
+  width: 124px;
+  height: 124px;
+}
+.cc-preview-widget-rings-svg svg {
+  display: block;
+}
+/* Same trick: fixed 38x38 box well inside the 54px inner diameter */
+.cc-preview-widget-rings-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38px;
+  height: 38px;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  pointer-events: none;
 }
-.cc-preview-widget-ring svg {
-  flex: 0 0 auto;
-}
-.cc-preview-widget-ring-text {
-  display: flex;
-  flex-direction: column;
-}
-.cc-preview-widget-ring-pct {
-  font-size: 18px;
+.cc-preview-widget-rings-pct {
+  font-size: 14px;
   font-weight: 700;
   color: #2d3b45;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
   line-height: 1;
+}
+.cc-preview-widget-rings-legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cc-preview-ring-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #2d3b45;
+}
+.cc-preview-ring-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.cc-preview-ring-legend-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc-preview-ring-legend-count {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #6b7780;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-preview-widget-rings-legend {
+  width: 100%;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cc-preview-ring-legend-item {
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .cc-preview-widget-segments {

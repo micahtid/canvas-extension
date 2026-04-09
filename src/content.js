@@ -13,6 +13,9 @@ const MODAL_ID = 'cc-modal-root';
 // ---------- settings ----------
 
 const DEFAULTS = {
+  // Master kill switch
+  extensionEnabled: true,
+
   // Course cards
   cardRadius: 8,
   cardShadow: 'soft',         // 'none' | 'soft' | 'strong'
@@ -28,6 +31,10 @@ const DEFAULTS = {
   sidebarIconSize: 22,
   sidebarLabelSize: 10,
   sidebarShowLabels: true,
+  sidebarBgColor: '',
+  sidebarTextColor: '',
+  sidebarActiveColor: '',
+  sidebarActiveTextColor: '',
 
   // Theme
   accentColor: '#008ee2',
@@ -38,6 +45,13 @@ const DEFAULTS = {
   bgColor: '',
   bgImage: '',
   bgBlur: 0,
+
+  // Page-level text + font
+  textColor: '',
+  fontFamily: 'default',
+
+  // Modal accent (used by active tab, selected dropdown option, toggle on, slider)
+  modalAccentColor: '#fc5050',
 
   // Weekly Tasks widget
   widgetEnabled: true,
@@ -69,8 +83,144 @@ async function saveSettings(partial) {
   }
 }
 
+// Selectors for the page-level background sweep. Inline styles set via JS beat
+// Canvas's CSS cascade (and survive React re-renders if we re-apply on mutation).
+const BG_TARGETS = [
+  // Top-level layout containers
+  'body', '.ic-app', '#wrapper', '#main', '#not_right_side',
+  '#content', '#content-wrapper', '#dashboard', '.ic-dashboard-app',
+  '#right-side', '#right-side-wrapper',
+  '.ic-Layout-wrapper', '.ic-Layout-columns',
+  '.ic-Layout-contentWrapper', '.ic-Layout-contentMain',
+  '.ic-app-main-content', '.ic-app-main-content__primary', '.ic-app-main-content__secondary',
+
+  // Dashboard
+  '#DashboardCard_Container', '.ic-DashboardCard__box',
+  '.ic-Dashboard-header__layout',
+  '[class*="Dashboard-header__layout"]',
+  '[class*="ic-Dashboard-header"]',
+
+  // Course / sub-page chrome (breadcrumbs + sticky course title toolbar)
+  'nav#breadcrumbs',
+  '.breadcrumbs',
+  '.header-bar-outer-container',
+  '.sticky-toolbar',
+  '.header-bar',
+  '.page-toolbar',
+  '#course_home_content',
+  '#wiki_page_show',
+  '#course_show_secondary',
+  '.course-menu',
+];
+
+// Sidebar list items that Canvas paints with a fade-out gradient.
+// We clear background-image and re-set background-color to match.
+// (The actual right-fade is on `.event-details::after` — handled in CSS,
+// since pseudo-elements can't be touched via element.style.)
+const FEEDBACK_TARGETS = [
+  '#right-side .events_list',
+  '#right-side .events_list li',
+  '#right-side .recent_feedback',
+  '#right-side .recent_feedback li',
+  '#right-side .recent_feedback_icon',
+  '#right-side a.recent_feedback_icon',
+  '#right-side .event-details',
+  '#right-side .Sidebar__RecentFeedbackContainer',
+  '#right-side .Sidebar__RecentFeedbackContainer li',
+  '#right-side .Sidebar__TodoListContainer',
+  '#right-side .Sidebar__TodoListContainer li',
+  '#right-side section li',
+  '#right-side .ToDoSidebarItem',
+  '#right-side [class*="recent"] li',
+  '#right-side [class*="Recent"] li',
+  '#right-side [class*="feedback"] li',
+  '#right-side [class*="Feedback"] li',
+];
+
+let lastAppliedBg = null;
+
+function clearBgInline() {
+  const all = [...BG_TARGETS, ...FEEDBACK_TARGETS];
+  for (const sel of all) {
+    try {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.removeProperty('background-color');
+        el.style.removeProperty('background-image');
+      });
+    } catch {}
+  }
+}
+
+function applyBgInline() {
+  if (!document.body) return; // document_start — body not parsed yet
+  if (!settings.extensionEnabled) {
+    if (lastAppliedBg) {
+      clearBgInline();
+      lastAppliedBg = null;
+    }
+    return;
+  }
+  const color = settings.bgColor;
+  if (!color) {
+    if (lastAppliedBg) {
+      clearBgInline();
+      lastAppliedBg = null;
+    }
+    return;
+  }
+  for (const sel of BG_TARGETS) {
+    try {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.setProperty('background-color', color, 'important');
+      });
+    } catch {}
+  }
+  for (const sel of FEEDBACK_TARGETS) {
+    try {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.setProperty('background-image', 'none', 'important');
+        el.style.setProperty('background-color', color, 'important');
+      });
+    } catch {}
+  }
+  lastAppliedBg = color;
+}
+
+// All data attributes we set on <html>. Used by the disable tear-down to
+// remove every override the extension applies.
+const CC_DATA_ATTRS = [
+  'ccCardShadow', 'ccCardImage', 'ccCardColumns', 'ccCardTheme',
+  'ccSidebarRestyle', 'ccSidebarLabels', 'ccDensity',
+  'ccBgColor', 'ccBgImage', 'ccTextColor', 'ccFont',
+  'ccSidebarBg', 'ccSidebarText', 'ccSidebarActive', 'ccSidebarActiveText',
+];
+const CC_CSS_VARS = [
+  '--cc-card-radius', '--cc-card-image-opacity', '--cc-card-header-height', '--cc-card-gap',
+  '--cc-sidebar-icon-size', '--cc-sidebar-label-size',
+  '--cc-accent', '--cc-radius',
+  '--cc-bg-color', '--cc-bg-image', '--cc-bg-blur',
+  '--cc-text-color', '--cc-font-family', '--cc-modal-accent',
+  '--cc-sidebar-bg', '--cc-sidebar-text', '--cc-sidebar-active', '--cc-sidebar-active-text',
+];
+
+function tearDownOverrides() {
+  const root = document.documentElement;
+  clearBgInline();
+  for (const k of CC_DATA_ATTRS) delete root.dataset[k];
+  for (const v of CC_CSS_VARS) root.style.removeProperty(v);
+  const w = document.getElementById(WIDGET_ID);
+  if (w) w.remove();
+}
+
 function applySettings(s) {
   const root = document.documentElement;
+
+  // Master kill switch — tear everything down and bail.
+  if (!s.extensionEnabled) {
+    tearDownOverrides();
+    return;
+  }
+
   const set = (k, v) => root.style.setProperty(k, v);
 
   set('--cc-card-radius', s.cardRadius + 'px');
@@ -80,6 +230,10 @@ function applySettings(s) {
 
   set('--cc-sidebar-icon-size', s.sidebarIconSize + 'px');
   set('--cc-sidebar-label-size', s.sidebarLabelSize + 'px');
+  set('--cc-sidebar-bg', s.sidebarBgColor || '#2d3b45');
+  set('--cc-sidebar-text', s.sidebarTextColor || '#ffffff');
+  set('--cc-sidebar-active', s.sidebarActiveColor || 'rgba(255, 255, 255, 0.18)');
+  set('--cc-sidebar-active-text', s.sidebarActiveTextColor || 'var(--cc-sidebar-text, #ffffff)');
 
   set('--cc-accent', s.accentColor);
   set('--cc-radius', s.borderRadius + 'px');
@@ -88,6 +242,18 @@ function applySettings(s) {
   set('--cc-bg-image', s.bgImage ? `url("${s.bgImage.replace(/"/g, '\\"')}")` : 'none');
   set('--cc-bg-blur', s.bgBlur + 'px');
 
+  set('--cc-modal-accent', s.modalAccentColor || '#fc5050');
+  set('--cc-text-color', s.textColor || 'inherit');
+  const fontStack = s.fontFamily && s.fontFamily !== 'default'
+    ? (s.fontFamily === 'system'
+        ? 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+        : `"${s.fontFamily}", -apple-system, BlinkMacSystemFont, sans-serif`)
+    : 'inherit';
+  set('--cc-font-family', fontStack);
+  if (s.fontFamily && s.fontFamily !== 'default' && s.fontFamily !== 'system') {
+    ensurePageFont(s.fontFamily);
+  }
+
   root.dataset.ccCardShadow = s.cardShadow;
   root.dataset.ccCardImage = s.cardShowImage ? 'shown' : 'hidden';
   root.dataset.ccCardColumns = s.cardColumns;
@@ -95,7 +261,18 @@ function applySettings(s) {
   root.dataset.ccSidebarRestyle = s.sidebarRestyle ? 'on' : 'off';
   root.dataset.ccSidebarLabels = s.sidebarShowLabels ? 'on' : 'off';
   root.dataset.ccDensity = s.density;
+  root.dataset.ccBgColor = s.bgColor ? 'on' : 'off';
   root.dataset.ccBgImage = s.bgImage ? 'on' : 'off';
+  root.dataset.ccTextColor = s.textColor ? 'on' : 'off';
+  root.dataset.ccFont = (s.fontFamily && s.fontFamily !== 'default') ? 'on' : 'off';
+  root.dataset.ccSidebarBg = s.sidebarBgColor ? 'on' : 'off';
+  root.dataset.ccSidebarText = s.sidebarTextColor ? 'on' : 'off';
+  root.dataset.ccSidebarActive = s.sidebarActiveColor ? 'on' : 'off';
+  root.dataset.ccSidebarActiveText = s.sidebarActiveTextColor ? 'on' : 'off';
+
+  // Belt-and-suspenders: also paint backgrounds via inline styles, which
+  // bypass Canvas's CSS cascade entirely.
+  applyBgInline();
 }
 
 // ---------- weekly tasks widget ----------
@@ -135,6 +312,47 @@ async function fetchPlannerItems() {
   return res.json();
 }
 
+// Convert a hex color to an rgba string at the given alpha. Used for ring
+// tracks so each ring's empty portion is a tinted version of its own color
+// instead of a flat neutral gray.
+function hexToRgba(hex, alpha) {
+  if (!hex || typeof hex !== 'string') return `rgba(148, 163, 184, ${alpha})`;
+  let h = hex.trim().replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  if (h.length !== 6) return `rgba(148, 163, 184, ${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some(n => Number.isNaN(n))) return `rgba(148, 163, 184, ${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+let courseColorCache = null;
+async function fetchCourseColors() {
+  if (courseColorCache) return courseColorCache;
+  try {
+    const res = await fetch('/api/v1/users/self/colors', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`colors ${res.status}`);
+    const data = await res.json();
+    // data.custom_colors is a map like { course_123: "#ff0000", ... }
+    courseColorCache = data.custom_colors || {};
+  } catch {
+    courseColorCache = {};
+  }
+  return courseColorCache;
+}
+
+function courseColorFor(task, colors, fallbackIndex) {
+  // planner items give us context_type/id via plannable_date, but we need the contextName -> color mapping.
+  // The /colors endpoint keys look like "course_<id>". task.contextCode on the planner item is typically "course_<id>".
+  if (task.contextCode && colors[task.contextCode]) return colors[task.contextCode];
+  const palette = ['#fc5050', '#008ee2', '#00c389', '#f59e0b', '#9333ea', '#ec4899', '#14b8a6', '#64748b'];
+  return palette[fallbackIndex % palette.length];
+}
+
 function isComplete(item) {
   if (item.planner_override?.marked_complete) return true;
   if (item.planner_override?.dismissed) return true;
@@ -169,6 +387,7 @@ function normalize(items, s = settings) {
       dueAt: it.plannable?.due_at || it.plannable?.todo_date || it.plannable_date,
       url: it.html_url || '#',
       contextName: it.context_name || '',
+      contextCode: it.context_type && it.course_id ? `course_${it.course_id}` : (it.context_type === 'Course' && it.context_id ? `course_${it.context_id}` : ''),
       complete: isComplete(it),
       type: it.plannable_type,
     }));
@@ -200,24 +419,92 @@ function escapeHtml(s) {
   }[c]));
 }
 
-function progressMarkup(style, done, total, pct) {
-  if (style === 'ring') {
-    const r = 22;
-    const c = Math.round(2 * Math.PI * r * 1000) / 1000;
-    const offset = Math.round(c * (1 - pct / 100) * 1000) / 1000;
+function groupByCourse(tasks) {
+  const map = new Map();
+  for (const t of tasks) {
+    const key = t.contextCode || t.contextName || 'other';
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        name: t.contextName || 'Other',
+        contextCode: t.contextCode,
+        total: 0,
+        done: 0,
+      });
+    }
+    const g = map.get(key);
+    g.total++;
+    if (t.complete) g.done++;
+  }
+  return Array.from(map.values());
+}
+
+// Cap visible rings at 3 — keeps each ring thick, the spacing legible, and
+// leaves a generous center region for the percentage text. Extra courses
+// still show in the legend.
+const MAX_VISIBLE_RINGS = 3;
+
+function activityRingsSvg(groups, colors) {
+  const size = 168;
+  const cx = size / 2;
+  const cy = size / 2;
+  const strokeW = 10;
+  const gap = 3;
+  const maxR = (size / 2) - (strokeW / 2) - 4;
+  // With 3 rings at gap 3: r1=75, r2=62, r3=49. Innermost stroke spans 44-54.
+  // Empty inner space r<44 → 88px diameter. 56x56 center box sits with
+  // ~16px margin on each side from the innermost ring's inner edge.
+
+  const sliced = groups.slice(0, MAX_VISIBLE_RINGS);
+  const rings = sliced.map((g, i) => {
+    const r = maxR - i * (strokeW + gap);
+    if (r < strokeW) return '';
+    const c = 2 * Math.PI * r;
+    const pct = g.total === 0 ? 0 : Math.min(1, g.done / g.total);
+    const offset = c * (1 - pct);
+    const color = courseColorFor({ contextCode: g.contextCode }, colors, i);
+    const trackStroke = hexToRgba(color, 0.18);
     return `
-      <div class="cc-progress-ring">
-        <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="#eef1f3" stroke-width="5"/>
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="url(#cc-ring-grad)" stroke-width="5" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 28 28)"/>
-          <defs><linearGradient id="cc-ring-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#008ee2"/><stop offset="100%" stop-color="#00c389"/></linearGradient></defs>
-        </svg>
-        <div class="cc-progress-ring-text">
-          <div class="cc-progress-ring-pct">${pct}%</div>
-          <div class="cc-progress-ring-count">${done}/${total}</div>
-        </div>
+      <circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${trackStroke}" stroke-width="${strokeW}"/>
+      <circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+    `;
+  }).join('');
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${rings}</svg>`;
+}
+
+function activityRingsMarkup(groups, colors, totalPct) {
+  if (groups.length === 0) {
+    return `<div class="cc-progress-rings-empty">No tasks this week</div>`;
+  }
+  const legend = groups.map((g, i) => {
+    const color = courseColorFor({ contextCode: g.contextCode }, colors, i);
+    const inRing = i < MAX_VISIBLE_RINGS;
+    return `
+      <div class="cc-ring-legend-item${inRing ? '' : ' cc-ring-legend-extra'}">
+        <span class="cc-ring-legend-dot" style="background:${color}"></span>
+        <span class="cc-ring-legend-name">${escapeHtml(g.name)}</span>
+        <span class="cc-ring-legend-count">${g.done}/${g.total}</span>
       </div>
     `;
+  }).join('');
+  return `
+    <div class="cc-progress-rings">
+      <div class="cc-progress-rings-svg">
+        ${activityRingsSvg(groups, colors)}
+        <div class="cc-progress-rings-center">
+          <div class="cc-progress-rings-pct">${totalPct}%</div>
+        </div>
+      </div>
+      <div class="cc-progress-rings-legend">${legend}</div>
+    </div>
+  `;
+}
+
+function progressMarkup(style, done, total, pct, tasks, colors) {
+  if (style === 'ring') {
+    const groups = groupByCourse(tasks);
+    return activityRingsMarkup(groups, colors || {}, pct);
   }
   if (style === 'segments') {
     const n = total || 1;
@@ -235,7 +522,7 @@ function progressMarkup(style, done, total, pct) {
   `;
 }
 
-function renderWidget(container, tasks) {
+function renderWidget(container, tasks, colors) {
   const total = tasks.length;
   const done = tasks.filter(t => t.complete).length;
   const pct = total === 0 ? 100 : Math.round((done / total) * 100);
@@ -262,13 +549,14 @@ function renderWidget(container, tasks) {
         </li>
       `).join('');
 
+  const hideHeaderCount = style === 'ring';
   container.innerHTML = `
-    <div class="cc-widget">
+    <div class="cc-widget" data-style="${style}">
       <div class="cc-header">
         <h2 class="cc-title">This Week</h2>
-        <span class="cc-count">${done}/${total}</span>
+        ${hideHeaderCount ? '' : `<span class="cc-count">${done}/${total}</span>`}
       </div>
-      ${progressMarkup(style, done, total, pct)}
+      ${progressMarkup(style, done, total, pct, tasks, colors)}
       <ul class="cc-list">${listHtml}</ul>
     </div>
   `;
@@ -276,6 +564,7 @@ function renderWidget(container, tasks) {
 
 let inFlight = false;
 async function injectWidget() {
+  if (!settings.extensionEnabled) return;
   if (!settings.widgetEnabled) return;
   const sidebar = document.querySelector(SIDEBAR_SELECTOR);
   if (!sidebar) return;
@@ -292,10 +581,13 @@ async function injectWidget() {
   if (inFlight) return;
   inFlight = true;
   try {
-    const items = await fetchPlannerItems();
+    const [items, colors] = await Promise.all([
+      fetchPlannerItems(),
+      fetchCourseColors(),
+    ]);
     const tasks = normalize(items);
     const live = document.getElementById(WIDGET_ID);
-    if (live) renderWidget(live, tasks);
+    if (live) renderWidget(live, tasks, colors);
   } catch (err) {
     const live = document.getElementById(WIDGET_ID);
     if (live) live.querySelector('.cc-widget').innerHTML += `<div class="cc-error">Failed to load: ${escapeHtml(err.message)}</div>`;
@@ -307,13 +599,53 @@ async function injectWidget() {
 // ---------- modal ----------
 
 const TABS = [
+  { id: 'general', label: 'General' },
   { id: 'cards', label: 'Course Cards' },
   { id: 'sidebar', label: 'Left Sidebar' },
-  { id: 'theme', label: 'Theme' },
   { id: 'widget', label: 'Tasks Widget' },
 ];
 
-let currentTab = 'cards';
+let currentTab = 'general';
+
+// Open/close a custom dropdown, keeping aria state in sync. On open, wait
+// for the expansion transition to finish then scroll the shell into view if
+// any part would be clipped by the controls column.
+function setSelectState(el, open) {
+  const trigger = el.querySelector('.cc-select-trigger');
+  if (open) {
+    el.classList.add('open');
+    trigger?.setAttribute('aria-expanded', 'true');
+    // Wait for the 250ms grid-template-rows transition to settle.
+    setTimeout(() => {
+      if (el.classList.contains('open')) scrollSelectIntoView(el);
+    }, 280);
+  } else {
+    el.classList.remove('open');
+    trigger?.setAttribute('aria-expanded', 'false');
+  }
+}
+
+// Smooth-scroll the .cc-controls-col so the given shell is fully visible,
+// preferring to center it vertically when it overflows.
+function scrollSelectIntoView(el) {
+  const col = el.closest('.cc-controls-col');
+  if (!col) return;
+  const selRect = el.getBoundingClientRect();
+  const colRect = col.getBoundingClientRect();
+  const pad = 16;
+  const fullyVisible =
+    selRect.top >= colRect.top + pad &&
+    selRect.bottom <= colRect.bottom - pad;
+  if (fullyVisible) return;
+  // Try to center; if the shell is taller than the column, anchor top.
+  const selCenter = selRect.top + selRect.height / 2;
+  const colCenter = colRect.top + colRect.height / 2;
+  let delta = selCenter - colCenter;
+  if (selRect.height > colRect.height - pad * 2) {
+    delta = selRect.top - (colRect.top + pad);
+  }
+  col.scrollBy({ top: delta, behavior: 'smooth' });
+}
 
 function ensureFont() {
   if (document.getElementById('cc-font-sora')) return;
@@ -331,6 +663,23 @@ function ensureFont() {
   document.head.append(preconnect1, preconnect2, link);
 }
 
+// Lazy-load a Google Font for the user's page-wide font preference.
+function ensurePageFont(family) {
+  if (!family || family === 'default' || family === 'system') return;
+  if (!document.head) {
+    // document_start — head doesn't exist yet. Retry when ready.
+    document.addEventListener('DOMContentLoaded', () => ensurePageFont(family), { once: true });
+    return;
+  }
+  const id = 'cc-page-font-' + family.replace(/\s+/g, '-');
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+  document.head.appendChild(link);
+}
+
 function buildModal() {
   if (document.getElementById(MODAL_ID)) return;
   ensureFont();
@@ -345,25 +694,21 @@ function buildModal() {
       <header class="cc-modal-header">
         <div class="cc-modal-brand">
           <div class="cc-modal-logo">CC</div>
-          <div>
-            <h1 id="cc-modal-title">Custom Canvas</h1>
-            <p class="cc-modal-subtitle">Customize how Canvas looks</p>
-          </div>
+          <h1 id="cc-modal-title">Custom Canvas</h1>
         </div>
         <button class="cc-modal-close" aria-label="Close customization panel">×</button>
       </header>
       <div class="cc-modal-body">
         <nav class="cc-modal-tabs" role="tablist">
-          ${TABS.map(t => `
-            <button role="tab" data-tab="${t.id}" class="cc-tab ${t.id === currentTab ? 'active' : ''}">${t.label}</button>
-          `).join('')}
+          <div class="cc-tabs-list">
+            ${TABS.map(t => `
+              <button role="tab" data-tab="${t.id}" class="cc-tab ${t.id === currentTab ? 'active' : ''}">${t.label}</button>
+            `).join('')}
+          </div>
+          <button class="cc-modal-reset" id="cc-reset-btn" type="button">Reset</button>
         </nav>
         <div class="cc-modal-pane" role="tabpanel"></div>
       </div>
-      <footer class="cc-modal-footer">
-        <button class="cc-btn cc-btn-ghost" id="cc-reset-btn">Reset all to defaults</button>
-        <span class="cc-saved" id="cc-saved-indicator">Changes saved automatically</span>
-      </footer>
     </div>
   `;
   document.body.appendChild(root);
@@ -391,8 +736,7 @@ function buildModal() {
     if (e.key !== 'Escape') return;
     const openSelect = root.querySelector('.cc-select.open');
     if (openSelect) {
-      openSelect.classList.remove('open');
-      openSelect.querySelector('.cc-select-trigger')?.setAttribute('aria-expanded', 'false');
+      setSelectState(openSelect, false);
       return;
     }
     if (root.classList.contains('open')) closeModal();
@@ -402,10 +746,7 @@ function buildModal() {
   root.addEventListener('click', (e) => {
     const openSelects = root.querySelectorAll('.cc-select.open');
     openSelects.forEach(s => {
-      if (!s.contains(e.target)) {
-        s.classList.remove('open');
-        s.querySelector('.cc-select-trigger')?.setAttribute('aria-expanded', 'false');
-      }
+      if (!s.contains(e.target)) setSelectState(s, false);
     });
   });
 
@@ -463,10 +804,12 @@ function selectControl(key, options) {
         <span class="cc-select-label">${escapeHtml(current.label)}</span>
         ${chevron}
       </button>
-      <div class="cc-select-menu" role="listbox">
-        ${options.map(o => `
-          <button type="button" role="option" class="cc-select-option ${String(o.value) === String(current.value) ? 'selected' : ''}" data-value="${escapeHtml(String(o.value))}">${escapeHtml(o.label)}</button>
-        `).join('')}
+      <div class="cc-select-menu-wrap">
+        <div class="cc-select-menu" role="listbox">
+          ${options.map(o => `
+            <button type="button" role="option" class="cc-select-option ${String(o.value) === String(current.value) ? 'selected' : ''}" data-value="${escapeHtml(String(o.value))}">${escapeHtml(o.label)}</button>
+          `).join('')}
+        </div>
       </div>
     </div>
   `;
@@ -476,36 +819,150 @@ function toggleControl(key) {
   return `<label class="cc-toggle"><input type="checkbox" data-setting="${key}" ${settings[key] ? 'checked' : ''}><span class="cc-toggle-track"><span class="cc-toggle-thumb"></span></span></label>`;
 }
 
-function colorControl(key) {
-  return `<input type="color" data-setting="${key}" value="${settings[key] || '#000000'}">`;
+function colorControl(key, fallback = '#000000') {
+  return `<input type="color" data-setting="${key}" value="${settings[key] || fallback}">`;
+}
+
+// ---------- Color detection utilities for picker fallbacks ----------
+// When a color setting is empty, the picker needs a prefilled value that
+// reflects the ACTUAL current rendered color, not a guess. We read from the
+// live DOM at render time.
+
+function parseRgbString(s) {
+  if (!s) return null;
+  const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
+  if (!m) return null;
+  return [+m[1], +m[2], +m[3], m[4] != null ? +m[4] : 1];
+}
+
+function rgbToHex(input) {
+  const p = parseRgbString(input);
+  if (!p) return null;
+  const [r, g, b] = p;
+  const toHex = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+// Blend a translucent rgba over an opaque backdrop rgb to get the visible color.
+function flattenColor(fg, bg) {
+  const f = parseRgbString(fg);
+  const b = parseRgbString(bg);
+  if (!f) return bg || fg;
+  if (!b) return fg;
+  if (f[3] >= 1) return fg;
+  const a = f[3];
+  const r = a * f[0] + (1 - a) * b[0];
+  const g = a * f[1] + (1 - a) * b[1];
+  const bl = a * f[2] + (1 - a) * b[2];
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(bl)})`;
+}
+
+// Walk up the DOM to find the first ancestor with an opaque background.
+function findOpaqueAncestorBg(el) {
+  let cur = el;
+  while (cur && cur !== document.documentElement) {
+    const cs = getComputedStyle(cur);
+    const p = parseRgbString(cs.backgroundColor);
+    if (p && p[3] >= 1) return cs.backgroundColor;
+    cur = cur.parentElement;
+  }
+  return 'rgb(255, 255, 255)';
+}
+
+// Read each sidebar color from the live DOM. Returns hex strings or null.
+function detectSidebarColors() {
+  const header = document.querySelector('#header.ic-app-header, .ic-app-header');
+  const bgColor = header ? rgbToHex(getComputedStyle(header).backgroundColor) : null;
+
+  const link = document.querySelector('.ic-app-header__menu-list-link');
+  const textColor = link ? rgbToHex(getComputedStyle(link).color) : null;
+
+  const activeLink = document.querySelector(
+    '.ic-app-header__menu-list-item--active .ic-app-header__menu-list-link, ' +
+    '.ic-app-header__menu-list-link[aria-current="page"]'
+  );
+  let activeBgColor = null;
+  let activeTextColor = null;
+  if (activeLink) {
+    const activeCs = getComputedStyle(activeLink);
+    const parentBg = findOpaqueAncestorBg(activeLink.parentElement);
+    activeBgColor = rgbToHex(flattenColor(activeCs.backgroundColor, parentBg));
+    activeTextColor = rgbToHex(activeCs.color);
+  }
+
+  return {
+    bg: bgColor || '#2d3b45',
+    text: textColor || '#ffffff',
+    activeBg: activeBgColor || '#ffffff',
+    activeText: activeTextColor || textColor || '#ffffff',
+  };
 }
 
 function textControl(key, placeholder = '') {
   return `<input type="text" data-setting="${key}" value="${escapeHtml(settings[key] || '')}" placeholder="${escapeHtml(placeholder)}">`;
 }
 
+function tabGeneral() {
+  return {
+    title: 'General',
+    desc: 'Page-level appearance for the whole Canvas interface.',
+    preview: null,
+    groups: [
+      { title: 'Extension', rows: [
+        row('Enable Custom Canvas', toggleControl('extensionEnabled'), 'Master switch. Turn off to restore Canvas defaults everywhere.'),
+      ]},
+      { title: 'Background', rows: [
+        row('Color', colorControl('bgColor', '#ffffff'), 'Leave default to keep Canvas\'s background.'),
+        row('Image URL', textControl('bgImage', 'https://...'), 'Paste a direct image URL.'),
+        row('Image blur', rangeControl('bgBlur', 0, 20, 1, 'px')),
+      ]},
+      { title: 'Text', rows: [
+        row('Color', colorControl('textColor', '#2d3b45'), 'Override Canvas\'s body text color.'),
+      ]},
+      { title: 'Font', rows: [
+        row('Family', selectControl('fontFamily', [
+          { value: 'default', label: 'Default' },
+          { value: 'system', label: 'System UI' },
+          { value: 'Inter', label: 'Inter' },
+          { value: 'Sora', label: 'Sora' },
+          { value: 'Roboto', label: 'Roboto' },
+          { value: 'Lato', label: 'Lato' },
+          { value: 'Poppins', label: 'Poppins' },
+          { value: 'Open Sans', label: 'Open Sans' },
+          { value: 'Nunito', label: 'Nunito' },
+          { value: 'Source Sans 3', label: 'Source Sans' },
+          { value: 'Merriweather', label: 'Merriweather (serif)' },
+        ]), 'Loaded from Google Fonts on first use.'),
+      ]},
+      { title: 'Modal', rows: [
+        row('Accent color', colorControl('modalAccentColor', '#fc5050'), 'Used for active tab text, selected dropdown options, toggles, and sliders inside this modal.'),
+      ]},
+    ],
+  };
+}
+
 function previewCards() {
   const cards = [
-    { title: 'Linear Algebra', code: 'MATH 314', color: '#0084c7', img: 'linear-gradient(135deg, #0084c7 0%, #00c389 100%)' },
-    { title: 'Database Design', code: 'CSCE 451', color: '#9c27b0', img: 'linear-gradient(135deg, #9c27b0 0%, #ff5722 100%)' },
-    { title: 'Business Strategy', code: 'MGMT 411', color: '#e67e22', img: 'linear-gradient(135deg, #e67e22 0%, #f1c40f 100%)' },
+    { title: 'Linear Algebra',      code: 'MATH 314', color: '#0084c7', img: 'linear-gradient(135deg, #0084c7 0%, #00c389 100%)' },
+    { title: 'Database Design',     code: 'CSCE 451', color: '#9c27b0', img: 'linear-gradient(135deg, #9c27b0 0%, #ff5722 100%)' },
+    { title: 'Business Strategy',   code: 'MGMT 411', color: '#e67e22', img: 'linear-gradient(135deg, #e67e22 0%, #f1c40f 100%)' },
+    { title: 'Discrete Math',       code: 'MATH 208', color: '#16a085', img: 'linear-gradient(135deg, #16a085 0%, #2ecc71 100%)' },
+    { title: 'Operating Systems',   code: 'CSCE 351', color: '#c0392b', img: 'linear-gradient(135deg, #c0392b 0%, #d35400 100%)' },
+    { title: 'World History',       code: 'HIST 201', color: '#2c3e50', img: 'linear-gradient(135deg, #2c3e50 0%, #7f8c8d 100%)' },
   ];
   return `
-    <div class="cc-preview cc-preview-cards">
-      <div class="cc-preview-label">Live preview</div>
-      <div class="cc-preview-card-grid">
-        ${cards.map(c => `
-          <div class="cc-preview-card">
-            <div class="cc-preview-card-header" style="background: ${c.color};">
-              <div class="cc-preview-card-image" style="background-image: ${c.img};"></div>
-            </div>
-            <div class="cc-preview-card-body">
-              <div class="cc-preview-card-code" style="color: ${c.color};">${c.code}</div>
-              <div class="cc-preview-card-title">${c.title}</div>
-            </div>
+    <div class="cc-preview-card-grid">
+      ${cards.map(c => `
+        <div class="cc-preview-card">
+          <div class="cc-preview-card-header" style="background: ${c.color};">
+            <div class="cc-preview-card-image" style="background-image: ${c.img};"></div>
           </div>
-        `).join('')}
-      </div>
+          <div class="cc-preview-card-body">
+            <div class="cc-preview-card-code" style="color: ${c.color};">${c.code}</div>
+            <div class="cc-preview-card-title">${c.title}</div>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -526,6 +983,13 @@ function tabCards() {
           { value: 'cool', label: 'Cool' },
           { value: 'dark', label: 'Dark' },
         ]), 'Applies a filter to card images and retints the palette.'),
+        row('Accent color', colorControl('accentColor', '#008ee2'), 'Used for links, buttons, and progress bars.'),
+        row('Density', selectControl('density', [
+          { value: 'compact', label: 'Compact' },
+          { value: 'cozy', label: 'Cozy' },
+          { value: 'comfortable', label: 'Comfortable' },
+        ])),
+        row('Border radius', rangeControl('borderRadius', 0, 20, 1, 'px'), 'Global roundness for buttons and inputs.'),
       ]},
       { title: 'Shape', rows: [
         row('Corner radius', rangeControl('cardRadius', 0, 24, 1, 'px')),
@@ -563,21 +1027,19 @@ function previewSidebar() {
     { label: 'Inbox', icon: 'M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z' },
   ];
   return `
-    <div class="cc-preview cc-preview-sidebar">
-      <div class="cc-preview-label">Live preview</div>
-      <div class="cc-preview-sidebar-frame">
-        ${items.map((it, i) => `
-          <div class="cc-preview-sidebar-item ${i === 1 ? 'active' : ''}">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${it.icon}" fill="currentColor"/></svg>
-            <div class="cc-preview-sidebar-label">${it.label}</div>
-          </div>
-        `).join('')}
-      </div>
+    <div class="cc-preview-sidebar-frame">
+      ${items.map((it, i) => `
+        <div class="cc-preview-sidebar-item ${i === 1 ? 'active' : ''}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${it.icon}" fill="currentColor"/></svg>
+          <div class="cc-preview-sidebar-label">${it.label}</div>
+        </div>
+      `).join('')}
     </div>
   `;
 }
 
 function tabSidebar() {
+  const detected = detectSidebarColors();
   return {
     title: 'Left Sidebar',
     desc: 'The global Canvas navigation column.',
@@ -587,44 +1049,15 @@ function tabSidebar() {
         row('Enable sidebar restyle', toggleControl('sidebarRestyle'), 'Tighter spacing, rounded active state.'),
         row('Show labels', toggleControl('sidebarShowLabels'), 'Turn off to show icons only.'),
       ]},
+      { title: 'Colors', rows: [
+        row('Background', colorControl('sidebarBgColor', detected.bg), 'The sidebar\'s main fill color.'),
+        row('Text & icons', colorControl('sidebarTextColor', detected.text), 'Color of labels and SVG icons.'),
+        row('Active item background', colorControl('sidebarActiveColor', detected.activeBg), 'Background of the currently selected nav item.'),
+        row('Active item text', colorControl('sidebarActiveTextColor', detected.activeText), 'Text and icon color of the currently selected nav item.'),
+      ]},
       { title: 'Sizing', rows: [
         row('Icon size', rangeControl('sidebarIconSize', 14, 32, 1, 'px')),
         row('Label size', rangeControl('sidebarLabelSize', 8, 14, 1, 'px')),
-      ]},
-    ],
-  };
-}
-
-function previewTheme() {
-  return `
-    <div class="cc-preview cc-preview-theme">
-      <div class="cc-preview-label">Live preview</div>
-      <div class="cc-preview-theme-grid">
-        <button class="cc-preview-btn-primary">Primary action</button>
-        <button class="cc-preview-btn-secondary">Secondary</button>
-        <a class="cc-preview-link" href="#" onclick="return false;">Sample link</a>
-        <input class="cc-preview-input" type="text" placeholder="Text input">
-      </div>
-    </div>
-  `;
-}
-
-function tabTheme() {
-  return {
-    title: 'Theme',
-    desc: 'Global accent color, density, and roundness.',
-    preview: previewTheme(),
-    groups: [
-      { title: 'Color', rows: [
-        row('Accent color', colorControl('accentColor'), 'Used for links, buttons, and progress bars.'),
-      ]},
-      { title: 'Style', rows: [
-        row('Density', selectControl('density', [
-          { value: 'compact', label: 'Compact' },
-          { value: 'cozy', label: 'Cozy' },
-          { value: 'comfortable', label: 'Comfortable' },
-        ])),
-        row('Border radius', rangeControl('borderRadius', 0, 20, 1, 'px')),
       ]},
     ],
   };
@@ -662,17 +1095,52 @@ function previewWidget() {
 
   let progress;
   if (style === 'ring') {
-    const r = 22;
-    const c = Math.round(2 * Math.PI * r * 1000) / 1000;
-    const offset = Math.round(c * (1 - pct / 100) * 1000) / 1000;
+    // Group sample items by course
+    const groupMap = new Map();
+    for (const it of items) {
+      if (!groupMap.has(it.course)) groupMap.set(it.course, { name: it.course, total: 0, done: 0 });
+      const g = groupMap.get(it.course);
+      g.total++;
+      if (it.complete) g.done++;
+    }
+    const groups = Array.from(groupMap.values());
+    const size = 124;
+    const cx = size / 2;
+    const strokeW = 9;
+    const gap = 2;
+    const maxR = (size / 2) - (strokeW / 2) - 3;
+    // gap 2 → slight separation. r1=54.5, r2=43.5, r3=32.5. Inner diameter ~56px.
+    const palette = ['#fc5050', '#008ee2', '#00c389', '#f59e0b', '#9333ea'];
+    const MAX_PREVIEW_RINGS = 3;
+    const rings = groups.slice(0, MAX_PREVIEW_RINGS).map((g, i) => {
+      const r = maxR - i * (strokeW + gap);
+      if (r < strokeW) return '';
+      const c = 2 * Math.PI * r;
+      const pct2 = g.total === 0 ? 0 : Math.min(1, g.done / g.total);
+      const offset = c * (1 - pct2);
+      const color = palette[i % palette.length];
+      const trackStroke = hexToRgba(color, 0.18);
+      return `
+        <circle cx="${cx}" cy="${cx}" r="${r.toFixed(2)}" fill="none" stroke="${trackStroke}" stroke-width="${strokeW}"/>
+        <circle cx="${cx}" cy="${cx}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cx})"/>
+      `;
+    }).join('');
+    const legend = groups.slice(0, 4).map((g, i) => `
+      <div class="cc-preview-ring-legend-item">
+        <span class="cc-preview-ring-legend-dot" style="background:${palette[i % palette.length]}"></span>
+        <span class="cc-preview-ring-legend-name">${g.name}</span>
+        <span class="cc-preview-ring-legend-count">${g.done}/${g.total}</span>
+      </div>
+    `).join('');
     progress = `
-      <div class="cc-preview-widget-ring">
-        <svg width="56" height="56" viewBox="0 0 56 56">
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="#eef1f3" stroke-width="5"/>
-          <circle cx="28" cy="28" r="${r}" fill="none" stroke="url(#cc-preview-ring-grad)" stroke-width="5" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 28 28)"/>
-          <defs><linearGradient id="cc-preview-ring-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="var(--cc-accent, #008ee2)"/><stop offset="100%" stop-color="#00c389"/></linearGradient></defs>
-        </svg>
-        <div class="cc-preview-widget-ring-text"><div class="cc-preview-widget-ring-pct">${pct}%</div></div>
+      <div class="cc-preview-widget-rings">
+        <div class="cc-preview-widget-rings-svg" style="width:${size}px;height:${size}px;">
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${rings}</svg>
+          <div class="cc-preview-widget-rings-center">
+            <div class="cc-preview-widget-rings-pct">${pct}%</div>
+          </div>
+        </div>
+        <div class="cc-preview-widget-rings-legend">${legend}</div>
       </div>
     `;
   } else if (style === 'segments') {
@@ -683,26 +1151,27 @@ function previewWidget() {
     progress = `<div class="cc-preview-widget-bar"><div class="cc-preview-widget-fill" style="width:${pct}%"></div></div>`;
   }
 
+  // Cap the preview list so the card always fits in the preview column,
+  // even with ring mode + legend taking extra vertical space.
+  const maxListItems = style === 'ring' ? 3 : 4;
   const rows = items.length === 0
     ? `<div class="cc-preview-widget-empty">Nothing to show. 🎉</div>`
-    : items.map(i => `
+    : items.slice(0, maxListItems).map(i => `
         <div class="cc-preview-widget-item ${i.complete ? 'done' : ''}">
           <div class="cc-preview-widget-check ${i.complete ? 'checked' : ''}">${i.complete ? '✓' : ''}</div>
           <div>${i.title}</div>
         </div>
       `).join('');
 
+  const hideHeaderCount = style === 'ring';
   return `
-    <div class="cc-preview cc-preview-widget">
-      <div class="cc-preview-label">Live preview</div>
-      <div class="cc-preview-widget-frame">
-        <div class="cc-preview-widget-header">
-          <div class="cc-preview-widget-title">This Week</div>
-          <div class="cc-preview-widget-count">${done}/${total}</div>
-        </div>
-        ${progress}
-        <div class="cc-preview-widget-list">${rows}</div>
+    <div class="cc-preview-widget-frame" data-style="${style}">
+      <div class="cc-preview-widget-header">
+        <div class="cc-preview-widget-title">This Week</div>
+        ${hideHeaderCount ? '' : `<div class="cc-preview-widget-count">${done}/${total}</div>`}
       </div>
+      ${progress}
+      <div class="cc-preview-widget-list">${rows}</div>
     </div>
   `;
 }
@@ -741,40 +1210,63 @@ function tabWidget() {
 }
 
 const TAB_RENDERERS = {
+  general: tabGeneral,
   cards: tabCards,
   sidebar: tabSidebar,
-  theme: tabTheme,
   widget: tabWidget,
 };
 
-const CHEVRON_SVG = `<svg class="cc-group-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// After the Left Sidebar tab renders, re-read the live sidebar colors
+// (Canvas may not have applied the active-item styles yet when tabSidebar()
+// first runs) and update any picker whose setting is unset. This guarantees
+// the picker thumb always matches what the user actually sees in the sidebar.
+function syncSidebarPickerFallbacks() {
+  if (currentTab !== 'sidebar') return;
+  const root = document.getElementById(MODAL_ID);
+  if (!root) return;
+  const detected = detectSidebarColors();
+  const mapping = {
+    sidebarBgColor: detected.bg,
+    sidebarTextColor: detected.text,
+    sidebarActiveColor: detected.activeBg,
+    sidebarActiveTextColor: detected.activeText,
+  };
+  for (const [key, val] of Object.entries(mapping)) {
+    if (settings[key]) continue; // user already set a value — leave alone
+    if (!val) continue;
+    const picker = root.querySelector(`input[data-setting="${key}"]`);
+    if (picker && picker.value !== val) {
+      picker.value = val;
+      picker.setAttribute('value', val);
+    }
+  }
+}
 
 function renderTabPane() {
   const root = document.getElementById(MODAL_ID);
   if (!root) return;
   const pane = root.querySelector('.cc-modal-pane');
   const cfg = TAB_RENDERERS[currentTab]();
+  const hasPreview = cfg.preview != null;
+
+  const previewCol = hasPreview
+    ? `<aside class="cc-preview-col">
+         <div class="cc-preview-content">${cfg.preview}</div>
+       </aside>`
+    : '';
 
   pane.innerHTML = `
-    <div class="cc-pane-layout">
-      <aside class="cc-preview-col">
-        <div class="cc-preview-wrap">${cfg.preview}</div>
-      </aside>
+    <div class="cc-pane-layout${hasPreview ? '' : ' cc-pane-layout--full'}">
+      ${previewCol}
       <section class="cc-controls-col">
-        <header class="cc-controls-header">
-          <h2 class="cc-pane-title">${cfg.title}</h2>
-          <p class="cc-pane-desc">${cfg.desc}</p>
-        </header>
-        ${cfg.groups.map((g, i) => `
-          <details class="cc-group" ${i === 0 ? 'open' : ''}>
-            <summary class="cc-group-summary">
-              <span class="cc-group-title">${g.title}</span>
-              ${CHEVRON_SVG}
-            </summary>
-            <div class="cc-group-body">
+        <h2 class="cc-pane-title">${cfg.title}</h2>
+        ${cfg.groups.map(g => `
+          <div class="cc-section">
+            <div class="cc-section-title">${g.title}</div>
+            <div class="cc-section-rows">
               ${g.rows.join('')}
             </div>
-          </details>
+          </div>
         `).join('')}
       </section>
     </div>
@@ -793,26 +1285,24 @@ function renderTabPane() {
         const wasOpen = el.classList.contains('open');
         // Close any other open selects
         document.querySelectorAll('.cc-select.open').forEach(s => {
-          s.classList.remove('open');
-          s.querySelector('.cc-select-trigger')?.setAttribute('aria-expanded', 'false');
+          if (s !== el) setSelectState(s, false);
         });
-        if (!wasOpen) {
-          el.classList.add('open');
-          trigger.setAttribute('aria-expanded', 'true');
-        }
+        setSelectState(el, !wasOpen);
       });
 
       menu.querySelectorAll('.cc-select-option').forEach(opt => {
         opt.addEventListener('click', async (e) => {
           e.stopPropagation();
+          const key = el.dataset.setting;
           const value = opt.dataset.value;
           el.dataset.value = value;
           label.textContent = opt.textContent.trim();
           menu.querySelectorAll('.cc-select-option').forEach(o => o.classList.toggle('selected', o === opt));
-          el.classList.remove('open');
-          trigger.setAttribute('aria-expanded', 'false');
-          await saveSettings({ [el.dataset.setting]: value });
+          setSelectState(el, false);
+          await saveSettings({ [key]: value });
           applySettings(settings);
+          if (PREVIEW_REACTIVE_KEYS.has(key)) refreshPreview();
+          if (WIDGET_RERENDER_KEYS.has(key)) rerenderWidget();
         });
       });
       return;
@@ -854,6 +1344,21 @@ function renderTabPane() {
       if (WIDGET_RERENDER_KEYS.has(key)) rerenderWidget();
     });
   });
+
+  postRenderTabPane();
+}
+
+// Called after renderTabPane finishes wiring controls. Runs post-render
+// side-effects like re-syncing sidebar picker fallbacks once Canvas's
+// active-item styles are applied.
+function postRenderTabPane() {
+  if (currentTab === 'sidebar') {
+    syncSidebarPickerFallbacks();
+    // Canvas sometimes delays applying --active styles — re-run once
+    // after a frame and once after 120ms to catch late updates.
+    requestAnimationFrame(syncSidebarPickerFallbacks);
+    setTimeout(syncSidebarPickerFallbacks, 120);
+  }
 }
 
 const PREVIEW_REACTIVE_KEYS = new Set([
@@ -867,9 +1372,10 @@ const WIDGET_RERENDER_KEYS = new Set([
 ]);
 
 function refreshPreview() {
-  const wrap = document.querySelector(`#${MODAL_ID} .cc-preview-wrap`);
+  const wrap = document.querySelector(`#${MODAL_ID} .cc-preview-content`);
   if (!wrap) return;
   const cfg = TAB_RENDERERS[currentTab]();
+  if (cfg.preview == null) return;
   wrap.innerHTML = cfg.preview;
 }
 
@@ -888,7 +1394,10 @@ function isDashboard() {
 }
 
 function tick() {
+  if (!settings.extensionEnabled) return;
   if (isDashboard()) injectWidget();
+  // Re-paint backgrounds if Canvas re-rendered any of our targets.
+  if (settings.bgColor) applyBgInline();
 }
 
 let scheduled = false;
@@ -921,15 +1430,41 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ---------- bootstrap ----------
 
-async function start() {
-  await loadSettings();
-  applySettings(settings);
+// Mark <html> as ready so the CSS FOUC guard reveals body with a fade.
+function markReady() {
+  document.documentElement.classList.add('cc-ready');
+}
+
+// Phase 1 — runs at document_start. Loads settings and applies the parts
+// that only touch <html> (CSS vars, data attrs). Body/head-dependent steps
+// are deferred to phase 2. Always marks ready at the end so Canvas can't
+// get stuck invisible.
+async function earlyInit() {
+  try {
+    await loadSettings();
+    applySettings(settings);
+  } catch (e) {
+    console.warn('[CustomCanvas] early init failed', e);
+  } finally {
+    markReady();
+  }
+}
+
+// Phase 2 — runs once DOM is parsed. Observer, widget, inline bg sweep.
+function domInit() {
+  if (settings.extensionEnabled) applyBgInline();
   observer.observe(document.documentElement, { childList: true, subtree: true });
   tick();
 }
 
+// Safety net — if anything above throws before markReady() runs, force-reveal
+// after 3 seconds so Canvas isn't left invisible forever.
+setTimeout(markReady, 3000);
+
+earlyInit();
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', start, { once: true });
+  document.addEventListener('DOMContentLoaded', domInit, { once: true });
 } else {
-  start();
+  domInit();
 }
