@@ -69,6 +69,21 @@ const DEFAULTS = {
   plannerDayTextColor: '',    // empty = Canvas default
   plannerDoneOpacity: 50,     // % — opacity of completed items
   activityItemBg: '',         // empty = Canvas default
+
+  // Dark mode
+  darkMode: false,
+
+  // Sidebar layout
+  sidebarLabelPosition: 'right', // 'right' | 'left'
+  iconSet: 'default',            // 'default' | 'fontawesome'
+
+  // Tasks widget — extended
+  widgetShowFraction: true,
+  widgetFilter: 'all',           // 'all' | 'overdue' | 'due_soon' | 'this_week'
+  assignmentPreviewsEnabled: true,
+
+  // Command palette
+  commandPaletteEnabled: true,
 };
 
 let settings = { ...DEFAULTS };
@@ -208,10 +223,10 @@ function applyBgInline() {
 // remove every override the extension applies.
 const CC_DATA_ATTRS = [
   'ccCardShadow', 'ccCardImage', 'ccCardBg', 'ccCardText',
-  'ccSidebarRestyle', 'ccSidebarLabels', 'ccDensity',
+  'ccSidebarRestyle', 'ccSidebarLabels', 'ccSidebarLabelPos', 'ccDensity',
   'ccBgColor', 'ccBgImage', 'ccTextColor', 'ccFont',
   'ccSidebarBg', 'ccSidebarText', 'ccSidebarActive', 'ccSidebarActiveText',
-  'ccDashboardView',
+  'ccDashboardView', 'ccDarkMode',
   'ccPlannerItemBg', 'ccPlannerItemText',
   'ccPlannerDayBg', 'ccPlannerDayText',
   'ccActivityItemBg',
@@ -350,6 +365,9 @@ function applySettings(s) {
     root.dataset.ccActivityItemBg = 'off';
   }
 
+  root.dataset.ccDarkMode = s.darkMode ? 'on' : 'off';
+  root.dataset.ccSidebarLabelPos = s.sidebarLabelPosition || 'right';
+
   // Belt-and-suspenders: also paint backgrounds via inline styles, which
   // bypass Canvas's CSS cascade entirely.
   applyBgInline();
@@ -463,6 +481,8 @@ function normalize(items, s = settings) {
     .filter(it => !(s.widgetHideDiscussions && it.plannable_type === 'discussion_topic'))
     .map(it => ({
       id: `${it.plannable_type}-${it.plannable_id}`,
+      plannableId: it.plannable_id,
+      courseId: it.course_id || it.context_id || null,
       title: it.plannable?.title || it.plannable?.name || 'Untitled',
       dueAt: it.plannable?.due_at || it.plannable?.todo_date || it.plannable_date,
       url: it.html_url || '#',
@@ -491,6 +511,21 @@ function normalize(items, s = settings) {
   });
 
   return mapped;
+}
+
+function applyFilter(tasks, filter) {
+  const now = Date.now();
+  const h24 = now + 24 * 60 * 60 * 1000;
+  switch (filter) {
+    case 'overdue':
+      return tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() < now);
+    case 'due_soon':
+      return tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() >= now && new Date(t.dueAt).getTime() <= h24);
+    case 'this_week':
+    case 'all':
+    default:
+      return tasks;
+  }
 }
 
 function escapeHtml(s) {
@@ -608,10 +643,35 @@ function renderWidget(container, tasks, colors) {
   const pct = total === 0 ? 100 : Math.round((done / total) * 100);
   const style = settings.widgetProgressStyle || 'bar';
 
-  const listHtml = tasks.length === 0
-    ? `<li class="cc-empty">Nothing due this week. 🎉</li>`
-    : tasks.map(t => `
-        <li class="cc-task ${t.complete ? 'cc-done' : ''}">
+  // Smart Folders: compute counts for each filter, apply active filter to list
+  const now = Date.now();
+  const h24 = now + 24 * 60 * 60 * 1000;
+  const overdueCount = tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() < now).length;
+  const dueSoonCount = tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() >= now && new Date(t.dueAt).getTime() <= h24).length;
+  const activeFilter = settings.widgetFilter || 'all';
+  const filtered = applyFilter(tasks, activeFilter);
+
+  const filterPills = [
+    { key: 'all',      label: 'All',      count: tasks.length },
+    { key: 'overdue',  label: 'Overdue',  count: overdueCount },
+    { key: 'due_soon', label: 'Due Soon', count: dueSoonCount },
+  ].map(f => `
+    <button class="cc-filter-pill${activeFilter === f.key ? ' active' : ''}" data-filter="${f.key}" type="button">
+      ${f.label}${f.count > 0 ? `<span class="cc-filter-count">${f.count}</span>` : ''}
+    </button>
+  `).join('');
+
+  const fractionHtml = settings.widgetShowFraction
+    ? `<div class="cc-fraction">${done} / ${total} tasks</div>`
+    : '';
+
+  const listHtml = filtered.length === 0
+    ? `<li class="cc-empty">${activeFilter === 'all' ? 'Nothing due this week. 🎉' : 'No tasks in this filter.'}</li>`
+    : filtered.map(t => `
+        <li class="cc-task ${t.complete ? 'cc-done' : ''}"
+            data-plannable-id="${t.plannableId != null ? t.plannableId : ''}"
+            data-course-id="${t.courseId != null ? escapeHtml(String(t.courseId)) : ''}"
+            data-plannable-type="${escapeHtml(t.type)}">
           <a href="${escapeHtml(t.url)}" class="cc-task-link">
             <div class="cc-task-row">
               <span class="cc-check" aria-hidden="true">${t.complete ? '✓' : ''}</span>
@@ -637,12 +697,16 @@ function renderWidget(container, tasks, colors) {
         ${hideHeaderCount ? '' : `<span class="cc-count">${done}/${total}</span>`}
       </div>
       ${progressMarkup(style, done, total, pct, tasks, colors)}
+      ${fractionHtml}
+      <div class="cc-filters">${filterPills}</div>
       <ul class="cc-list">${listHtml}</ul>
     </div>
   `;
 }
 
 let inFlight = false;
+let lastWidgetRaw = null; // { items, colors } — cached for instant re-renders
+
 async function injectWidget() {
   if (!settings.extensionEnabled) return;
   if (!settings.widgetEnabled) return;
@@ -653,6 +717,13 @@ async function injectWidget() {
   const container = document.createElement('div');
   container.id = WIDGET_ID;
   container.innerHTML = `<div class="cc-widget"><div class="cc-header"><h2 class="cc-title">This Week</h2></div><div class="cc-loading">Loading tasks…</div></div>`;
+
+  // Filter pill clicks — delegate on container so innerHTML re-renders don't lose the listener
+  container.addEventListener('click', (e) => {
+    const pill = e.target.closest('.cc-filter-pill');
+    if (!pill) return;
+    saveSettings({ widgetFilter: pill.dataset.filter }).then(() => rerenderWidget());
+  });
 
   const native = sidebar.querySelector(NATIVE_SELECTOR);
   if (native) native.replaceWith(container);
@@ -665,6 +736,7 @@ async function injectWidget() {
       fetchPlannerItems(),
       fetchCourseColors(),
     ]);
+    lastWidgetRaw = { items, colors };
     const tasks = normalize(items);
     const live = document.getElementById(WIDGET_ID);
     if (live) renderWidget(live, tasks, colors);
@@ -679,11 +751,12 @@ async function injectWidget() {
 // ---------- modal ----------
 
 const TABS = [
-  { id: 'general', label: 'General' },
-  { id: 'cards', label: 'Card View' },
-  { id: 'listview', label: 'List View' },
-  { id: 'sidebar', label: 'Left Sidebar' },
-  { id: 'widget', label: 'Tasks Widget' },
+  { id: 'general',      label: 'General' },
+  { id: 'cards',        label: 'Card View' },
+  { id: 'listview',     label: 'List View' },
+  { id: 'sidebar',      label: 'Left Sidebar' },
+  { id: 'widget',       label: 'Tasks Widget' },
+  { id: 'integrations', label: 'Integrations' },
 ];
 
 let currentTab = 'general';
@@ -759,6 +832,330 @@ function ensurePageFont(family) {
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
   document.head.appendChild(link);
+}
+
+// ---------- icon set ----------
+
+const ICON_MAP = {
+  'Dashboard':     'fa-home',
+  'Courses':       'fa-graduation-cap',
+  'Groups':        'fa-users',
+  'Calendar':      'fa-calendar-alt',
+  'Inbox':         'fa-envelope',
+  'History':       'fa-history',
+  'Studio':        'fa-play-circle',
+  'Commons':       'fa-layer-group',
+  'Notifications': 'fa-bell',
+  'Help':          'fa-question-circle',
+  'Account':       'fa-user-circle',
+  'Settings':      'fa-cog',
+  'Logout':        'fa-sign-out-alt',
+  'Grades':        'fa-chart-bar',
+  'Files':         'fa-folder',
+};
+
+function ensureIconSet() {
+  if (document.getElementById('cc-icons-fa')) return;
+  const pre = document.createElement('link');
+  pre.rel = 'preconnect';
+  pre.href = 'https://cdnjs.cloudflare.com';
+  const link = document.createElement('link');
+  link.id = 'cc-icons-fa';
+  link.rel = 'stylesheet';
+  link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css';
+  document.head.append(pre, link);
+}
+
+function applyIconSet() {
+  if (!document.body) return;
+  ensureIconSet();
+  document.querySelectorAll('.ic-app-header__menu-list-item').forEach(li => {
+    const link = li.querySelector('.ic-app-header__menu-list-link');
+    if (!link) return;
+    const labelEl = link.querySelector('.menu-item__text, [class*="menu-item__text"]');
+    const label = labelEl ? labelEl.textContent.trim() : '';
+    const faClass = ICON_MAP[label];
+    if (!faClass) return;
+    // Hide original SVGs
+    link.querySelectorAll('svg, .ic-icon-svg').forEach(svg => svg.classList.add('cc-icon-hidden'));
+    // Inject FA icon only once
+    if (!link.querySelector('.cc-nav-icon')) {
+      const icon = document.createElement('i');
+      icon.className = `fas ${faClass} cc-nav-icon`;
+      icon.setAttribute('aria-hidden', 'true');
+      if (labelEl) link.insertBefore(icon, labelEl);
+      else link.prepend(icon);
+    }
+  });
+}
+
+function removeIconSet() {
+  document.querySelectorAll('.cc-nav-icon').forEach(el => el.remove());
+  document.querySelectorAll('.cc-icon-hidden').forEach(el => el.classList.remove('cc-icon-hidden'));
+}
+
+// ---------- assignment previews (hover tooltip) ----------
+
+const previewCache = new Map();
+let previewTimer = null;
+let tooltipEl = null;
+let currentHoverTask = null;
+
+function stripHtml(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+}
+
+function buildTooltip(data) {
+  const desc = data.description ? stripHtml(data.description) : '';
+  const pts = data.points_possible != null ? `${data.points_possible} pts` : '';
+  return `
+    <div class="cc-tooltip-title">${escapeHtml(data.name || data.title || 'Assignment')}</div>
+    ${desc ? `<div class="cc-tooltip-desc">${escapeHtml(desc)}${data.description && data.description.length > 200 ? '…' : ''}</div>` : ''}
+    ${pts ? `<div class="cc-tooltip-pts">${escapeHtml(pts)}</div>` : ''}
+  `;
+}
+
+function showTooltip(taskEl, html) {
+  hideTooltip();
+  tooltipEl = document.createElement('div');
+  tooltipEl.id = 'cc-preview-tooltip';
+  tooltipEl.innerHTML = html;
+  document.body.appendChild(tooltipEl);
+  const rect = taskEl.getBoundingClientRect();
+  const ttW = 320;
+  const ttH = tooltipEl.offsetHeight || 80;
+  let top = rect.top - ttH - 8 + window.scrollY;
+  if (rect.top - ttH - 8 < 8) top = rect.bottom + 8 + window.scrollY;
+  let left = rect.left + window.scrollX;
+  if (left + ttW > window.innerWidth - 8) left = window.innerWidth - ttW - 8 + window.scrollX;
+  if (left < 8) left = 8;
+  tooltipEl.style.top = top + 'px';
+  tooltipEl.style.left = left + 'px';
+  requestAnimationFrame(() => { if (tooltipEl) tooltipEl.classList.add('visible'); });
+}
+
+function hideTooltip() {
+  clearTimeout(previewTimer);
+  previewTimer = null;
+  if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
+}
+
+let tooltipsAttached = false;
+function attachTooltipListeners() {
+  if (tooltipsAttached) return;
+  tooltipsAttached = true;
+  document.addEventListener('mouseover', async (e) => {
+    if (!settings.assignmentPreviewsEnabled) { hideTooltip(); return; }
+    const taskEl = e.target.closest?.('#cc-weekly-tasks .cc-task');
+    if (taskEl === currentHoverTask) return;
+    currentHoverTask = taskEl;
+    clearTimeout(previewTimer);
+    hideTooltip();
+    if (!taskEl) return;
+    const courseId = taskEl.dataset.courseId;
+    const plannableId = taskEl.dataset.plannableId;
+    const type = taskEl.dataset.plannableType;
+    if (!courseId || !plannableId || (type !== 'assignment' && type !== 'quiz')) return;
+    previewTimer = setTimeout(async () => {
+      const key = `${courseId}_${plannableId}`;
+      let data = previewCache.get(key);
+      if (!data) {
+        try {
+          const ep = type === 'quiz'
+            ? `/api/v1/courses/${courseId}/quizzes/${plannableId}`
+            : `/api/v1/courses/${courseId}/assignments/${plannableId}`;
+          const res = await fetch(ep, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+          if (res.ok) { data = await res.json(); previewCache.set(key, data); }
+        } catch {}
+      }
+      if (data && currentHoverTask === taskEl) showTooltip(taskEl, buildTooltip(data));
+    }, 400);
+  });
+}
+
+// ---------- command palette ----------
+
+const PALETTE_ID = 'cc-palette-root';
+let paletteData = null;
+let paletteOpen = false;
+let paletteSearchDebounce = null;
+
+function weekStart() {
+  const { start } = getWeekRange();
+  return start.toISOString().split('T')[0];
+}
+
+function weeksAhead(n) {
+  const { start } = getWeekRange();
+  const d = new Date(start);
+  d.setDate(d.getDate() + n * 7);
+  return d.toISOString().split('T')[0];
+}
+
+async function fetchPaletteData() {
+  try {
+    const stored = await new Promise(r => chrome.storage.local.get('ccPalette', d => r(d.ccPalette)));
+    if (stored && Date.now() - stored.ts < 3_600_000) { paletteData = stored; return; }
+    const [courses, items] = await Promise.all([
+      fetch('/api/v1/courses?enrollment_state=active&per_page=50', { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(r => r.json()),
+      fetch(`/api/v1/planner/items?start_date=${weekStart()}&end_date=${weeksAhead(8)}&per_page=100`, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(r => r.json()),
+    ]);
+    paletteData = {
+      ts: Date.now(),
+      courses: Array.isArray(courses)
+        ? courses
+            .filter(c => c.workflow_state === 'available' && !c.access_restricted_by_date)
+            .map(c => ({ id: c.id, name: c.name || c.course_code || '', url: `/courses/${c.id}` }))
+        : [],
+      assignments: Array.isArray(items)
+        ? items
+            .filter(it => RELEVANT_TYPES.has(it.plannable_type))
+            .map(it => ({
+              id: it.plannable_id,
+              title: it.plannable?.title || it.plannable?.name || 'Untitled',
+              courseId: it.course_id,
+              courseName: it.context_name || '',
+              url: it.html_url || '#',
+              type: it.plannable_type,
+            }))
+        : [],
+    };
+    chrome.storage.local.set({ ccPalette: paletteData });
+  } catch (e) {
+    console.warn('[CustomCanvas] palette prefetch failed', e);
+  }
+}
+
+function searchPalette(query) {
+  if (!paletteData || !query.trim()) return [];
+  const q = query.toLowerCase().trim();
+  const results = [];
+  for (const c of paletteData.courses) {
+    const name = (c.name || '').toLowerCase();
+    const score = name.startsWith(q) ? 3 : name.includes(q) ? 1 : 0;
+    if (score > 0) results.push({ type: 'course', name: c.name, subtitle: '', url: c.url, score });
+  }
+  for (const a of paletteData.assignments) {
+    const name = (a.title || '').toLowerCase();
+    const cn = (a.courseName || '').toLowerCase();
+    const score = name.startsWith(q) ? 3 : name.includes(q) ? 1 : cn.includes(q) ? 0.5 : 0;
+    if (score > 0) results.push({ type: 'assignment', name: a.title, subtitle: a.courseName, url: a.url, score, atype: a.type });
+  }
+  results.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  return results.slice(0, 12);
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escapeHtml(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escapeHtml(text);
+  return escapeHtml(text.slice(0, idx)) +
+    `<mark class="cc-pal-highlight">${escapeHtml(text.slice(idx, idx + query.length))}</mark>` +
+    escapeHtml(text.slice(idx + query.length));
+}
+
+function renderPaletteResults(results, query) {
+  const list = document.getElementById('cc-palette-list');
+  if (!list) return;
+  if (!results.length) {
+    list.innerHTML = `<div class="cc-pal-empty">${query ? 'No results.' : 'Type to search courses and assignments…'}</div>`;
+    return;
+  }
+  const courseIcon = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`;
+  const taskIcon  = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>`;
+  let html = '';
+  let lastType = null;
+  results.forEach((r, i) => {
+    if (r.type !== lastType) {
+      lastType = r.type;
+      html += `<div class="cc-pal-section-header">${r.type === 'course' ? 'Courses' : 'Assignments'}</div>`;
+    }
+    html += `
+      <button class="cc-pal-item${i === 0 ? ' cc-pal-active' : ''}" data-url="${escapeHtml(r.url)}" data-idx="${i}" type="button">
+        <span class="cc-pal-icon">${r.type === 'course' ? courseIcon : taskIcon}</span>
+        <div class="cc-pal-text">
+          <div class="cc-pal-name">${highlightMatch(r.name, query)}</div>
+          ${r.subtitle ? `<div class="cc-pal-sub">${escapeHtml(r.subtitle)}</div>` : ''}
+        </div>
+        <span class="cc-pal-badge">${r.type === 'course' ? 'Course' : (TYPE_LABEL[r.atype] || 'Task')}</span>
+      </button>`;
+  });
+  list.innerHTML = html;
+}
+
+function buildPalette() {
+  if (document.getElementById(PALETTE_ID)) return;
+  const root = document.createElement('div');
+  root.id = PALETTE_ID;
+  root.innerHTML = `
+    <div class="cc-pal-backdrop"></div>
+    <div id="cc-palette">
+      <div class="cc-pal-search-row">
+        <svg class="cc-pal-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="cc-palette-input" type="text" placeholder="Search courses and assignments…" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="cc-palette-list"><div class="cc-pal-empty">Type to search courses and assignments…</div></div>
+      <div class="cc-pal-footer"><span>↑↓ Navigate</span><span>↵ Open</span><span>Esc Close</span></div>
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  const input = root.querySelector('#cc-palette-input');
+  const list  = root.querySelector('#cc-palette-list');
+  root.querySelector('.cc-pal-backdrop').addEventListener('click', closePalette);
+
+  input.addEventListener('input', () => {
+    clearTimeout(paletteSearchDebounce);
+    paletteSearchDebounce = setTimeout(() => {
+      const results = searchPalette(input.value);
+      renderPaletteResults(results, input.value.trim());
+    }, 80);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = list.querySelectorAll('.cc-pal-item');
+    if (!items.length) return;
+    const active = list.querySelector('.cc-pal-item.cc-pal-active');
+    let idx = active ? parseInt(active.dataset.idx || '0', 10) : -1;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      idx = Math.min(idx + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      idx = Math.max(idx - 1, 0);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) { location.href = active.dataset.url; closePalette(); }
+      return;
+    } else if (e.key === 'Escape') {
+      closePalette(); return;
+    } else { return; }
+    items.forEach(item => item.classList.toggle('cc-pal-active', parseInt(item.dataset.idx, 10) === idx));
+    items[idx]?.scrollIntoView({ block: 'nearest' });
+  });
+
+  list.addEventListener('click', (e) => {
+    const item = e.target.closest('.cc-pal-item');
+    if (item?.dataset.url) { location.href = item.dataset.url; closePalette(); }
+  });
+}
+
+function openPalette() {
+  buildPalette();
+  const root = document.getElementById(PALETTE_ID);
+  if (!root) return;
+  root.classList.add('open');
+  paletteOpen = true;
+  const input = root.querySelector('#cc-palette-input');
+  if (input) { input.value = ''; input.focus(); }
+  renderPaletteResults([], '');
+}
+
+function closePalette() {
+  const root = document.getElementById(PALETTE_ID);
+  if (root) root.classList.remove('open');
+  paletteOpen = false;
 }
 
 function buildModal() {
@@ -1032,6 +1429,10 @@ function tabGeneral() {
     groups: [
       { title: 'Extension', rows: [
         row('Enable Custom Canvas', toggleControl('extensionEnabled'), 'Master switch. Turn off to restore Canvas defaults everywhere.'),
+        row('Dark mode', toggleControl('darkMode'), 'Force a dark theme across all Canvas pages.'),
+      ]},
+      { title: 'Productivity', rows: [
+        row('Command palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to instantly search courses and assignments.'),
       ]},
       { title: 'Background', rows: [
         row('Color', colorControl('bgColor', '#ffffff'), 'Leave default to keep Canvas\'s background.'),
@@ -1254,6 +1655,16 @@ function tabSidebar() {
       { title: 'Visibility', rows: [
         row('Enable sidebar restyle', toggleControl('sidebarRestyle'), 'Tighter spacing, rounded active state.'),
         row('Show labels', toggleControl('sidebarShowLabels'), 'Turn off to show icons only.'),
+        row('Label position', selectControl('sidebarLabelPosition', [
+          { value: 'right', label: 'Right of icon' },
+          { value: 'left',  label: 'Left of icon' },
+        ]), 'Move labels left for a compact layout — auto-shrinks icons 20%.'),
+      ]},
+      { title: 'Icons', rows: [
+        row('Icon set', selectControl('iconSet', [
+          { value: 'default',     label: 'Default (Canvas)' },
+          { value: 'fontawesome', label: 'FontAwesome' },
+        ]), 'Swap nav icons. FontAwesome is loaded from a CDN.'),
       ]},
       { title: 'Colors', rows: [
         row('Background', colorControl('sidebarBgColor', detected.bg), 'The sidebar\'s main fill color.'),
@@ -1393,34 +1804,63 @@ function tabWidget() {
       ]},
       { title: 'Progress', rows: [
         row('Style', selectControl('widgetProgressStyle', [
-          { value: 'bar', label: 'Bar' },
-          { value: 'ring', label: 'Ring' },
+          { value: 'bar',      label: 'Bar' },
+          { value: 'ring',     label: 'Ring' },
           { value: 'segments', label: 'Segments' },
         ])),
+        row('Show fraction', toggleControl('widgetShowFraction'), 'Display "done / total tasks" below the progress indicator.'),
       ]},
       { title: 'Sort', rows: [
         row('Sort by', selectControl('widgetSortBy', [
           { value: 'dueDate', label: 'Due date' },
-          { value: 'status', label: 'Status' },
-          { value: 'course', label: 'Course' },
-          { value: 'type', label: 'Type' },
+          { value: 'status',  label: 'Status' },
+          { value: 'course',  label: 'Course' },
+          { value: 'type',    label: 'Type' },
         ])),
       ]},
       { title: 'Filters', rows: [
+        row('Default view', selectControl('widgetFilter', [
+          { value: 'all',       label: 'All tasks' },
+          { value: 'overdue',   label: 'Overdue' },
+          { value: 'due_soon',  label: 'Due in 24h' },
+          { value: 'this_week', label: 'This week' },
+        ]), 'Which smart folder is active when the dashboard loads.'),
         row('Show completed', toggleControl('widgetShowCompleted')),
         row('Hide announcements', toggleControl('widgetHideAnnouncements')),
         row('Hide discussions', toggleControl('widgetHideDiscussions')),
+      ]},
+      { title: 'Previews', rows: [
+        row('Assignment previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value.'),
+      ]},
+    ],
+  };
+}
+
+function tabIntegrations() {
+  return {
+    title: 'Integrations',
+    desc: 'Connect Canvas Enhancer to external services.',
+    preview: null,
+    groups: [
+      { title: 'Google Calendar', rows: [
+        row('Sync to Google Calendar',
+          `<button class="cc-btn-disabled" disabled>Sync now <span class="cc-soon-badge">Coming soon</span></button>`,
+          'Push Canvas assignments to your Google Calendar. OAuth2 setup coming in a future update.'),
+        row('Auto-sync new assignments',
+          `<label class="cc-toggle cc-disabled" aria-disabled="true"><input type="checkbox" disabled tabindex="-1"><span class="cc-toggle-track"><span class="cc-toggle-thumb"></span></span></label>`,
+          'Automatically add new due dates. Requires sync to be configured first.'),
       ]},
     ],
   };
 }
 
 const TAB_RENDERERS = {
-  general: tabGeneral,
-  cards: tabCards,
-  listview: tabListView,
-  sidebar: tabSidebar,
-  widget: tabWidget,
+  general:      tabGeneral,
+  cards:        tabCards,
+  listview:     tabListView,
+  sidebar:      tabSidebar,
+  widget:       tabWidget,
+  integrations: tabIntegrations,
 };
 
 // After the Left Sidebar tab renders, re-read the live sidebar colors
@@ -1571,11 +2011,13 @@ function postRenderTabPane() {
 const PREVIEW_REACTIVE_KEYS = new Set([
   'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
+  'widgetShowFraction', 'widgetFilter',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
   'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
+  'widgetShowFraction', 'widgetFilter',
 ]);
 
 function refreshPreview() {
@@ -1589,6 +2031,12 @@ function refreshPreview() {
 async function rerenderWidget() {
   const existing = document.getElementById(WIDGET_ID);
   if (!existing) return;
+  if (lastWidgetRaw) {
+    // Fast re-render from cache — re-runs normalize() so sort/filter/completed settings apply
+    const tasks = normalize(lastWidgetRaw.items);
+    renderWidget(existing, tasks, lastWidgetRaw.colors);
+    return;
+  }
   existing.remove();
   await injectWidget();
 }
@@ -1627,8 +2075,9 @@ function tick() {
   if (!settings.extensionEnabled) return;
   applyDashboardView();
   if (isDashboard()) injectWidget();
-  // Re-paint backgrounds and card gap if Canvas re-rendered any of our targets.
   if (settings.bgColor) applyBgInline();
+  if (settings.iconSet && settings.iconSet !== 'default') applyIconSet();
+  else if (document.querySelector('.cc-nav-icon')) removeIconSet();
 }
 
 let scheduled = false;
@@ -1686,6 +2135,19 @@ function domInit() {
   if (settings.extensionEnabled) applyBgInline();
   observer.observe(document.documentElement, { childList: true, subtree: true });
   tick();
+
+  // Tooltip listeners — delegated on document, attached once
+  attachTooltipListeners();
+
+  // Command palette — pre-fetch data and register Ctrl+K / ⌘K shortcut
+  if (settings.commandPaletteEnabled) fetchPaletteData();
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if (!settings.commandPaletteEnabled) return;
+      e.preventDefault();
+      paletteOpen ? closePalette() : openPalette();
+    }
+  });
 }
 
 // Safety net — if anything above throws before markReady() runs, force-reveal
