@@ -14,7 +14,9 @@ html.cc-ready body {
 
 #cc-weekly-tasks {
   margin-bottom: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Lato", sans-serif;
+  /* Inherit Canvas's body font (or the user's page-font override) so the
+     widget matches every other component on the page. */
+  font-family: inherit;
 }
 
 #cc-weekly-tasks .cc-widget {
@@ -448,95 +450,97 @@ html.cc-ready body {
   height: var(--cc-card-header-height, 110px) !important;
 }
 
-/* Card grid columns */
-.ic-DashboardCard__box,
-#DashboardCard_Container > div {
-  gap: var(--cc-card-gap, 18px) !important;
+
+/* Card background color.
+   .ic-DashboardCard__box is the OUTER wrapper — don't touch it.
+   The card body background needs to cover:
+     - .ic-DashboardCard itself (the card root)
+     - .ic-DashboardCard__link (the <a> wrapping course info — the white section)
+     - .ic-DashboardCard__header_content (text inside the link)
+     - .ic-DashboardCard__action-container (the action icons nav at the bottom)
+   The header hero (.ic-DashboardCard__header_hero) keeps its own course color. */
+[data-cc-card-bg="on"] .ic-DashboardCard,
+[data-cc-card-bg="on"] .ic-DashboardCard__link,
+[data-cc-card-bg="on"] .ic-DashboardCard__header_content,
+[data-cc-card-bg="on"] .ic-DashboardCard__action-container {
+  background-color: var(--cc-card-bg) !important;
+}
+[data-cc-card-bg="on"] .cc-preview-card,
+[data-cc-card-bg="on"] .cc-preview-card-body,
+[data-cc-card-bg="on"] .cc-preview-card-footer {
+  background-color: var(--cc-card-bg) !important;
 }
 
-[data-cc-card-columns="2"] .ic-DashboardCard__box {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
+/* Card text color — applies to all text nodes within each card. */
+[data-cc-card-text="on"] .ic-DashboardCard *:not(svg):not(svg *) {
+  color: var(--cc-card-text) !important;
 }
-[data-cc-card-columns="3"] .ic-DashboardCard__box {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-}
-[data-cc-card-columns="4"] .ic-DashboardCard__box {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-}
-[data-cc-card-columns="5"] .ic-DashboardCard__box {
-  display: grid !important;
-  grid-template-columns: repeat(5, 1fr) !important;
+[data-cc-card-text="on"] .cc-preview-card *:not(svg):not(svg *) {
+  color: var(--cc-card-text) !important;
 }
 
-[data-cc-card-columns="2"] .ic-DashboardCard,
-[data-cc-card-columns="3"] .ic-DashboardCard,
-[data-cc-card-columns="4"] .ic-DashboardCard,
-[data-cc-card-columns="5"] .ic-DashboardCard {
-  width: auto !important;
-  margin: 0 !important;
+/* ---------- List View (Planner) & Recent Activity ---------- */
+/* Canvas uses CSS modules so actual class names are hashed in the DOM
+   (e.g. PlannerItem-styles__root--a1b2c3). All selectors use [class*="..."]
+   substring matching to handle the hashed variants. */
+
+[class*="PlannerItem-styles__root"] {
+  border-radius: var(--cc-card-radius, 8px) !important;
+  border-left-width: var(--cc-planner-bar-width, 5px) !important;
+  transition: box-shadow 0.2s ease;
+}
+[data-cc-card-shadow="soft"] [class*="PlannerItem-styles__root"] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+[data-cc-card-shadow="strong"] [class*="PlannerItem-styles__root"] {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 4px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Card theme presets — filter the header image + retint the card body.
-   Apply same rules to preview cards so previews match. */
-[data-cc-card-theme="pastel"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="pastel"] .cc-preview-card-image {
-  filter: saturate(0.55) brightness(1.12);
-}
-[data-cc-card-theme="pastel"] .ic-DashboardCard,
-[data-cc-card-theme="pastel"] .cc-preview-card {
-  background: #fdfaf6 !important;
+/* Item spacing — gap between Planner items. */
+[class*="PlannerItem-styles__root"] + [class*="PlannerItem-styles__root"] {
+  margin-top: var(--cc-planner-item-spacing, 8px) !important;
 }
 
-[data-cc-card-theme="mono"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="mono"] .cc-preview-card-image,
-[data-cc-card-theme="mono"] .cc-preview-card-header {
-  filter: grayscale(1) brightness(0.95);
-}
-[data-cc-card-theme="mono"] .ic-DashboardCard,
-[data-cc-card-theme="mono"] .cc-preview-card {
-  background: #f3f4f6 !important;
+/* Item background color (independent of page bg). */
+[data-cc-planner-item-bg="on"] [class*="PlannerItem-styles__root"] {
+  background-color: var(--cc-planner-item-bg) !important;
 }
 
-[data-cc-card-theme="vibrant"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="vibrant"] .cc-preview-card-image {
-  filter: saturate(1.6) contrast(1.08);
+/* Item text color. */
+[data-cc-planner-item-text="on"] [class*="PlannerItem-styles__root"],
+[data-cc-planner-item-text="on"] [class*="PlannerItem-styles__root"] *:not(svg):not(svg *) {
+  color: var(--cc-planner-item-text) !important;
 }
 
-[data-cc-card-theme="warm"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="warm"] .cc-preview-card-image {
-  filter: sepia(0.35) saturate(1.2) hue-rotate(-15deg);
-}
-[data-cc-card-theme="warm"] .ic-DashboardCard,
-[data-cc-card-theme="warm"] .cc-preview-card {
-  background: #fff8f2 !important;
+/* Completed items fade. */
+[class*="PlannerItem-styles__root"][class*="complete"],
+[class*="PlannerItem-styles__root"][aria-label*="Complete"],
+[class*="PlannerItem-styles__root"][class*="completed"] {
+  opacity: var(--cc-planner-done-opacity, 0.5) !important;
 }
 
-[data-cc-card-theme="cool"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="cool"] .cc-preview-card-image {
-  filter: hue-rotate(18deg) saturate(1.1);
+/* Day header background + text color. */
+[data-cc-planner-day-bg="on"] [class*="Day-styles__day"],
+[data-cc-planner-day-bg="on"] [class*="Day-styles__root"],
+[data-cc-planner-day-bg="on"] .Day,
+[data-cc-planner-day-bg="on"] .planner-day {
+  background-color: var(--cc-planner-day-bg) !important;
 }
-[data-cc-card-theme="cool"] .ic-DashboardCard,
-[data-cc-card-theme="cool"] .cc-preview-card {
-  background: #f2f7fb !important;
+[data-cc-planner-day-text="on"] [class*="Day-styles__day"] *:not(svg):not(svg *),
+[data-cc-planner-day-text="on"] [class*="Day-styles__root"] *:not(svg):not(svg *),
+[data-cc-planner-day-text="on"] .Day *:not(svg):not(svg *),
+[data-cc-planner-day-text="on"] .planner-day *:not(svg):not(svg *) {
+  color: var(--cc-planner-day-text) !important;
 }
 
-[data-cc-card-theme="dark"] .ic-DashboardCard,
-[data-cc-card-theme="dark"] .cc-preview-card {
-  background: #1f2937 !important;
+/* Recent Activity stream items — radius + optional background. */
+.recent_activity li,
+.ic-Dashboard-Activity .stream-item {
+  border-radius: var(--cc-card-radius, 8px) !important;
 }
-[data-cc-card-theme="dark"] .ic-DashboardCard a,
-[data-cc-card-theme="dark"] .ic-DashboardCard__link_container,
-[data-cc-card-theme="dark"] .ic-DashboardCard__header-title,
-[data-cc-card-theme="dark"] .ic-DashboardCard__header-subtitle,
-[data-cc-card-theme="dark"] .cc-preview-card-title {
-  color: #f3f4f6 !important;
-}
-[data-cc-card-theme="dark"] .ic-DashboardCard__header_image,
-[data-cc-card-theme="dark"] .cc-preview-card-image {
-  filter: brightness(0.82) saturate(1.1);
+[data-cc-activity-item-bg="on"] .recent_activity li,
+[data-cc-activity-item-bg="on"] .ic-Dashboard-Activity .stream-item {
+  background-color: var(--cc-activity-item-bg) !important;
 }
 
 /* ---------- Theme: accent + density + global radius ---------- */
@@ -586,7 +590,11 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-bg-color="on"] .ic-app-main-content__primary,
 [data-cc-bg-color="on"] .ic-app-main-content__secondary,
 [data-cc-bg-color="on"] .ic-DashboardCard__box,
-[data-cc-bg-color="on"] #DashboardCard_Container {
+[data-cc-bg-color="on"] #DashboardCard_Container,
+[data-cc-bg-color="on"] .PlannerApp,
+[data-cc-bg-color="on"] .PlannerHeader,
+[data-cc-bg-color="on"] #dashboard-activity,
+[data-cc-bg-color="on"] .ic-Dashboard-Activity {
   background-color: var(--cc-bg-color) !important;
 }
 
@@ -683,7 +691,8 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 /* ---------- User font ---------- */
 /* Broad sweep — fonts cascade naturally and don't break visual contrast.
-   Our modal and widget are protected below with !important font-family. */
+   The customization modal is protected below with !important font-family so
+   it keeps Sora regardless of the user's page-font choice. */
 [data-cc-font="on"] body,
 [data-cc-font="on"] body *,
 [data-cc-font="on"] button,
@@ -693,11 +702,11 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   font-family: var(--cc-font-family) !important;
 }
 
-/* Protect our own UI from the user's font override */
+/* Protect the customization modal from the user's page-font override.
+   The Tasks Widget is intentionally NOT protected — it lives on the Canvas
+   page and should share the page font so every component matches. */
 .cc-modal-root,
-.cc-modal-root *,
-#cc-weekly-tasks,
-#cc-weekly-tasks * {
+.cc-modal-root * {
   font-family: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
@@ -1051,6 +1060,21 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   letter-spacing: 0.2px;
 }
 
+/* Read-only pill used in the "Dashboard view" indicator row. */
+.cc-view-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cc-ds-bg);
+  border: 0.8px solid var(--cc-ds-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cc-ds-body);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  user-select: none;
+}
+
 .cc-row-control {
   flex: 0 0 auto;
   display: flex;
@@ -1253,31 +1277,14 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 /* ---------- Live previews inside the modal ---------- */
 
-/* Course card preview — default 2 rows × 3 cols = 6 mock cards.
-   Preview grid reacts to cardColumns data attribute so the dropdown
-   updates the preview in real time, same as the real dashboard. */
+/* Course card preview — 2 rows × 3 cols = 6 mock cards. */
 .cc-preview-card-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-auto-rows: auto;
-  gap: var(--cc-card-gap, 18px);
+  gap: 12px;
   width: 100%;
   max-width: 460px;
-  transition: grid-template-columns 0.2s ease;
-}
-
-[data-cc-card-columns="2"] .cc-preview-card-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
-[data-cc-card-columns="3"] .cc-preview-card-grid,
-[data-cc-card-columns="auto"] .cc-preview-card-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
-[data-cc-card-columns="4"] .cc-preview-card-grid {
-  grid-template-columns: repeat(4, 1fr);
-}
-[data-cc-card-columns="5"] .cc-preview-card-grid {
-  grid-template-columns: repeat(5, 1fr);
 }
 
 .cc-preview-card {
@@ -1318,25 +1325,51 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 .cc-preview-card-body {
-  padding: 8px 10px 10px;
+  padding: 8px 10px 6px;
 }
 
-.cc-preview-card-code {
-  font-size: 9px;
+/* Colored course name — uses the course color, matches the header bar */
+.cc-preview-card-name {
+  font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
-}
-
-.cc-preview-card-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1a202c;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+/* Gray course code (below the name) */
+.cc-preview-card-code {
+  font-size: 9px;
+  font-weight: 400;
+  color: #6b7780;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+}
+
+/* Term label — even smaller, muted */
+.cc-preview-card-term {
+  font-size: 9px;
+  color: #9fabb7;
+}
+
+/* Footer — action icon row at the bottom of each card */
+.cc-preview-card-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px 8px;
+  border-top: 0.8px solid #f0f2f4;
+  margin-top: 4px;
+}
+
+.cc-preview-card-icon {
+  display: flex;
+  align-items: center;
+  opacity: 0.55;
 }
 
 /* Sidebar preview — reactive to the same CSS vars as the real sidebar */
@@ -1692,4 +1725,213 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   text-decoration: line-through;
   color: #95a3ab;
   font-weight: 500;
+}
+
+/* ---------- List View preview ---------- */
+/* Mirrors actual Canvas Planner: flat rows separated by thin dividers,
+   colored dot · course badge · checkbox · type icon · title+meta · due */
+
+.cc-preview-listview {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--cc-bg-color, #fff);
+  padding: 4px 0;
+}
+
+.cc-preview-lv-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-planner-item-spacing, 8px);
+}
+
+/* Day header — just text on the page bg, no background by default */
+.cc-preview-lv-day-hdr {
+  padding: 2px 0 6px;
+  background: var(--cc-planner-day-bg, transparent);
+  transition: background 0.15s;
+}
+
+.cc-preview-lv-day-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cc-planner-day-text, #2d3b45);
+  transition: color 0.15s;
+}
+
+.cc-preview-lv-day-date {
+  display: block;
+  font-size: 11px;
+  color: var(--cc-planner-day-text, #6b7780);
+  opacity: 0.75;
+  transition: color 0.15s;
+}
+
+/* Item rows — flat, separated by thin top dividers. Left border color is set
+   inline per row (course color); width comes from the CSS var. */
+.cc-preview-lv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 8px 8px;
+  border-top: 1px solid #e8eaec;
+  border-left-width: var(--cc-planner-bar-width, 5px);
+  border-left-style: solid;
+  background: var(--cc-planner-item-bg, transparent);
+  transition: background 0.15s, opacity 0.2s, border-left-width 0.15s;
+}
+
+.cc-preview-lv-row--done {
+  opacity: var(--cc-planner-done-opacity, 0.5);
+}
+
+/* Small colored bullet dot — far left */
+.cc-preview-lv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Course badge — colored rect with course name in white */
+.cc-preview-lv-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  min-width: 88px;
+  height: 36px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+}
+
+/* Square checkbox */
+.cc-preview-lv-chk {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #c7ced3;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.cc-preview-lv-chk--done {
+  background: var(--cc-accent, #008ee2);
+  border-color: var(--cc-accent, #008ee2);
+}
+
+/* Type icon */
+.cc-preview-lv-type-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+}
+
+/* Text body */
+.cc-preview-lv-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-preview-lv-type-lbl {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--cc-planner-item-text, #6b7780);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.cc-preview-lv-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cc-planner-item-text, #2d3b45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+/* Right-aligned: MISSING badge + due */
+.cc-preview-lv-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.cc-preview-lv-status {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  border-radius: 2px;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+.cc-preview-lv-due {
+  font-size: 9px;
+  color: var(--cc-planner-item-text, #6b7780);
+  opacity: 0.8;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+/* Recent Activity mock block */
+.cc-preview-lv-activity {
+  margin-top: 16px;
+  border-top: 2px solid #e8eaec;
+  padding-top: 10px;
+}
+
+.cc-preview-lv-activity-hdr {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7780;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.cc-preview-lv-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: var(--cc-card-radius, 4px);
+  background: var(--cc-activity-item-bg, transparent);
+  transition: background 0.15s;
+}
+
+.cc-preview-lv-activity-item + .cc-preview-lv-activity-item {
+  margin-top: 4px;
+}
+
+.cc-preview-lv-activity-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cc-preview-lv-activity-text {
+  font-size: 10px;
+  color: #2d3b45;
+  line-height: 1.35;
 }
