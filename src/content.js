@@ -22,9 +22,8 @@ const DEFAULTS = {
   cardShowImage: true,
   cardImageOpacity: 1.0,
   cardHeaderHeight: 110,
-  cardColumns: 'auto',        // 'auto' | '2' | '3' | '4' | '5'
-  cardGap: 18,
-  cardTheme: 'default',       // 'default' | 'pastel' | 'mono' | 'vibrant' | 'dark' | 'warm' | 'cool'
+  cardBgColor: '',            // empty = Canvas default
+  cardTextColor: '',          // empty = Canvas default
 
   // Left sidebar (the global Canvas nav)
   sidebarRestyle: true,
@@ -60,6 +59,16 @@ const DEFAULTS = {
   widgetShowCompleted: true,
   widgetHideAnnouncements: false,
   widgetHideDiscussions: false,
+
+  // List View (Planner) & Recent Activity
+  plannerItemBg: '',          // empty = Canvas default
+  plannerItemTextColor: '',   // empty = Canvas default
+  plannerBarWidth: 5,         // px — colored left stripe per item
+  plannerItemSpacing: 8,      // px — gap between items
+  plannerDayBg: '',           // empty = Canvas default
+  plannerDayTextColor: '',    // empty = Canvas default
+  plannerDoneOpacity: 50,     // % — opacity of completed items
+  activityItemBg: '',         // empty = Canvas default
 };
 
 let settings = { ...DEFAULTS };
@@ -94,11 +103,19 @@ const BG_TARGETS = [
   '.ic-Layout-contentWrapper', '.ic-Layout-contentMain',
   '.ic-app-main-content', '.ic-app-main-content__primary', '.ic-app-main-content__secondary',
 
-  // Dashboard
+  // Dashboard — Card View
   '#DashboardCard_Container', '.ic-DashboardCard__box',
   '.ic-Dashboard-header__layout',
   '[class*="Dashboard-header__layout"]',
   '[class*="ic-Dashboard-header"]',
+
+  // Dashboard — List View (Planner): sweep the containers but NOT individual
+  // items (.PlannerItem, .Day) — those have their own CSS-var rules so the
+  // user can set them independently of the page background.
+  '.PlannerApp', '.PlannerHeader',
+
+  // Dashboard — Recent Activity
+  '#dashboard-activity', '.ic-Dashboard-Activity',
 
   // Course / sub-page chrome (breadcrumbs + sticky course title toolbar)
   'nav#breadcrumbs',
@@ -186,21 +203,31 @@ function applyBgInline() {
   lastAppliedBg = color;
 }
 
+
 // All data attributes we set on <html>. Used by the disable tear-down to
 // remove every override the extension applies.
 const CC_DATA_ATTRS = [
-  'ccCardShadow', 'ccCardImage', 'ccCardColumns', 'ccCardTheme',
+  'ccCardShadow', 'ccCardImage', 'ccCardBg', 'ccCardText',
   'ccSidebarRestyle', 'ccSidebarLabels', 'ccDensity',
   'ccBgColor', 'ccBgImage', 'ccTextColor', 'ccFont',
   'ccSidebarBg', 'ccSidebarText', 'ccSidebarActive', 'ccSidebarActiveText',
+  'ccDashboardView',
+  'ccPlannerItemBg', 'ccPlannerItemText',
+  'ccPlannerDayBg', 'ccPlannerDayText',
+  'ccActivityItemBg',
 ];
 const CC_CSS_VARS = [
-  '--cc-card-radius', '--cc-card-image-opacity', '--cc-card-header-height', '--cc-card-gap',
+  '--cc-card-radius', '--cc-card-image-opacity', '--cc-card-header-height',
+  '--cc-card-bg', '--cc-card-text',
   '--cc-sidebar-icon-size', '--cc-sidebar-label-size',
   '--cc-accent', '--cc-radius',
   '--cc-bg-color', '--cc-bg-image', '--cc-bg-blur',
   '--cc-text-color', '--cc-font-family', '--cc-modal-accent',
   '--cc-sidebar-bg', '--cc-sidebar-text', '--cc-sidebar-active', '--cc-sidebar-active-text',
+  '--cc-planner-item-bg', '--cc-planner-item-text',
+  '--cc-planner-bar-width', '--cc-planner-item-spacing', '--cc-planner-done-opacity',
+  '--cc-planner-day-bg', '--cc-planner-day-text',
+  '--cc-activity-item-bg',
 ];
 
 function tearDownOverrides() {
@@ -226,7 +253,6 @@ function applySettings(s) {
   set('--cc-card-radius', s.cardRadius + 'px');
   set('--cc-card-image-opacity', String(s.cardImageOpacity));
   set('--cc-card-header-height', s.cardHeaderHeight + 'px');
-  set('--cc-card-gap', s.cardGap + 'px');
 
   set('--cc-sidebar-icon-size', s.sidebarIconSize + 'px');
   set('--cc-sidebar-label-size', s.sidebarLabelSize + 'px');
@@ -256,8 +282,21 @@ function applySettings(s) {
 
   root.dataset.ccCardShadow = s.cardShadow;
   root.dataset.ccCardImage = s.cardShowImage ? 'shown' : 'hidden';
-  root.dataset.ccCardColumns = s.cardColumns;
-  root.dataset.ccCardTheme = s.cardTheme;
+
+  if (s.cardBgColor) {
+    set('--cc-card-bg', s.cardBgColor);
+    root.dataset.ccCardBg = 'on';
+  } else {
+    root.style.removeProperty('--cc-card-bg');
+    root.dataset.ccCardBg = 'off';
+  }
+  if (s.cardTextColor) {
+    set('--cc-card-text', s.cardTextColor);
+    root.dataset.ccCardText = 'on';
+  } else {
+    root.style.removeProperty('--cc-card-text');
+    root.dataset.ccCardText = 'off';
+  }
   root.dataset.ccSidebarRestyle = s.sidebarRestyle ? 'on' : 'off';
   root.dataset.ccSidebarLabels = s.sidebarShowLabels ? 'on' : 'off';
   root.dataset.ccDensity = s.density;
@@ -269,6 +308,47 @@ function applySettings(s) {
   root.dataset.ccSidebarText = s.sidebarTextColor ? 'on' : 'off';
   root.dataset.ccSidebarActive = s.sidebarActiveColor ? 'on' : 'off';
   root.dataset.ccSidebarActiveText = s.sidebarActiveTextColor ? 'on' : 'off';
+
+  // Always-on numeric planner vars (no data-attr gate needed — CSS uses them with fallbacks)
+  set('--cc-planner-bar-width', s.plannerBarWidth + 'px');
+  set('--cc-planner-item-spacing', s.plannerItemSpacing + 'px');
+  set('--cc-planner-done-opacity', (s.plannerDoneOpacity / 100).toFixed(2));
+
+  if (s.plannerItemBg) {
+    set('--cc-planner-item-bg', s.plannerItemBg);
+    root.dataset.ccPlannerItemBg = 'on';
+  } else {
+    root.style.removeProperty('--cc-planner-item-bg');
+    root.dataset.ccPlannerItemBg = 'off';
+  }
+  if (s.plannerItemTextColor) {
+    set('--cc-planner-item-text', s.plannerItemTextColor);
+    root.dataset.ccPlannerItemText = 'on';
+  } else {
+    root.style.removeProperty('--cc-planner-item-text');
+    root.dataset.ccPlannerItemText = 'off';
+  }
+  if (s.plannerDayBg) {
+    set('--cc-planner-day-bg', s.plannerDayBg);
+    root.dataset.ccPlannerDayBg = 'on';
+  } else {
+    root.style.removeProperty('--cc-planner-day-bg');
+    root.dataset.ccPlannerDayBg = 'off';
+  }
+  if (s.plannerDayTextColor) {
+    set('--cc-planner-day-text', s.plannerDayTextColor);
+    root.dataset.ccPlannerDayText = 'on';
+  } else {
+    root.style.removeProperty('--cc-planner-day-text');
+    root.dataset.ccPlannerDayText = 'off';
+  }
+  if (s.activityItemBg) {
+    set('--cc-activity-item-bg', s.activityItemBg);
+    root.dataset.ccActivityItemBg = 'on';
+  } else {
+    root.style.removeProperty('--cc-activity-item-bg');
+    root.dataset.ccActivityItemBg = 'off';
+  }
 
   // Belt-and-suspenders: also paint backgrounds via inline styles, which
   // bypass Canvas's CSS cascade entirely.
@@ -600,7 +680,8 @@ async function injectWidget() {
 
 const TABS = [
   { id: 'general', label: 'General' },
-  { id: 'cards', label: 'Course Cards' },
+  { id: 'cards', label: 'Card View' },
+  { id: 'listview', label: 'List View' },
   { id: 'sidebar', label: 'Left Sidebar' },
   { id: 'widget', label: 'Tasks Widget' },
 ];
@@ -869,26 +950,67 @@ function findOpaqueAncestorBg(el) {
   return 'rgb(255, 255, 255)';
 }
 
+// Canvas frequently paints the visible nav-link color onto a child span
+// (e.g. `.menu-item__text`) rather than the <a> itself. Reading
+// getComputedStyle(link).color therefore returns a stale value that doesn't
+// match what the user sees. Walk the link's text-bearing descendants and
+// prefer the deepest element that actually holds the label.
+function readLinkTextColor(link) {
+  if (!link) return null;
+  const candidates = [
+    link.querySelector('.menu-item__text'),
+    link.querySelector('[class*="menu-item__text"]'),
+    link.querySelector('.menu-item__badge-container + div'),
+    // Fallback: last element child that contains non-whitespace text.
+    ...Array.from(link.querySelectorAll('div, span')).reverse(),
+  ].filter(Boolean);
+  for (const el of candidates) {
+    const txt = (el.textContent || '').trim();
+    if (!txt) continue;
+    const hex = rgbToHex(getComputedStyle(el).color);
+    if (hex) return hex;
+  }
+  return rgbToHex(getComputedStyle(link).color);
+}
+
+// Walk from the link outward (the <a>, its <li>, and any wrapping container)
+// and return the first non-transparent background encountered, flattened over
+// the nearest opaque ancestor. This catches Canvas variants that style the
+// active state on the <li> instead of the <a>.
+function readActiveBgColor(activeLink) {
+  if (!activeLink) return null;
+  const chain = [activeLink, activeLink.parentElement, activeLink.parentElement?.parentElement].filter(Boolean);
+  const backdrop = findOpaqueAncestorBg(activeLink.parentElement);
+  for (const el of chain) {
+    const bg = getComputedStyle(el).backgroundColor;
+    const parsed = parseRgbString(bg);
+    if (!parsed) continue;
+    if (parsed[3] === 0) continue; // fully transparent — keep walking
+    const flat = flattenColor(bg, backdrop);
+    const hex = rgbToHex(flat);
+    if (hex) return hex;
+  }
+  return null;
+}
+
 // Read each sidebar color from the live DOM. Returns hex strings or null.
 function detectSidebarColors() {
   const header = document.querySelector('#header.ic-app-header, .ic-app-header');
   const bgColor = header ? rgbToHex(getComputedStyle(header).backgroundColor) : null;
 
-  const link = document.querySelector('.ic-app-header__menu-list-link');
-  const textColor = link ? rgbToHex(getComputedStyle(link).color) : null;
+  // Prefer an inactive link for the base text color so an `--active` override
+  // doesn't pollute the reading.
+  const inactiveLink = document.querySelector(
+    '.ic-app-header__menu-list-item:not(.ic-app-header__menu-list-item--active) .ic-app-header__menu-list-link'
+  ) || document.querySelector('.ic-app-header__menu-list-link');
+  const textColor = readLinkTextColor(inactiveLink);
 
   const activeLink = document.querySelector(
     '.ic-app-header__menu-list-item--active .ic-app-header__menu-list-link, ' +
     '.ic-app-header__menu-list-link[aria-current="page"]'
   );
-  let activeBgColor = null;
-  let activeTextColor = null;
-  if (activeLink) {
-    const activeCs = getComputedStyle(activeLink);
-    const parentBg = findOpaqueAncestorBg(activeLink.parentElement);
-    activeBgColor = rgbToHex(flattenColor(activeCs.backgroundColor, parentBg));
-    activeTextColor = rgbToHex(activeCs.color);
-  }
+  const activeBgColor = readActiveBgColor(activeLink);
+  const activeTextColor = readLinkTextColor(activeLink);
 
   return {
     bg: bgColor || '#2d3b45',
@@ -942,24 +1064,31 @@ function tabGeneral() {
 }
 
 function previewCards() {
+  // Each card: course color, image gradient, full name (colored), short code (gray), term, action icons
+  const assignIcon = `<svg viewBox="0 0 1920 1920" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1807 1920H113C50.9 1920 0 1869.1 0 1807V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1694c0 62.1-50.9 113-113 113zm-56.5-169.5v-1581H169.5v1581h1581zM338 1468.5h1244v169.5H338v-169.5zm0-338h1244v169.5H338V1130zm0-338h1244v169.5H338V792zm0-338h1244v169.5H338V454z"/></svg>`;
+  const discIcon  = `<svg viewBox="0 0 1920 1920" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1920 1468.5c0 62-50.9 112.9-113 112.9h-338v225.8c0 62.1-50.9 113-113 113-30 0-58.6-11.9-79.7-33L831.6 1581.4H113C50.9 1581.4 0 1530.5 0 1468.5V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1355.5z"/></svg>`;
   const cards = [
-    { title: 'Linear Algebra',      code: 'MATH 314', color: '#0084c7', img: 'linear-gradient(135deg, #0084c7 0%, #00c389 100%)' },
-    { title: 'Database Design',     code: 'CSCE 451', color: '#9c27b0', img: 'linear-gradient(135deg, #9c27b0 0%, #ff5722 100%)' },
-    { title: 'Business Strategy',   code: 'MGMT 411', color: '#e67e22', img: 'linear-gradient(135deg, #e67e22 0%, #f1c40f 100%)' },
-    { title: 'Discrete Math',       code: 'MATH 208', color: '#16a085', img: 'linear-gradient(135deg, #16a085 0%, #2ecc71 100%)' },
-    { title: 'Operating Systems',   code: 'CSCE 351', color: '#c0392b', img: 'linear-gradient(135deg, #c0392b 0%, #d35400 100%)' },
-    { title: 'World History',       code: 'HIST 201', color: '#2c3e50', img: 'linear-gradient(135deg, #2c3e50 0%, #7f8c8d 100%)' },
+    { name: 'Linear Algebra',    code: 'MATH 314',  term: 'Spring 2026', color: '#0084c7', img: 'linear-gradient(160deg,#0084c7 0%,#00c389 100%)', icons: [assignIcon, discIcon] },
+    { name: 'Database Design',   code: 'CSCE 451',  term: 'Spring 2026', color: '#9c27b0', img: 'linear-gradient(160deg,#9c27b0 0%,#ff5722 100%)', icons: [assignIcon] },
+    { name: 'Business Strategy', code: 'MGMT 411',  term: 'Spring 2026', color: '#e67e22', img: 'linear-gradient(160deg,#e67e22 0%,#f1c40f 100%)', icons: [assignIcon, discIcon] },
+    { name: 'Discrete Math',     code: 'MATH 208',  term: 'Spring 2026', color: '#16a085', img: 'linear-gradient(160deg,#16a085 0%,#2ecc71 100%)', icons: [assignIcon] },
+    { name: 'Operating Systems', code: 'CSCE 351',  term: 'Spring 2026', color: '#c0392b', img: 'linear-gradient(160deg,#c0392b 0%,#d35400 100%)', icons: [assignIcon, discIcon] },
+    { name: 'World History',     code: 'HIST 201',  term: 'Spring 2026', color: '#2c3e50', img: 'linear-gradient(160deg,#2c3e50 0%,#7f8c8d 100%)', icons: [assignIcon] },
   ];
   return `
     <div class="cc-preview-card-grid">
       ${cards.map(c => `
         <div class="cc-preview-card">
-          <div class="cc-preview-card-header" style="background: ${c.color};">
-            <div class="cc-preview-card-image" style="background-image: ${c.img};"></div>
+          <div class="cc-preview-card-header" style="background:${c.color};">
+            <div class="cc-preview-card-image" style="background-image:${c.img};"></div>
           </div>
           <div class="cc-preview-card-body">
-            <div class="cc-preview-card-code" style="color: ${c.color};">${c.code}</div>
-            <div class="cc-preview-card-title">${c.title}</div>
+            <div class="cc-preview-card-name" style="color:${c.color};">${c.name}</div>
+            <div class="cc-preview-card-code">${c.code}</div>
+            <div class="cc-preview-card-term">${c.term}</div>
+          </div>
+          <div class="cc-preview-card-footer">
+            ${c.icons.map(ic => `<span class="cc-preview-card-icon" style="color:#6b7780;">${ic}</span>`).join('')}
           </div>
         </div>
       `).join('')}
@@ -969,50 +1098,127 @@ function previewCards() {
 
 function tabCards() {
   return {
-    title: 'Course Cards',
-    desc: 'Customize how course cards look on the dashboard.',
+    title: 'Card View',
+    desc: 'Customize how course cards look on the Card View dashboard.',
     preview: previewCards(),
     groups: [
-      { title: 'Theme', rows: [
-        row('Color scheme', selectControl('cardTheme', [
-          { value: 'default', label: 'Default' },
-          { value: 'pastel', label: 'Pastel' },
-          { value: 'mono', label: 'Monochrome' },
-          { value: 'vibrant', label: 'Vibrant' },
-          { value: 'warm', label: 'Warm' },
-          { value: 'cool', label: 'Cool' },
-          { value: 'dark', label: 'Dark' },
-        ]), 'Applies a filter to card images and retints the palette.'),
+      { title: 'Colors', rows: [
+        row('Background', colorControl('cardBgColor', '#ffffff'), 'Background of each card body. Leave unset to use Canvas\'s default.'),
+        row('Text color', colorControl('cardTextColor', '#2d3b45'), 'Text on each card. Leave unset to use Canvas\'s default.'),
         row('Accent color', colorControl('accentColor', '#008ee2'), 'Used for links, buttons, and progress bars.'),
+      ]},
+      { title: 'Style', rows: [
         row('Density', selectControl('density', [
           { value: 'compact', label: 'Compact' },
           { value: 'cozy', label: 'Cozy' },
           { value: 'comfortable', label: 'Comfortable' },
-        ])),
+        ]), 'Card View only.'),
         row('Border radius', rangeControl('borderRadius', 0, 20, 1, 'px'), 'Global roundness for buttons and inputs.'),
       ]},
       { title: 'Shape', rows: [
-        row('Corner radius', rangeControl('cardRadius', 0, 24, 1, 'px')),
+        row('Corner radius', rangeControl('cardRadius', 0, 24, 1, 'px'), 'Applies to cards and planner items.'),
         row('Shadow', selectControl('cardShadow', [
           { value: 'none', label: 'None' },
           { value: 'soft', label: 'Soft' },
           { value: 'strong', label: 'Strong' },
-        ])),
+        ]), 'Applies to cards and planner items.'),
       ]},
       { title: 'Image', rows: [
-        row('Show card image', toggleControl('cardShowImage'), 'Hide to show only the course color block.'),
-        row('Image opacity', rangeControl('cardImageOpacity', 0, 1, 0.05)),
+        row('Show card image', toggleControl('cardShowImage'), 'Card View only. Hide to show only the course color block.'),
+        row('Image opacity', rangeControl('cardImageOpacity', 0, 1, 0.05), 'Card View only.'),
       ]},
       { title: 'Layout', rows: [
-        row('Columns', selectControl('cardColumns', [
-          { value: 'auto', label: 'Auto' },
-          { value: '2', label: '2' },
-          { value: '3', label: '3' },
-          { value: '4', label: '4' },
-          { value: '5', label: '5' },
-        ])),
-        row('Gap between cards', rangeControl('cardGap', 4, 40, 2, 'px')),
-        row('Header height', rangeControl('cardHeaderHeight', 60, 200, 5, 'px')),
+        row('Header height', rangeControl('cardHeaderHeight', 60, 200, 5, 'px'), 'Card View only.'),
+      ]},
+    ],
+  };
+}
+
+function previewListView() {
+  const assignSvg = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor"><path d="M1807 1920H113C50.9 1920 0 1869.1 0 1807V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1694c0 62.1-50.9 113-113 113zm-56.5-169.5v-1581H169.5v1581h1581zM338 1468.5h1244v169.5H338v-169.5zm0-338h1244v169.5H338V1130zm0-338h1244v169.5H338V792zm0-338h1244v169.5H338V454z"/></svg>`;
+  const discSvg   = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor"><path d="M1920 1468.5c0 62-50.9 112.9-113 112.9h-338v225.8c0 62.1-50.9 113-113 113-30 0-58.6-11.9-79.7-33L831.6 1581.4H113C50.9 1581.4 0 1530.5 0 1468.5V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1355.5z"/></svg>`;
+
+  const days = [
+    {
+      label: 'YESTERDAY', date: 'Monday, July 30',
+      items: [
+        { badge: 'INTRO TO PSYCH',  color: '#c0392b', typeLabel: 'INTRODUCTION TO PSYCHOLOGY ASSIGNMENT', title: 'Paper #2: Brains and Behavior',  icon: assignSvg, status: 'MISSING', due: 'DUE: 9:59 PM',  done: false },
+        { badge: 'MUSIC THEORY',    color: '#2980b9', typeLabel: 'MUSIC THEORY DISCUSSION',               title: 'Pitch yourself!',                icon: discSvg,   status: 'MISSING', due: 'DUE: 9:59 PM',  done: false },
+      ],
+    },
+    {
+      label: 'TODAY', date: 'Tuesday, July 31',
+      items: [
+        { badge: 'AMERICAN HISTORY',color: '#27ae60', typeLabel: 'AMERICAN HISTORY ASSIGNMENT',           title: 'Position Paper',                 icon: assignSvg, status: '',        due: 'DUE: 11:00 PM', done: false },
+        { badge: 'CHEMISTRY',       color: '#1a5276', typeLabel: 'CHEMISTRY PAGE',                        title: 'Day 13 skills review',           icon: assignSvg, status: '',        due: 'DUE: 11:59 PM', done: true  },
+      ],
+    },
+  ];
+
+  const chk = (done) => `<div class="cc-preview-lv-chk${done ? ' cc-preview-lv-chk--done' : ''}"></div>`;
+
+  return `
+    <div class="cc-preview-listview">
+      ${days.map(day => `
+        <div class="cc-preview-lv-day">
+          <div class="cc-preview-lv-day-hdr">
+            <span class="cc-preview-lv-day-name">${day.label}</span>
+            <span class="cc-preview-lv-day-date">${day.date}</span>
+          </div>
+          ${day.items.map(it => `
+            <div class="cc-preview-lv-row${it.done ? ' cc-preview-lv-row--done' : ''}" style="border-left-color:${it.color};">
+              <div class="cc-preview-lv-dot" style="background:${it.color};"></div>
+              <div class="cc-preview-lv-badge" style="background:${it.color};">${it.badge}</div>
+              ${chk(it.done)}
+              <span class="cc-preview-lv-type-icon" style="color:${it.color};">${it.icon}</span>
+              <div class="cc-preview-lv-text">
+                <div class="cc-preview-lv-type-lbl">${it.typeLabel}</div>
+                <div class="cc-preview-lv-title">${it.title}</div>
+              </div>
+              <div class="cc-preview-lv-right">
+                ${it.status ? `<span class="cc-preview-lv-status">${it.status}</span>` : ''}
+                <span class="cc-preview-lv-due">${it.due}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+      <div class="cc-preview-lv-activity">
+        <div class="cc-preview-lv-activity-hdr">Recent Activity</div>
+        <div class="cc-preview-lv-activity-item">
+          <span class="cc-preview-lv-activity-dot" style="background:#9c27b0;"></span>
+          <span class="cc-preview-lv-activity-text">New announcement in <strong>Database Design</strong></span>
+        </div>
+        <div class="cc-preview-lv-activity-item">
+          <span class="cc-preview-lv-activity-dot" style="background:#16a085;"></span>
+          <span class="cc-preview-lv-activity-text">Grade posted for <strong>Discrete Math HW 5</strong></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function tabListView() {
+  return {
+    title: 'List View',
+    desc: 'Customize the Planner (List View) and Recent Activity dashboard views.',
+    preview: previewListView(),
+    groups: [
+      { title: 'Item Style', rows: [
+        row('Background', colorControl('plannerItemBg', '#ffffff'), 'Background of each planner item row. Leave unset to use Canvas\'s default.'),
+        row('Text color', colorControl('plannerItemTextColor', '#2d3b45'), 'Title and meta text on each item.'),
+        row('Accent bar width', rangeControl('plannerBarWidth', 0, 12, 1, 'px'), 'Width of the colored left stripe showing the course color.'),
+        row('Item spacing', rangeControl('plannerItemSpacing', 4, 24, 2, 'px'), 'Gap between items in the list.'),
+      ]},
+      { title: 'Day Headers', rows: [
+        row('Background', colorControl('plannerDayBg', '#f5f5f5'), 'Background of each day\'s header strip.'),
+        row('Text color', colorControl('plannerDayTextColor', '#2d3b45'), 'Color of the date label in each day header.'),
+      ]},
+      { title: 'Completed Items', rows: [
+        row('Opacity', rangeControl('plannerDoneOpacity', 20, 100, 5, '%'), 'How faded completed items appear. Lower = more muted.'),
+      ]},
+      { title: 'Recent Activity', rows: [
+        row('Item background', colorControl('activityItemBg', '#ffffff'), 'Background of each activity feed item.'),
       ]},
     ],
   };
@@ -1212,6 +1418,7 @@ function tabWidget() {
 const TAB_RENDERERS = {
   general: tabGeneral,
   cards: tabCards,
+  listview: tabListView,
   sidebar: tabSidebar,
   widget: tabWidget,
 };
@@ -1393,10 +1600,34 @@ function isDashboard() {
   return p === '/' || p === '' || p === '/dashboard' || p.startsWith('/?');
 }
 
+// Detect which of the three dashboard views is currently visible.
+// Returns 'card' | 'activity' | 'list' | null (null = not on dashboard / no match).
+function detectDashboardView() {
+  const views = [
+    ['card',     '#DashboardCard_Container'],
+    ['activity', '#dashboard-activity'],
+    ['list',     '.PlannerApp'],
+  ];
+  for (const [view, sel] of views) {
+    const el = document.querySelector(sel);
+    if (el && getComputedStyle(el).display !== 'none') return view;
+  }
+  return null;
+}
+
+let lastView = null;
+function applyDashboardView() {
+  const view = detectDashboardView();
+  if (view === lastView) return;
+  lastView = view;
+  document.documentElement.dataset.ccDashboardView = view ?? 'none';
+}
+
 function tick() {
   if (!settings.extensionEnabled) return;
+  applyDashboardView();
   if (isDashboard()) injectWidget();
-  // Re-paint backgrounds if Canvas re-rendered any of our targets.
+  // Re-paint backgrounds and card gap if Canvas re-rendered any of our targets.
   if (settings.bgColor) applyBgInline();
 }
 

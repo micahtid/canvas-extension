@@ -6,6 +6,80 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-09
+
+### List View — Fix: CSS selectors broken by Canvas CSS modules (settings had no effect on real site)
+- **Where:** `src/content.css` (entire `/* List View (Planner) & Recent Activity */` block).
+- **What:** Canvas uses CSS modules so actual DOM class names are hashed (e.g. `PlannerItem-styles__root--a1b2c3`). Static selectors `.PlannerItem`, `.PlannerApp`, `.planner-app`, `.Day`, `.planner-day` matched nothing on the real page — only the live preview (which uses our own `.cc-preview-lv-*` classes) was styled. Fixed by replacing every Canvas planner selector with `[class*="PlannerItem-styles__root"]` and `[class*="Day-styles__day"]`/`[class*="Day-styles__root"]` substring selectors. Also consolidated the two separate `.PlannerItem` blocks into one.
+- **Why:** Live Preview read CSS variables directly and worked fine; the real Canvas page never matched any rule.
+
+### Card View — Color scheme replaced with Background, Text, and Accent color pickers
+- **Where:** `src/content.js` (`DEFAULTS`, `CC_DATA_ATTRS`, `CC_CSS_VARS`, `applySettings`, `tabCards`); `src/content.css` (card theme block).
+- **What:**
+  - Removed `cardTheme` preset dropdown (`default | pastel | mono | vibrant | dark | warm | cool`) and all associated CSS rules.
+  - Added `cardBgColor` and `cardTextColor` settings (empty = Canvas default) with CSS vars `--cc-card-bg` / `--cc-card-text`, data attrs `ccCardBg` / `ccCardText`.
+  - Card View "Theme" group replaced by a "Colors" group with Background, Text color, and Accent color rows.
+  - Remaining density/border-radius rows moved into a new "Style" group.
+- **Why:** Matches the per-field color picker pattern already used in List View.
+
+### Card View — Course Information section background fix (corrected selectors)
+- **Where:** `src/content.css` (`[data-cc-card-bg="on"]` rule block).
+- **What:** Fixed incorrect selectors from first attempt. `.ic-DashboardCard__box` is the OUTER card wrapper (not a body section) — targeting it was painting the entire card container including behind the course image. The actual Course Information section is `.ic-DashboardCard__link` (an `<a>` tag inside the header). Corrected targets: `.ic-DashboardCard`, `.ic-DashboardCard__link`, `.ic-DashboardCard__header_content`, `.ic-DashboardCard__action-container`. The hero div (`.ic-DashboardCard__header_hero`) keeps its course color untouched.
+
+### Card View — "Gap between cards" feature removed (REVERTED)
+- **Where:** `src/content.js`, `src/content.css`.
+- **What:** Removed `cardGap` setting entirely. Deleted `DEFAULTS.cardGap`, `CARD_GAP_SELECTORS`, `clearCardGapInline()`, `applyCardGapInline()`, the `--cc-card-gap` CSS var entry, the `set('--cc-card-gap', …)` call in `applySettings()`, the row in `tabCards()`, and all call sites. Preview card grid reverts to a fixed `12px` gap. The two prior attempts to implement this (CSS rule, then inline JS) are both removed.
+
+### List View preview — bar width, item spacing, and Recent Activity block fixed
+- **Where:** `previewListView()` in `src/content.js`; `.cc-preview-lv-row`, `.cc-preview-lv-day`, new `.cc-preview-lv-activity-*` rules in `src/content.css`.
+- **What:**
+  - `plannerBarWidth` was invisible in the preview — fixed by adding `border-left-width: var(--cc-planner-bar-width, 5px); border-left-style: solid;` to `.cc-preview-lv-row` and inline `border-left-color: ${it.color}` per row in the JS template.
+  - `plannerItemSpacing` was invisible — fixed by adding `gap: var(--cc-planner-item-spacing, 8px)` to `.cc-preview-lv-day`.
+  - `activityItemBg` had no preview element — fixed by adding a mock "Recent Activity" block (two items using `.cc-preview-lv-activity-item`) whose background reads `var(--cc-activity-item-bg, transparent)`.
+  - Removed planner keys from `PREVIEW_REACTIVE_KEYS` — all planner settings are now purely CSS-var driven and update the preview automatically without a full HTML re-render.
+
+### Dashboard view detection — `data-cc-dashboard-view` attribute
+- **Where:** `<html>` element; detected via `#DashboardCard_Container`, `#dashboard-activity`, `.PlannerApp`.
+- **What:** New `detectDashboardView()` returns `'card' | 'activity' | 'list' | null`. New `applyDashboardView()` stamps `data-cc-dashboard-view` on `<html>` and only writes it when the value changes (no-op if unchanged, preventing mutation observer loops). Called from `tick()` on every observer fire. `'ccDashboardView'` added to `CC_DATA_ATTRS` so the master kill switch removes it. `lastView` guard prevents redundant attribute writes.
+- **Why:** Provides a stable CSS hook so view-specific rules can use `html[data-cc-dashboard-view="card"]` selectors, and lets the settings modal display the current view.
+
+### Dashboard BG_TARGETS — Planner and Recent Activity added
+- **Where:** `BG_TARGETS` array in `src/content.js`.
+- **What:** Added `.PlannerApp`, `.PlannerHeader`, `.Day`, `.planner-day`, `.PlannerItem`, `#dashboard-activity`, `.ic-Dashboard-Activity` so `applyBgInline()` sweeps background color onto these containers in addition to the existing Card View targets.
+
+### CSS — Planner and Recent Activity coverage (`src/content.css`)
+- **Where:** New `/* List View (Planner) & Recent Activity */` section after the card-theme block.
+- **What:**
+  - `.PlannerItem` gets `border-radius: var(--cc-card-radius, 8px)` and optional box-shadow from `data-cc-card-shadow` — same shadow rules as `.ic-DashboardCard`.
+  - `.recent_activity li` and `.ic-Dashboard-Activity .stream-item` get `border-radius: var(--cc-card-radius, 8px)`.
+  - `[data-cc-bg-color="on"]` block extended to cover `.PlannerApp`, `.PlannerHeader`, `.Day`, `.PlannerItem`, `#dashboard-activity`, `.ic-Dashboard-Activity`.
+- **Why:** Background color and card shape settings were Card-View-only; they now apply consistently across all three dashboard views.
+
+### Tab renamed: "Course Cards" → "Card View"
+- **Where:** `TABS` array and `tabCards()` title/desc in `src/content.js`.
+- **What:** Label changed to match Canvas's own terminology.
+
+### Settings modal — "List View" tab
+- **Where:** `tabListView()` + `previewListView()` in `src/content.js`; `/* List View preview */` + `/* List View (Planner) & Recent Activity */` sections in `src/content.css`.
+- **What:** Full List View tab added between Card View and Left Sidebar with four groups:
+  - *Item Style*: background, text color, accent bar width (0–12px), item spacing (4–24px)
+  - *Day Headers*: background, text color
+  - *Completed Items*: opacity slider (20–100%)
+  - *Recent Activity*: item background
+- **Preview redesigned** to match actual Canvas Planner layout: full-width day-header strip, item rows with colored left bar + circular checkbox + icon + title + course/time meta. Completed item shown faded. Recent Activity block below.
+- **New DEFAULTS:** `plannerItemBg`, `plannerItemTextColor`, `plannerBarWidth` (5px), `plannerItemSpacing` (8px), `plannerDayBg`, `plannerDayTextColor`, `plannerDoneOpacity` (50%), `activityItemBg`.
+- **New CSS vars:** `--cc-planner-item-bg/text`, `--cc-planner-bar-width`, `--cc-planner-item-spacing`, `--cc-planner-done-opacity`, `--cc-planner-day-bg/text`, `--cc-activity-item-bg`.
+- **New CSS rules on live Canvas:** item spacing via `margin-top`; item bg/text via data-attr gated rules; bar width via `border-left-width`; completed item opacity via attribute/class selectors; day header bg/text; Recent Activity item bg.
+- **BG_TARGETS:** `.PlannerApp`, `.PlannerHeader`, `#dashboard-activity`, `.ic-Dashboard-Activity` added (container sweep for page bg color); `.Day` and `.PlannerItem` excluded — independent CSS-var rules handle those.
+- **Why:** Replaced the earlier minimal tab (4 settings, wrong preview) with Card-View-level depth.
+
+### Settings modal — Card View only hints
+- **Where:** `tabCards()` in `src/content.js`.
+- **What:** Added hint text to rows whose settings only affect Card View: Color scheme, Density, Image-related rows (show/opacity), Layout rows (gap, header height). Corner radius and Shadow rows updated to note they apply to cards and planner items.
+- **Why:** Users in List View or Recent Activity would otherwise see settings with no visible effect and no indication why.
+
+---
+
 ## 2026-04-06
 
 ### Project scaffold
@@ -350,6 +424,31 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
   - `word-break: normal` and `overflow-wrap: normal` on the link to prevent mid-word splits.
   - Tighter vertical padding (8px) and `gap: 4px` between items to compensate for the smaller icons.
   - Active background switched back to a light overlay (`rgba(255,255,255,0.18)`) appropriate for Canvas's dark nav; rounded square inset preserved.
+
+---
+
+## 2026-04-09
+
+### Sidebar color pickers — detect visible text color, not `<a>` color
+- **Where:** `detectSidebarColors()` in `src/content.js`.
+- **What:** `getComputedStyle(link).color` was reading the `<a>` element, but Canvas frequently paints the visible label color on a child span (`.menu-item__text`) or inner `<div>`. Diagnostic on an active Dashboard link showed `<a>` color `rgb(255,255,255)` while the visible `.menu-item__text` was `rgb(208,0,0)` — so the picker was prefilled with white instead of the actual red text color.
+- **Fix:**
+  - New `readLinkTextColor(link)` helper walks the link's text-bearing descendants (prefers `.menu-item__text`, then any inner `div`/`span` with non-whitespace text), reads `getComputedStyle(el).color` on the deepest match, and only falls back to the `<a>`'s own color if nothing is found.
+  - New `readActiveBgColor(activeLink)` walks the `<a>` → `<li>` → wrapper chain and returns the first non-transparent background, flattened over the nearest opaque ancestor — so Canvas variants that style the active state on the `<li>` instead of the `<a>` are picked up.
+  - `detectSidebarColors()` now also prefers an inactive `<li>` for the base text-color reading so an `--active` override can't pollute it.
+- **Why:** ensures the Active-item text and Active-item background pickers always prefill with the color the user actually sees, not the stale `<a>`-level default. Especially matters when the user hasn't overridden either setting.
+
+### Cards tab — removed "Columns" selector
+- **Where:** `tabCards()` "Layout" group in `src/content.js`; `[data-cc-card-columns="..."]` rules in `src/content.css`.
+- **What:** dropped the Columns dropdown that let users force a 2/3/4/5-column grid on `.ic-DashboardCard__box`. Removed the `cardColumns` default, the `root.dataset.ccCardColumns` assignment in `applySettings()`, the five `[data-cc-card-columns="…"] .ic-DashboardCard__box` rules, the width-reset helper, and the preview-grid `[data-cc-card-columns="…"]` variants (preview now always renders 3 columns).
+- **Why:** user requested — column count should be left to Canvas's own responsive layout.
+
+### Tasks Widget — inherit page font instead of forcing Sora
+- **Where:** `#cc-weekly-tasks` font rules in `src/content.css`.
+- **What:**
+  - Removed `#cc-weekly-tasks, #cc-weekly-tasks *` from the `font-family: "Sora" … !important` protection rule (now scoped to `.cc-modal-root` only).
+  - Changed `#cc-weekly-tasks` base rule from a hardcoded system-font stack to `font-family: inherit` so the widget picks up Canvas's body font (or the user's page-font override from the General tab).
+- **Why:** the widget lives on the Canvas page and should match every other component. Previously it always rendered in Sora regardless of what the rest of the page used.
 
 ---
 
