@@ -6,6 +6,46 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-09 (PRD — Canvas Enhancer feature set)
+
+### General — Global Dark Mode
+- **Where:** `src/content.js` (`DEFAULTS`, `CC_DATA_ATTRS`, `applySettings`, `tabGeneral`); `src/content.css` (`[data-cc-dark-mode="on"]` block).
+- **What:** Added `darkMode` setting (default `false`). Toggle in General → Extension section. Sets `data-cc-dark-mode` on `<html>`. CSS overrides Canvas's page bg (`#1a1d21`), surfaces (`#23272b`), header (`#111316`), body text (`#e8eaed`), form inputs, and borders. The modal is excluded from text overrides.
+
+### Left Sidebar — Label position (left/right) + Smart Resize
+- **Where:** `src/content.js` (`DEFAULTS`, `CC_DATA_ATTRS`, `applySettings`, `tabSidebar`); `src/content.css` (sidebar label-left block).
+- **What:** Added `sidebarLabelPosition` setting (`'right'` default). New "Label position" select in Sidebar → Visibility. When `'left'`, CSS reverses nav-link flex direction. Compound selector automatically reduces icon size and row padding by 20%.
+
+### Left Sidebar — FontAwesome icon set
+- **Where:** `src/content.js` (`ICON_MAP`, `ensureIconSet`, `applyIconSet`, `removeIconSet`, `tick`, `tabSidebar`); `src/content.css` (`.cc-icon-hidden`, `.cc-nav-icon`).
+- **What:** Added `iconSet` setting (`'default'` | `'fontawesome'`). New "Icons" section in Sidebar tab. `applyIconSet()` (called from `tick()`) hides original Canvas SVGs and injects FA 6 `<i>` elements for 15 mapped nav items. FA CSS loaded from cdnjs CDN.
+
+### Tasks Widget — Fraction counter
+- **Where:** `src/content.js` (`DEFAULTS`, `renderWidget`, `tabWidget`, `PREVIEW_REACTIVE_KEYS`, `WIDGET_RERENDER_KEYS`); `src/content.css` (`.cc-fraction`).
+- **What:** Added `widgetShowFraction` (default `true`). Renders `"done / total tasks"` below the progress indicator. Toggle in Widget → Progress.
+
+### Tasks Widget — Smart Folders (filter pills)
+- **Where:** `src/content.js` (`DEFAULTS`, `applyFilter`, `renderWidget`, `injectWidget`, `tabWidget`, `WIDGET_RERENDER_KEYS`); `src/content.css` (`.cc-filters`, `.cc-filter-pill`, `.cc-filter-count`).
+- **What:** Added `widgetFilter` setting (`'all'` | `'overdue'` | `'due_soon'` | `'this_week'`). `applyFilter()` filters tasks for the live widget; counts are computed per render. Filter pills above the task list; clicking a pill calls `saveSettings` then `rerenderWidget()` (instant from cached data). "Default view" select in Widget → Filters.
+
+### Tasks Widget — Assignment previews (hover tooltip)
+- **Where:** `src/content.js` (`DEFAULTS`, `normalize`, `renderWidget`, `attachTooltipListeners`, `buildTooltip`, `showTooltip`, `hideTooltip`, `domInit`); `src/content.css` (`#cc-preview-tooltip`).
+- **What:** Added `assignmentPreviewsEnabled` (default `true`). `normalize()` stores `plannableId`/`courseId`; these are rendered as data attrs on `<li>`. `attachTooltipListeners()` uses delegated `mouseover`. After 400 ms, fetches assignment/quiz from Canvas API, caches in `previewCache`, shows tooltip with title, stripped description (200 chars), and points.
+
+### Advanced — Command Palette (Ctrl+K)
+- **Where:** `src/content.js` (`DEFAULTS`, `fetchPaletteData`, `buildPalette`, `openPalette`, `closePalette`, `searchPalette`, `renderPaletteResults`, `domInit`); `src/content.css` (`#cc-palette-root`, `.cc-pal-*`).
+- **What:** Added `commandPaletteEnabled` (default `true`). Ctrl+K / ⌘K opens a full-screen overlay. `fetchPaletteData()` pre-fetches active courses + 8-week planner items on load, cached in `chrome.storage.local` for 1 hour. Fuzzy search: prefix = 3 pts, contains = 1 pt. Results grouped Courses / Assignments with match highlighting. Keyboard nav ↑↓, Enter, Esc.
+
+### Integrations Tab — Google Calendar placeholder
+- **Where:** `src/content.js` (`TABS`, `TAB_RENDERERS`, `tabIntegrations`); `src/content.css` (`.cc-btn-disabled`, `.cc-soon-badge`, `.cc-toggle.cc-disabled`).
+- **What:** New sixth tab "Integrations". Disabled "Sync now" button + auto-sync toggle — UI mockup for future OAuth2.
+
+### Widget — Fast re-render from cached raw data
+- **Where:** `src/content.js` (`injectWidget`, `rerenderWidget`, `lastWidgetRaw`).
+- **What:** `injectWidget()` stores raw API response in `lastWidgetRaw`. `rerenderWidget()` re-runs `normalize()` against cached data (no API call) for instant filter/sort/fraction updates.
+
+---
+
 ## 2026-04-09
 
 ### List View — Fix: CSS selectors broken by Canvas CSS modules (settings had no effect on real site)
