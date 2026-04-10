@@ -74,8 +74,7 @@ const DEFAULTS = {
   darkMode: false,
 
   // Sidebar layout
-  sidebarLabelPosition: 'right', // 'right' | 'left'
-  iconSet: 'default',            // 'default' | 'fontawesome'
+  sidebarLabelPosition: 'bottom', // 'bottom' | 'right'
 
   // Tasks widget — extended
   widgetShowFraction: true,
@@ -84,6 +83,7 @@ const DEFAULTS = {
 
   // Command palette
   commandPaletteEnabled: true,
+  hideScrollBars: false,
 };
 
 let settings = { ...DEFAULTS };
@@ -92,6 +92,7 @@ async function loadSettings() {
   try {
     const stored = await chrome.storage.sync.get(DEFAULTS);
     settings = { ...DEFAULTS, ...stored };
+    if (settings.sidebarLabelPosition === 'left') settings.sidebarLabelPosition = 'right';
   } catch (e) {
     settings = { ...DEFAULTS };
   }
@@ -227,6 +228,7 @@ const CC_DATA_ATTRS = [
   'ccBgColor', 'ccBgImage', 'ccTextColor', 'ccFont',
   'ccSidebarBg', 'ccSidebarText', 'ccSidebarActive', 'ccSidebarActiveText',
   'ccDashboardView', 'ccDarkMode',
+  'ccHideScrollbars',
   'ccPlannerItemBg', 'ccPlannerItemText',
   'ccPlannerDayBg', 'ccPlannerDayText',
   'ccActivityItemBg',
@@ -366,11 +368,15 @@ function applySettings(s) {
   }
 
   root.dataset.ccDarkMode = s.darkMode ? 'on' : 'off';
-  root.dataset.ccSidebarLabelPos = s.sidebarLabelPosition || 'right';
+  root.dataset.ccHideScrollbars = s.hideScrollBars ? 'on' : 'off';
+  root.dataset.ccSidebarLabelPos = ['bottom', 'right'].includes(s.sidebarLabelPosition)
+    ? s.sidebarLabelPosition
+    : (s.sidebarLabelPosition === 'left' ? 'right' : 'bottom');
 
   // Belt-and-suspenders: also paint backgrounds via inline styles, which
   // bypass Canvas's CSS cascade entirely.
   applyBgInline();
+  removeLegacySidebarIcons();
 }
 
 // ---------- weekly tasks widget ----------
@@ -474,23 +480,61 @@ const TYPE_LABEL = {
   announcement: 'Announcement',
 };
 
+function getPreviewCacheKey({ courseId, plannableId, type }) {
+  return `${type || 'unknown'}_${courseId || 'none'}_${plannableId || 'none'}`;
+}
+
+function normalizePreviewData(data, type) {
+  if (!data) return null;
+  const title = data.title || data.name || 'Untitled';
+  const description = data.description || data.message || data.body || data.details || '';
+  return {
+    ...data,
+    type,
+    title,
+    name: data.name || title,
+    description,
+  };
+}
+
+function seedPreviewCacheFromPlannerItem(item) {
+  if (!item?.plannable_type || item?.plannable_id == null) return;
+  const key = getPreviewCacheKey({
+    courseId: item.course_id || item.context_id || null,
+    plannableId: item.plannable_id,
+    type: item.plannable_type,
+  });
+  const seeded = normalizePreviewData({
+    title: item.plannable?.title || item.plannable?.name || 'Untitled',
+    description: item.plannable?.description || item.plannable?.message || item.plannable?.body || item.description || '',
+    points_possible: item.plannable?.points_possible,
+  }, item.plannable_type);
+  const existing = previewCache.get(key);
+  if (!existing || (!existing.description && seeded?.description)) {
+    previewCache.set(key, { ...existing, ...seeded });
+  }
+}
+
 function normalize(items, s = settings) {
   let mapped = items
     .filter(it => RELEVANT_TYPES.has(it.plannable_type))
     .filter(it => !(s.widgetHideAnnouncements && it.plannable_type === 'announcement'))
     .filter(it => !(s.widgetHideDiscussions && it.plannable_type === 'discussion_topic'))
-    .map(it => ({
-      id: `${it.plannable_type}-${it.plannable_id}`,
-      plannableId: it.plannable_id,
-      courseId: it.course_id || it.context_id || null,
-      title: it.plannable?.title || it.plannable?.name || 'Untitled',
-      dueAt: it.plannable?.due_at || it.plannable?.todo_date || it.plannable_date,
-      url: it.html_url || '#',
-      contextName: it.context_name || '',
-      contextCode: it.context_type && it.course_id ? `course_${it.course_id}` : (it.context_type === 'Course' && it.context_id ? `course_${it.context_id}` : ''),
-      complete: isComplete(it),
-      type: it.plannable_type,
-    }));
+    .map(it => {
+      seedPreviewCacheFromPlannerItem(it);
+      return {
+        id: `${it.plannable_type}-${it.plannable_id}`,
+        plannableId: it.plannable_id,
+        courseId: it.course_id || it.context_id || null,
+        title: it.plannable?.title || it.plannable?.name || 'Untitled',
+        dueAt: it.plannable?.due_at || it.plannable?.todo_date || it.plannable_date,
+        url: it.html_url || '#',
+        contextName: it.context_name || '',
+        contextCode: it.context_type && it.course_id ? `course_${it.course_id}` : (it.context_type === 'Course' && it.context_id ? `course_${it.context_id}` : ''),
+        complete: isComplete(it),
+        type: it.plannable_type,
+      };
+    });
 
   if (!s.widgetShowCompleted) mapped = mapped.filter(t => !t.complete);
 
@@ -834,62 +878,7 @@ function ensurePageFont(family) {
   document.head.appendChild(link);
 }
 
-// ---------- icon set ----------
-
-const ICON_MAP = {
-  'Dashboard':     'fa-home',
-  'Courses':       'fa-graduation-cap',
-  'Groups':        'fa-users',
-  'Calendar':      'fa-calendar-alt',
-  'Inbox':         'fa-envelope',
-  'History':       'fa-history',
-  'Studio':        'fa-play-circle',
-  'Commons':       'fa-layer-group',
-  'Notifications': 'fa-bell',
-  'Help':          'fa-question-circle',
-  'Account':       'fa-user-circle',
-  'Settings':      'fa-cog',
-  'Logout':        'fa-sign-out-alt',
-  'Grades':        'fa-chart-bar',
-  'Files':         'fa-folder',
-};
-
-function ensureIconSet() {
-  if (document.getElementById('cc-icons-fa')) return;
-  const pre = document.createElement('link');
-  pre.rel = 'preconnect';
-  pre.href = 'https://cdnjs.cloudflare.com';
-  const link = document.createElement('link');
-  link.id = 'cc-icons-fa';
-  link.rel = 'stylesheet';
-  link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css';
-  document.head.append(pre, link);
-}
-
-function applyIconSet() {
-  if (!document.body) return;
-  ensureIconSet();
-  document.querySelectorAll('.ic-app-header__menu-list-item').forEach(li => {
-    const link = li.querySelector('.ic-app-header__menu-list-link');
-    if (!link) return;
-    const labelEl = link.querySelector('.menu-item__text, [class*="menu-item__text"]');
-    const label = labelEl ? labelEl.textContent.trim() : '';
-    const faClass = ICON_MAP[label];
-    if (!faClass) return;
-    // Hide original SVGs
-    link.querySelectorAll('svg, .ic-icon-svg').forEach(svg => svg.classList.add('cc-icon-hidden'));
-    // Inject FA icon only once
-    if (!link.querySelector('.cc-nav-icon')) {
-      const icon = document.createElement('i');
-      icon.className = `fas ${faClass} cc-nav-icon`;
-      icon.setAttribute('aria-hidden', 'true');
-      if (labelEl) link.insertBefore(icon, labelEl);
-      else link.prepend(icon);
-    }
-  });
-}
-
-function removeIconSet() {
+function removeLegacySidebarIcons() {
   document.querySelectorAll('.cc-nav-icon').forEach(el => el.remove());
   document.querySelectorAll('.cc-icon-hidden').forEach(el => el.classList.remove('cc-icon-hidden'));
 }
@@ -897,6 +886,7 @@ function removeIconSet() {
 // ---------- assignment previews (hover tooltip) ----------
 
 const previewCache = new Map();
+const PREVIEW_HOVER_DELAY_MS = 500;
 let previewTimer = null;
 let tooltipEl = null;
 let currentHoverTask = null;
@@ -909,11 +899,23 @@ function stripHtml(html) {
 function buildTooltip(data) {
   const desc = data.description ? stripHtml(data.description) : '';
   const pts = data.points_possible != null ? `${data.points_possible} pts` : '';
+  const meta = data.type && TYPE_LABEL[data.type] ? TYPE_LABEL[data.type] : '';
   return `
     <div class="cc-tooltip-title">${escapeHtml(data.name || data.title || 'Assignment')}</div>
     ${desc ? `<div class="cc-tooltip-desc">${escapeHtml(desc)}${data.description && data.description.length > 200 ? '…' : ''}</div>` : ''}
+    ${!desc && meta ? `<div class="cc-tooltip-desc">${escapeHtml(meta)}</div>` : ''}
     ${pts ? `<div class="cc-tooltip-pts">${escapeHtml(pts)}</div>` : ''}
   `;
+}
+
+function getPreviewEndpoint(courseId, plannableId, type) {
+  if (!courseId || plannableId == null) return null;
+  if (type === 'assignment') return `/api/v1/courses/${courseId}/assignments/${plannableId}`;
+  if (type === 'quiz') return `/api/v1/courses/${courseId}/quizzes/${plannableId}`;
+  if (type === 'announcement' || type === 'discussion_topic') {
+    return `/api/v1/courses/${courseId}/discussion_topics/${plannableId}`;
+  }
+  return null;
 }
 
 function showTooltip(taskEl, html) {
@@ -923,13 +925,14 @@ function showTooltip(taskEl, html) {
   tooltipEl.innerHTML = html;
   document.body.appendChild(tooltipEl);
   const rect = taskEl.getBoundingClientRect();
-  const ttW = 320;
+  const ttW = tooltipEl.offsetWidth || 320;
   const ttH = tooltipEl.offsetHeight || 80;
-  let top = rect.top - ttH - 8 + window.scrollY;
-  if (rect.top - ttH - 8 < 8) top = rect.bottom + 8 + window.scrollY;
-  let left = rect.left + window.scrollX;
-  if (left + ttW > window.innerWidth - 8) left = window.innerWidth - ttW - 8 + window.scrollX;
+  let top = rect.top - ttH - 8;
+  if (rect.top - ttH - 8 < 8) top = rect.bottom + 8;
+  let left = rect.left + ((rect.width - ttW) / 2);
+  if (left + ttW > window.innerWidth - 8) left = window.innerWidth - ttW - 8;
   if (left < 8) left = 8;
+  if (top < 8) top = 8;
   tooltipEl.style.top = top + 'px';
   tooltipEl.style.left = left + 'px';
   requestAnimationFrame(() => { if (tooltipEl) tooltipEl.classList.add('visible'); });
@@ -956,30 +959,61 @@ function attachTooltipListeners() {
     const courseId = taskEl.dataset.courseId;
     const plannableId = taskEl.dataset.plannableId;
     const type = taskEl.dataset.plannableType;
-    if (!courseId || !plannableId || (type !== 'assignment' && type !== 'quiz')) return;
+    if (!plannableId || !type) return;
     previewTimer = setTimeout(async () => {
-      const key = `${courseId}_${plannableId}`;
+      const key = getPreviewCacheKey({ courseId, plannableId, type });
       let data = previewCache.get(key);
-      if (!data) {
+      const endpoint = getPreviewEndpoint(courseId, plannableId, type);
+      if (endpoint && (!data || (!data.description && data.points_possible == null))) {
         try {
-          const ep = type === 'quiz'
-            ? `/api/v1/courses/${courseId}/quizzes/${plannableId}`
-            : `/api/v1/courses/${courseId}/assignments/${plannableId}`;
-          const res = await fetch(ep, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-          if (res.ok) { data = await res.json(); previewCache.set(key, data); }
+          const res = await fetch(endpoint, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            data = normalizePreviewData({ ...(data || {}), ...(await res.json()) }, type);
+            previewCache.set(key, data);
+          }
         } catch {}
       }
       if (data && currentHoverTask === taskEl) showTooltip(taskEl, buildTooltip(data));
-    }, 400);
+    }, PREVIEW_HOVER_DELAY_MS);
   });
+  document.addEventListener('mouseout', (e) => {
+    const taskEl = e.target.closest?.('#cc-weekly-tasks .cc-task');
+    if (!taskEl) return;
+    const next = e.relatedTarget;
+    if (next && taskEl.contains(next)) return;
+    currentHoverTask = null;
+    hideTooltip();
+  });
+  window.addEventListener('scroll', hideTooltip, true);
 }
 
 // ---------- command palette ----------
 
 const PALETTE_ID = 'cc-palette-root';
+const PALETTE_SHORTCUT_ICONS = {
+  navigate: '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2l2.5 2.5H9v7h1.5L8 14 5.5 11.5H7v-7H5.5L8 2z" fill="currentColor"/></svg>',
+  open: '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 3h10v10H3z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 8h6M8 5l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  close: '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 4.5h10M5 8h6M6 11.5h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+};
 let paletteData = null;
 let paletteOpen = false;
 let paletteSearchDebounce = null;
+
+function setPaletteBackgroundInteractivity(disabled) {
+  const root = document.getElementById(PALETTE_ID);
+  Array.from(document.body.children).forEach((el) => {
+    if (el === root) return;
+    if (disabled) {
+      el.dataset.ccPalettePrevInert = el.inert ? 'true' : 'false';
+      el.inert = true;
+      return;
+    }
+    if (!('ccPalettePrevInert' in el.dataset)) return;
+    if (el.dataset.ccPalettePrevInert !== 'true') el.inert = false;
+    delete el.dataset.ccPalettePrevInert;
+  });
+  document.documentElement.classList.toggle('cc-palette-locked', disabled);
+}
 
 function weekStart() {
   const { start } = getWeekRange();
@@ -1018,6 +1052,7 @@ async function fetchPaletteData() {
               courseName: it.context_name || '',
               url: it.html_url || '#',
               type: it.plannable_type,
+              complete: isComplete(it),
             }))
         : [],
     };
@@ -1040,7 +1075,7 @@ function searchPalette(query) {
     const name = (a.title || '').toLowerCase();
     const cn = (a.courseName || '').toLowerCase();
     const score = name.startsWith(q) ? 3 : name.includes(q) ? 1 : cn.includes(q) ? 0.5 : 0;
-    if (score > 0) results.push({ type: 'assignment', name: a.title, subtitle: a.courseName, url: a.url, score, atype: a.type });
+    if (score > 0) results.push({ type: 'assignment', name: a.title, subtitle: a.courseName, url: a.url, score, atype: a.type, complete: a.complete });
   }
   results.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   return results.slice(0, 12);
@@ -1059,11 +1094,9 @@ function renderPaletteResults(results, query) {
   const list = document.getElementById('cc-palette-list');
   if (!list) return;
   if (!results.length) {
-    list.innerHTML = `<div class="cc-pal-empty">${query ? 'No results.' : 'Type to search courses and assignments…'}</div>`;
+    list.innerHTML = `<div class="cc-pal-empty">${query ? 'No results.' : 'Type to search courses and assignments...'}</div>`;
     return;
   }
-  const courseIcon = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`;
-  const taskIcon  = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>`;
   let html = '';
   let lastType = null;
   results.forEach((r, i) => {
@@ -1071,14 +1104,19 @@ function renderPaletteResults(results, query) {
       lastType = r.type;
       html += `<div class="cc-pal-section-header">${r.type === 'course' ? 'Courses' : 'Assignments'}</div>`;
     }
+    const statusBadge = r.type === 'assignment'
+      ? `<span class="cc-pal-status${r.complete ? ' is-complete' : ''}">${r.complete ? 'Complete' : 'Open'}</span>`
+      : '';
     html += `
       <button class="cc-pal-item${i === 0 ? ' cc-pal-active' : ''}" data-url="${escapeHtml(r.url)}" data-idx="${i}" type="button">
-        <span class="cc-pal-icon">${r.type === 'course' ? courseIcon : taskIcon}</span>
         <div class="cc-pal-text">
           <div class="cc-pal-name">${highlightMatch(r.name, query)}</div>
           ${r.subtitle ? `<div class="cc-pal-sub">${escapeHtml(r.subtitle)}</div>` : ''}
         </div>
-        <span class="cc-pal-badge">${r.type === 'course' ? 'Course' : (TYPE_LABEL[r.atype] || 'Task')}</span>
+        <span class="cc-pal-meta">
+          ${statusBadge}
+          <span class="cc-pal-badge">${r.type === 'course' ? 'Course' : (TYPE_LABEL[r.atype] || 'Task')}</span>
+        </span>
       </button>`;
   });
   list.innerHTML = html;
@@ -1093,10 +1131,16 @@ function buildPalette() {
     <div id="cc-palette">
       <div class="cc-pal-search-row">
         <svg class="cc-pal-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="cc-palette-input" type="text" placeholder="Search courses and assignments…" autocomplete="off" spellcheck="false">
+        <input id="cc-palette-input" type="text" placeholder="Search courses and assignments..." autocomplete="off" spellcheck="false">
       </div>
-      <div id="cc-palette-list"><div class="cc-pal-empty">Type to search courses and assignments…</div></div>
-      <div class="cc-pal-footer"><span>↑↓ Navigate</span><span>↵ Open</span><span>Esc Close</span></div>
+      <div id="cc-palette-list">
+        <div class="cc-pal-empty">Type to search courses and assignments...</div>
+      </div>
+      <div class="cc-pal-footer">
+        <span class="cc-pal-footer-hint"><span class="cc-pal-key cc-pal-key--icon">${PALETTE_SHORTCUT_ICONS.navigate}</span><span>Navigate</span></span>
+        <span class="cc-pal-footer-hint"><span class="cc-pal-key cc-pal-key--icon">${PALETTE_SHORTCUT_ICONS.open}</span><span>Open</span></span>
+        <span class="cc-pal-footer-hint"><span class="cc-pal-key cc-pal-key--icon">${PALETTE_SHORTCUT_ICONS.close}</span><span>Close</span></span>
+      </div>
     </div>
   `;
   document.body.appendChild(root);
@@ -1114,6 +1158,12 @@ function buildPalette() {
   });
 
   input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closePalette();
+      return;
+    }
+
     const items = list.querySelectorAll('.cc-pal-item');
     if (!items.length) return;
     const active = list.querySelector('.cc-pal-item.cc-pal-active');
@@ -1126,13 +1176,20 @@ function buildPalette() {
       idx = Math.max(idx - 1, 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (active) { location.href = active.dataset.url; closePalette(); }
+      if (active?.dataset.url) { location.href = active.dataset.url; closePalette(); }
       return;
-    } else if (e.key === 'Escape') {
-      closePalette(); return;
-    } else { return; }
+    } else {
+      return;
+    }
     items.forEach(item => item.classList.toggle('cc-pal-active', parseInt(item.dataset.idx, 10) === idx));
-    items[idx]?.scrollIntoView({ block: 'nearest' });
+    const next = list.querySelector(`.cc-pal-item[data-idx="${idx}"]`);
+    next?.scrollIntoView({ block: 'nearest' });
+  });
+
+  list.addEventListener('mousemove', (e) => {
+    const item = e.target.closest('.cc-pal-item');
+    if (!item) return;
+    list.querySelectorAll('.cc-pal-item').forEach(node => node.classList.toggle('cc-pal-active', node === item));
   });
 
   list.addEventListener('click', (e) => {
@@ -1147,6 +1204,7 @@ function openPalette() {
   if (!root) return;
   root.classList.add('open');
   paletteOpen = true;
+  setPaletteBackgroundInteractivity(true);
   const input = root.querySelector('#cc-palette-input');
   if (input) { input.value = ''; input.focus(); }
   renderPaletteResults([], '');
@@ -1156,6 +1214,7 @@ function closePalette() {
   const root = document.getElementById(PALETTE_ID);
   if (root) root.classList.remove('open');
   paletteOpen = false;
+  setPaletteBackgroundInteractivity(false);
 }
 
 function buildModal() {
@@ -1432,7 +1491,10 @@ function tabGeneral() {
         row('Dark mode', toggleControl('darkMode'), 'Force a dark theme across all Canvas pages.'),
       ]},
       { title: 'Productivity', rows: [
-        row('Command palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to instantly search courses and assignments.'),
+        row('Command palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to search active courses and assignments from this week through the next 8 weeks.'),
+      ]},
+      { title: 'Scroll Bars', rows: [
+        row('Hide scroll bars', toggleControl('hideScrollBars'), 'Hides nested vertical and horizontal scroll bars while keeping the main page scroll bar visible.'),
       ]},
       { title: 'Background', rows: [
         row('Color', colorControl('bgColor', '#ffffff'), 'Leave default to keep Canvas\'s background.'),
@@ -1507,14 +1569,6 @@ function tabCards() {
         row('Background', colorControl('cardBgColor', '#ffffff'), 'Background of each card body. Leave unset to use Canvas\'s default.'),
         row('Text color', colorControl('cardTextColor', '#2d3b45'), 'Text on each card. Leave unset to use Canvas\'s default.'),
         row('Accent color', colorControl('accentColor', '#008ee2'), 'Used for links, buttons, and progress bars.'),
-      ]},
-      { title: 'Style', rows: [
-        row('Density', selectControl('density', [
-          { value: 'compact', label: 'Compact' },
-          { value: 'cozy', label: 'Cozy' },
-          { value: 'comfortable', label: 'Comfortable' },
-        ]), 'Card View only.'),
-        row('Border radius', rangeControl('borderRadius', 0, 20, 1, 'px'), 'Global roundness for buttons and inputs.'),
       ]},
       { title: 'Shape', rows: [
         row('Corner radius', rangeControl('cardRadius', 0, 24, 1, 'px'), 'Applies to cards and planner items.'),
@@ -1656,15 +1710,9 @@ function tabSidebar() {
         row('Enable sidebar restyle', toggleControl('sidebarRestyle'), 'Tighter spacing, rounded active state.'),
         row('Show labels', toggleControl('sidebarShowLabels'), 'Turn off to show icons only.'),
         row('Label position', selectControl('sidebarLabelPosition', [
+          { value: 'bottom', label: 'Below icon' },
           { value: 'right', label: 'Right of icon' },
-          { value: 'left',  label: 'Left of icon' },
-        ]), 'Move labels left for a compact layout — auto-shrinks icons 20%.'),
-      ]},
-      { title: 'Icons', rows: [
-        row('Icon set', selectControl('iconSet', [
-          { value: 'default',     label: 'Default (Canvas)' },
-          { value: 'fontawesome', label: 'FontAwesome' },
-        ]), 'Swap nav icons. FontAwesome is loaded from a CDN.'),
+        ]), 'Below icon keeps the standard stacked layout. Right of icon collapses the rail to icons and expands on hover to reveal labels.'),
       ]},
       { title: 'Colors', rows: [
         row('Background', colorControl('sidebarBgColor', detected.bg), 'The sidebar\'s main fill color.'),
@@ -1830,7 +1878,7 @@ function tabWidget() {
         row('Hide discussions', toggleControl('widgetHideDiscussions')),
       ]},
       { title: 'Previews', rows: [
-        row('Assignment previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value.'),
+        row('Task previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value when preview data is available.'),
       ]},
     ],
   };
@@ -2076,8 +2124,6 @@ function tick() {
   applyDashboardView();
   if (isDashboard()) injectWidget();
   if (settings.bgColor) applyBgInline();
-  if (settings.iconSet && settings.iconSet !== 'default') applyIconSet();
-  else if (document.querySelector('.cc-nav-icon')) removeIconSet();
 }
 
 let scheduled = false;
