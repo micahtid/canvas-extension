@@ -6,6 +6,8 @@
 //      data attributes on <html>.
 
 const WIDGET_ID = 'cc-weekly-tasks';
+const RECENT_FEEDBACK_WIDGET_ID = 'cc-recent-feedback';
+const FEEDBACK_SHOW_LIMIT = 3;
 const NATIVE_SELECTOR = '.Sidebar__TodoListContainer';
 const SIDEBAR_SELECTOR = '#right-side';
 const MODAL_ID = 'cc-modal-root';
@@ -78,8 +80,12 @@ const DEFAULTS = {
 
   // Tasks widget — extended
   widgetShowFraction: true,
-  widgetFilter: 'all',           // 'all' | 'overdue' | 'due_soon' | 'this_week'
+  widgetFilter: 'all',           // legacy setting retained for older stored configs
   assignmentPreviewsEnabled: true,
+
+  // Recent Feedback widget
+  recentFeedbackEnabled: true,
+  recentFeedbackShowDetails: true,
 
   // Command palette
   commandPaletteEnabled: true,
@@ -252,12 +258,15 @@ function tearDownOverrides() {
   clearBgInline();
   for (const k of CC_DATA_ATTRS) delete root.dataset[k];
   for (const v of CC_CSS_VARS) root.style.removeProperty(v);
+  syncGlobalNavToggleControls(false);
   const w = document.getElementById(WIDGET_ID);
   if (w) w.remove();
+  restoreNativeRecentFeedback();
 }
 
 function applySettings(s) {
   const root = document.documentElement;
+  const sidebarDefaults = detectSidebarColors();
 
   // Master kill switch — tear everything down and bail.
   if (!s.extensionEnabled) {
@@ -273,10 +282,10 @@ function applySettings(s) {
 
   set('--cc-sidebar-icon-size', s.sidebarIconSize + 'px');
   set('--cc-sidebar-label-size', s.sidebarLabelSize + 'px');
-  set('--cc-sidebar-bg', s.sidebarBgColor || '#2d3b45');
-  set('--cc-sidebar-text', s.sidebarTextColor || '#ffffff');
-  set('--cc-sidebar-active', s.sidebarActiveColor || 'rgba(255, 255, 255, 0.18)');
-  set('--cc-sidebar-active-text', s.sidebarActiveTextColor || 'var(--cc-sidebar-text, #ffffff)');
+  set('--cc-sidebar-bg', s.sidebarBgColor || sidebarDefaults.bg || '#2d3b45');
+  set('--cc-sidebar-text', s.sidebarTextColor || sidebarDefaults.text || '#ffffff');
+  set('--cc-sidebar-active', s.sidebarActiveColor || sidebarDefaults.activeBg || 'rgba(255, 255, 255, 0.18)');
+  set('--cc-sidebar-active-text', s.sidebarActiveTextColor || sidebarDefaults.activeText || sidebarDefaults.text || '#ffffff');
 
   set('--cc-accent', s.accentColor);
   set('--cc-radius', s.borderRadius + 'px');
@@ -296,6 +305,7 @@ function applySettings(s) {
   if (s.fontFamily && s.fontFamily !== 'default' && s.fontFamily !== 'system') {
     ensurePageFont(s.fontFamily);
   }
+  syncGlobalNavToggleControls();
 
   root.dataset.ccCardShadow = s.cardShadow;
   root.dataset.ccCardImage = s.cardShowImage ? 'shown' : 'hidden';
@@ -560,16 +570,94 @@ function normalize(items, s = settings) {
 function applyFilter(tasks, filter) {
   const now = Date.now();
   const h24 = now + 24 * 60 * 60 * 1000;
+  const weekEnd = endOfWeekTs(now);
   switch (filter) {
     case 'overdue':
       return tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() < now);
     case 'due_soon':
       return tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() >= now && new Date(t.dueAt).getTime() <= h24);
+    case 'due_week':
+      return tasks.filter(t => {
+        if (t.complete || !t.dueAt) return false;
+        const due = new Date(t.dueAt).getTime();
+        return !Number.isNaN(due) && due > h24 && due <= weekEnd;
+      });
     case 'this_week':
     case 'all':
     default:
       return tasks;
   }
+}
+
+function endOfWeekTs(now = Date.now()) {
+  const date = new Date(now);
+  const day = date.getDay();
+  const daysUntilEnd = 6 - day;
+  date.setDate(date.getDate() + daysUntilEnd);
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
+}
+
+function taskUrgency(task, now = Date.now()) {
+  if (task.complete || !task.dueAt) return 'none';
+  const due = new Date(task.dueAt).getTime();
+  if (Number.isNaN(due)) return 'none';
+  if (due < now) return 'overdue';
+  if (due <= now + (24 * 60 * 60 * 1000)) return 'due_soon';
+  if (due <= endOfWeekTs(now)) return 'due_week';
+  return 'none';
+}
+
+function defaultWidgetSectionState() {
+  return {
+    overdue: true,
+    due_soon: true,
+    due_week: true,
+    all: false,
+  };
+}
+
+let widgetSectionState = defaultWidgetSectionState();
+
+function widgetSections(tasks) {
+  const overdue = applyFilter(tasks, 'overdue');
+  const dueSoon = applyFilter(tasks, 'due_soon');
+  const dueWeek = applyFilter(tasks, 'due_week');
+  const sections = [
+    {
+      key: 'overdue',
+      label: 'Overdue',
+      note: 'Past due and open.',
+      empty: 'No overdue tasks.',
+      tasks: overdue,
+    },
+    {
+      key: 'due_soon',
+      label: 'Due Soon',
+      note: 'Within 24 hours.',
+      empty: 'Nothing due soon.',
+      tasks: dueSoon,
+    },
+    {
+      key: 'due_week',
+      label: 'This Week',
+      note: 'Due before Sunday.',
+      empty: 'Nothing else due this week.',
+      tasks: dueWeek,
+    },
+    {
+      key: 'all',
+      label: 'All',
+      note: 'Everything in this view.',
+      empty: 'Nothing due this week.',
+      tasks,
+    },
+  ];
+  const defaults = defaultWidgetSectionState();
+  return sections.map(section => ({
+    ...section,
+    open: widgetSectionState[section.key] ?? defaults[section.key] ?? true,
+  }));
 }
 
 function escapeHtml(s) {
@@ -632,7 +720,7 @@ function activityRingsSvg(groups, colors) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${rings}</svg>`;
 }
 
-function activityRingsMarkup(groups, colors, totalPct) {
+function activityRingsMarkup(groups, colors, totalPct, done, total, showFraction) {
   if (groups.length === 0) {
     return `<div class="cc-progress-rings-empty">No tasks this week</div>`;
   }
@@ -647,12 +735,16 @@ function activityRingsMarkup(groups, colors, totalPct) {
       </div>
     `;
   }).join('');
+  const ringFraction = showFraction
+    ? `<div class="cc-fraction cc-fraction--ring">${done}/${total}</div>`
+    : '';
   return `
     <div class="cc-progress-rings">
       <div class="cc-progress-rings-svg">
         ${activityRingsSvg(groups, colors)}
         <div class="cc-progress-rings-center">
           <div class="cc-progress-rings-pct">${totalPct}%</div>
+          ${ringFraction}
         </div>
       </div>
       <div class="cc-progress-rings-legend">${legend}</div>
@@ -660,10 +752,10 @@ function activityRingsMarkup(groups, colors, totalPct) {
   `;
 }
 
-function progressMarkup(style, done, total, pct, tasks, colors) {
+function progressMarkup(style, done, total, pct, tasks, colors, showFraction) {
   if (style === 'ring') {
     const groups = groupByCourse(tasks);
-    return activityRingsMarkup(groups, colors || {}, pct);
+    return activityRingsMarkup(groups, colors || {}, pct, done, total, showFraction);
   }
   if (style === 'segments') {
     const n = total || 1;
@@ -681,69 +773,106 @@ function progressMarkup(style, done, total, pct, tasks, colors) {
   `;
 }
 
+function taskItemMarkup(task, now = Date.now()) {
+  const urgency = taskUrgency(task, now);
+  const dueClass = urgency === 'overdue'
+    ? ' cc-task-due--overdue'
+    : urgency === 'due_soon'
+      ? ' cc-task-due--soon'
+      : urgency === 'due_week'
+        ? ' cc-task-due--week'
+      : '';
+  return `
+    <li class="cc-task ${task.complete ? 'cc-done' : ''}"
+        data-urgency="${urgency}"
+        data-plannable-id="${task.plannableId != null ? task.plannableId : ''}"
+        data-course-id="${task.courseId != null ? escapeHtml(String(task.courseId)) : ''}"
+        data-plannable-type="${escapeHtml(task.type)}">
+      <a href="${escapeHtml(task.url)}" class="cc-task-link">
+        <div class="cc-task-row">
+          <span class="cc-check" aria-hidden="true">${task.complete ? '✓' : ''}</span>
+          <div class="cc-task-body">
+            <div class="cc-task-title">${escapeHtml(task.title)}</div>
+            <div class="cc-task-meta">
+              <span class="cc-task-course">${escapeHtml(task.contextName)}</span>
+              <span class="cc-task-sep">•</span>
+              <span class="cc-task-type">${TYPE_LABEL[task.type] || task.type}</span>
+              ${task.dueAt ? `<span class="cc-task-sep">•</span><span class="cc-task-due${dueClass}">${escapeHtml(formatDue(task.dueAt))}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </a>
+    </li>
+  `;
+}
+
+function widgetSectionMarkup(section, now = Date.now()) {
+  const listHtml = section.tasks.length === 0
+    ? `<li class="cc-section-empty">${section.empty}</li>`
+    : section.tasks.map(task => taskItemMarkup(task, now)).join('');
+  const panelId = `cc-section-panel-${section.key}`;
+
+  return `
+    <section class="cc-section-card${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}">
+      <button class="cc-section-toggle" data-section="${section.key}" type="button" aria-expanded="${section.open ? 'true' : 'false'}" aria-controls="${panelId}">
+        <span class="cc-section-label">${section.label}</span>
+        <span class="cc-section-right">
+          <span class="cc-section-count">${section.tasks.length}</span>
+          <span class="cc-section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 20 20" focusable="false"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </span>
+      </button>
+      <div class="cc-section-panel-wrap">
+        <div class="cc-section-panel" id="${panelId}" aria-hidden="${section.open ? 'false' : 'true'}"${section.open ? '' : ' inert'}>
+          <ul class="cc-section-list">${listHtml}</ul>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function setWidgetSectionExpanded(sectionEl, open) {
+  if (!sectionEl) return;
+  sectionEl.classList.toggle('is-open', open);
+  sectionEl.classList.toggle('is-collapsed', !open);
+  const toggle = sectionEl.querySelector('.cc-section-toggle');
+  const panel = sectionEl.querySelector('.cc-section-panel');
+  toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (panel) {
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    panel.inert = !open;
+    if (open) panel.removeAttribute('inert');
+    else panel.setAttribute('inert', '');
+  }
+}
+
 function renderWidget(container, tasks, colors) {
   const total = tasks.length;
   const done = tasks.filter(t => t.complete).length;
   const pct = total === 0 ? 100 : Math.round((done / total) * 100);
   const style = settings.widgetProgressStyle || 'bar';
-
-  // Smart Folders: compute counts for each filter, apply active filter to list
   const now = Date.now();
-  const h24 = now + 24 * 60 * 60 * 1000;
-  const overdueCount = tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() < now).length;
-  const dueSoonCount = tasks.filter(t => !t.complete && t.dueAt && new Date(t.dueAt).getTime() >= now && new Date(t.dueAt).getTime() <= h24).length;
-  const activeFilter = settings.widgetFilter || 'all';
-  const filtered = applyFilter(tasks, activeFilter);
+  const sections = widgetSections(tasks);
 
-  const filterPills = [
-    { key: 'all',      label: 'All',      count: tasks.length },
-    { key: 'overdue',  label: 'Overdue',  count: overdueCount },
-    { key: 'due_soon', label: 'Due Soon', count: dueSoonCount },
-  ].map(f => `
-    <button class="cc-filter-pill${activeFilter === f.key ? ' active' : ''}" data-filter="${f.key}" type="button">
-      ${f.label}${f.count > 0 ? `<span class="cc-filter-count">${f.count}</span>` : ''}
-    </button>
-  `).join('');
-
-  const fractionHtml = settings.widgetShowFraction
+  const showFraction = !!settings.widgetShowFraction;
+  // Ring embeds the fraction inside the ring center; bar/segments render it below the progress element
+  const fractionHtml = showFraction && style !== 'ring'
     ? `<div class="cc-fraction">${done} / ${total} tasks</div>`
     : '';
+  const sectionsHtml = sections.map(section => widgetSectionMarkup(section, now)).join('');
 
-  const listHtml = filtered.length === 0
-    ? `<li class="cc-empty">${activeFilter === 'all' ? 'Nothing due this week. 🎉' : 'No tasks in this filter.'}</li>`
-    : filtered.map(t => `
-        <li class="cc-task ${t.complete ? 'cc-done' : ''}"
-            data-plannable-id="${t.plannableId != null ? t.plannableId : ''}"
-            data-course-id="${t.courseId != null ? escapeHtml(String(t.courseId)) : ''}"
-            data-plannable-type="${escapeHtml(t.type)}">
-          <a href="${escapeHtml(t.url)}" class="cc-task-link">
-            <div class="cc-task-row">
-              <span class="cc-check" aria-hidden="true">${t.complete ? '✓' : ''}</span>
-              <div class="cc-task-body">
-                <div class="cc-task-title">${escapeHtml(t.title)}</div>
-                <div class="cc-task-meta">
-                  <span class="cc-task-course">${escapeHtml(t.contextName)}</span>
-                  <span class="cc-task-sep">•</span>
-                  <span class="cc-task-type">${TYPE_LABEL[t.type] || t.type}</span>
-                  ${t.dueAt ? `<span class="cc-task-sep">•</span><span class="cc-task-due">${escapeHtml(formatDue(t.dueAt))}</span>` : ''}
-                </div>
-              </div>
-            </div>
-          </a>
-        </li>
-      `).join('');
-
-  const hideHeaderCount = style === 'ring';
+  // Header count is redundant when a fraction is already displayed near the progress element
+  const hideHeaderCount = style === 'ring' || style === 'bar';
   container.innerHTML = `
     <div class="cc-widget" data-style="${style}">
       <div class="cc-header">
         <h2 class="cc-title">This Week</h2>
         ${hideHeaderCount ? '' : `<span class="cc-count">${done}/${total}</span>`}
       </div>
-      ${progressMarkup(style, done, total, pct, tasks, colors)}
+      ${progressMarkup(style, done, total, pct, tasks, colors, showFraction)}
       ${fractionHtml}
-      <div class="cc-filters">${filterPills}</div>
-      <ul class="cc-list">${listHtml}</ul>
+      <div class="cc-sections">${sectionsHtml}</div>
     </div>
   `;
 }
@@ -761,12 +890,15 @@ async function injectWidget() {
   const container = document.createElement('div');
   container.id = WIDGET_ID;
   container.innerHTML = `<div class="cc-widget"><div class="cc-header"><h2 class="cc-title">This Week</h2></div><div class="cc-loading">Loading tasks…</div></div>`;
-
-  // Filter pill clicks — delegate on container so innerHTML re-renders don't lose the listener
   container.addEventListener('click', (e) => {
-    const pill = e.target.closest('.cc-filter-pill');
-    if (!pill) return;
-    saveSettings({ widgetFilter: pill.dataset.filter }).then(() => rerenderWidget());
+    const toggle = e.target.closest('.cc-section-toggle');
+    if (!toggle) return;
+    const sectionKey = toggle.dataset.section;
+    if (!sectionKey) return;
+    const defaults = defaultWidgetSectionState();
+    const nextOpen = !(widgetSectionState[sectionKey] ?? defaults[sectionKey] ?? true);
+    widgetSectionState[sectionKey] = nextOpen;
+    setWidgetSectionExpanded(toggle.closest('.cc-section-card'), nextOpen);
   });
 
   const native = sidebar.querySelector(NATIVE_SELECTOR);
@@ -792,6 +924,149 @@ async function injectWidget() {
   }
 }
 
+function getRecentFeedbackNativeHost() {
+  const sidebar = document.querySelector(SIDEBAR_SELECTOR);
+  if (!sidebar) return null;
+
+  const modern = sidebar.querySelector('.Sidebar__RecentFeedbackContainer');
+  if (modern) return modern.closest('section') || modern;
+
+  const legacy = sidebar.querySelector('.recent_feedback');
+  if (legacy) return legacy.closest('section') || legacy;
+
+  return Array.from(sidebar.querySelectorAll('section')).find(section => {
+    const text = (section.textContent || '').trim();
+    return /recent feedback/i.test(text) && section.querySelector('li');
+  }) || null;
+}
+
+function getRecentFeedbackList(host) {
+  if (!host) return null;
+  if (host.matches('ul, ol')) return host;
+  return host.querySelector('.Sidebar__RecentFeedbackContainer, .recent_feedback, ul, ol');
+}
+
+function hideNativeRecentFeedback(host) {
+  if (!host) return;
+  if (host.dataset.ccRecentFeedbackHidden !== 'true') {
+    host.dataset.ccPrevDisplay = host.style.display || '';
+  }
+  host.style.setProperty('display', 'none', 'important');
+  host.dataset.ccRecentFeedbackHidden = 'true';
+}
+
+function restoreNativeRecentFeedback() {
+  const host = getRecentFeedbackNativeHost();
+  if (host?.dataset.ccRecentFeedbackHidden === 'true') {
+    const prevDisplay = host.dataset.ccPrevDisplay || '';
+    if (prevDisplay) host.style.display = prevDisplay;
+    else host.style.removeProperty('display');
+    delete host.dataset.ccPrevDisplay;
+    delete host.dataset.ccRecentFeedbackHidden;
+  }
+  const widget = document.getElementById(RECENT_FEEDBACK_WIDGET_ID);
+  if (widget) widget.remove();
+}
+
+function extractRecentFeedbackItems(host) {
+  const list = getRecentFeedbackList(host);
+  if (!list) return [];
+
+  return Array.from(list.querySelectorAll('li')).map((li, index) => {
+    const iconLink = li.querySelector('a.recent_feedback_icon, [class*="recent_feedback_icon"]');
+    const detailRoot = li.querySelector('.event-details') || li;
+    const allLinks = Array.from(li.querySelectorAll('a[href]'));
+    const primaryLink = allLinks.find(link => link !== iconLink && (link.textContent || '').trim()) || allLinks[0] || null;
+    const rawText = (detailRoot.innerText || detailRoot.textContent || li.innerText || '')
+      .split(/\n+/)
+      .map(part => part.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    let title = (primaryLink?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!title) title = rawText[0] || 'Feedback';
+
+    const detailLines = rawText.slice();
+    const titleIndex = detailLines.findIndex(line => line === title);
+    if (titleIndex !== -1) detailLines.splice(titleIndex, 1);
+
+    return {
+      id: `${index}-${primaryLink?.href || title}`,
+      href: primaryLink?.href || iconLink?.href || '#',
+      title,
+      detail: detailLines.join(' - '),
+      iconHtml: iconLink?.innerHTML || '',
+    };
+  }).filter(item => item.title || item.detail);
+}
+
+function recentFeedbackWidgetMarkup(items, opts = {}) {
+  const showDetails = opts.showDetails ?? settings.recentFeedbackShowDetails;
+  const hasMore = items.length > FEEDBACK_SHOW_LIMIT;
+  const hiddenCount = items.length - FEEDBACK_SHOW_LIMIT;
+
+  return `
+    <div class="cc-feedback-widget" data-show-details="${showDetails ? 'on' : 'off'}">
+      <div class="cc-feedback-header">
+        <h2 class="cc-feedback-title">Recent Feedback</h2>
+        <span class="cc-feedback-count">${items.length}</span>
+      </div>
+      ${items.length === 0 ? `
+        <div class="cc-feedback-empty">No recent feedback yet.</div>
+      ` : `
+        <div class="cc-feedback-list">
+          ${items.map((item, i) => `
+            <a class="cc-feedback-item${i >= FEEDBACK_SHOW_LIMIT ? ' cc-feedback-hidden' : ''}" href="${escapeHtml(item.href)}">
+              <span class="cc-feedback-body">
+                <span class="cc-feedback-item-title">${escapeHtml(item.title)}</span>
+                ${showDetails && item.detail ? `<span class="cc-feedback-item-detail">${escapeHtml(item.detail)}</span>` : ''}
+              </span>
+            </a>
+          `).join('')}
+        </div>
+        ${hasMore ? `<button class="cc-feedback-show-all" type="button">Show ${hiddenCount} more</button>` : ''}
+      `}
+    </div>
+  `;
+}
+
+function recentFeedbackSignature(items) {
+  return [
+    settings.recentFeedbackShowDetails ? '1' : '0',
+    ...items.map(item => `${item.title}|${item.detail}|${item.href}|${item.iconHtml.length}`),
+  ].join('||');
+}
+
+function syncRecentFeedbackWidget() {
+  const existing = document.getElementById(RECENT_FEEDBACK_WIDGET_ID);
+  if (!settings.extensionEnabled || !settings.recentFeedbackEnabled) {
+    restoreNativeRecentFeedback();
+    return;
+  }
+
+  const host = getRecentFeedbackNativeHost();
+  if (!host) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  hideNativeRecentFeedback(host);
+  const items = extractRecentFeedbackItems(host);
+  const signature = recentFeedbackSignature(items);
+  const container = existing || document.createElement('div');
+  container.id = RECENT_FEEDBACK_WIDGET_ID;
+  if (!existing) host.before(container);
+  if (container.dataset.renderSignature === signature) return;
+  container.dataset.renderSignature = signature;
+  container.innerHTML = recentFeedbackWidgetMarkup(items);
+  const showAllBtn = container.querySelector('.cc-feedback-show-all');
+  if (showAllBtn) {
+    showAllBtn.addEventListener('click', () => {
+      container.querySelectorAll('.cc-feedback-hidden').forEach(el => el.classList.remove('cc-feedback-hidden'));
+      showAllBtn.remove();
+    });
+  }
+}
+
 // ---------- modal ----------
 
 const TABS = [
@@ -800,6 +1075,7 @@ const TABS = [
   { id: 'listview',     label: 'List View' },
   { id: 'sidebar',      label: 'Left Sidebar' },
   { id: 'widget',       label: 'Tasks Widget' },
+  { id: 'recentfeedback', label: 'Recent Feedback' },
   { id: 'integrations', label: 'Integrations' },
 ];
 
@@ -893,18 +1169,21 @@ let currentHoverTask = null;
 
 function stripHtml(html) {
   if (!html) return '';
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
 }
 
 function buildTooltip(data) {
   const desc = data.description ? stripHtml(data.description) : '';
   const pts = data.points_possible != null ? `${data.points_possible} pts` : '';
   const meta = data.type && TYPE_LABEL[data.type] ? TYPE_LABEL[data.type] : '';
+  const chips = [
+    meta ? `<span class="cc-tooltip-chip">${escapeHtml(meta)}</span>` : '',
+    pts ? `<span class="cc-tooltip-chip cc-tooltip-chip--accent">${escapeHtml(pts)}</span>` : '',
+  ].join('');
   return `
     <div class="cc-tooltip-title">${escapeHtml(data.name || data.title || 'Assignment')}</div>
-    ${desc ? `<div class="cc-tooltip-desc">${escapeHtml(desc)}${data.description && data.description.length > 200 ? '…' : ''}</div>` : ''}
-    ${!desc && meta ? `<div class="cc-tooltip-desc">${escapeHtml(meta)}</div>` : ''}
-    ${pts ? `<div class="cc-tooltip-pts">${escapeHtml(pts)}</div>` : ''}
+    ${chips ? `<div class="cc-tooltip-meta">${chips}</div>` : ''}
+    ${desc ? `<div class="cc-tooltip-desc">${escapeHtml(desc)}${data.description && data.description.length > 160 ? '...' : ''}</div>` : ''}
   `;
 }
 
@@ -925,10 +1204,10 @@ function showTooltip(taskEl, html) {
   tooltipEl.innerHTML = html;
   document.body.appendChild(tooltipEl);
   const rect = taskEl.getBoundingClientRect();
-  const ttW = tooltipEl.offsetWidth || 320;
-  const ttH = tooltipEl.offsetHeight || 80;
-  let top = rect.top - ttH - 8;
-  if (rect.top - ttH - 8 < 8) top = rect.bottom + 8;
+  const ttW = tooltipEl.offsetWidth || 280;
+  const ttH = tooltipEl.offsetHeight || 72;
+  let top = rect.top - ttH - 6;
+  if (rect.top - ttH - 6 < 8) top = rect.bottom + 6;
   let left = rect.left + ((rect.width - ttW) / 2);
   if (left + ttW > window.innerWidth - 8) left = window.innerWidth - ttW - 8;
   if (left < 8) left = 8;
@@ -1360,6 +1639,58 @@ function colorControl(key, fallback = '#000000') {
   return `<input type="color" data-setting="${key}" value="${settings[key] || fallback}">`;
 }
 
+const TAB_CONTROL_GATES = {
+  sidebar: {
+    masterKey: 'sidebarRestyle',
+    exemptKeys: new Set(['sidebarRestyle']),
+  },
+  widget: {
+    masterKey: 'widgetEnabled',
+    exemptKeys: new Set(['widgetEnabled']),
+  },
+  recentfeedback: {
+    masterKey: 'recentFeedbackEnabled',
+    exemptKeys: new Set(['recentFeedbackEnabled']),
+  },
+};
+
+function syncControlAvailability(root = document.getElementById(MODAL_ID)) {
+  if (!root) return;
+  const pane = root.querySelector('.cc-modal-pane');
+  if (!pane) return;
+
+  const gate = TAB_CONTROL_GATES[currentTab];
+  const gateEnabled = !gate || !!settings[gate.masterKey];
+
+  pane.querySelectorAll('.cc-row').forEach(rowEl => {
+    const settingKeys = Array.from(rowEl.querySelectorAll('[data-setting]'))
+      .map(el => el.dataset.setting)
+      .filter(Boolean);
+
+    const shouldDisable = !gateEnabled &&
+      settingKeys.length > 0 &&
+      settingKeys.some(key => !gate.exemptKeys.has(key));
+
+    rowEl.classList.toggle('cc-row--disabled', shouldDisable);
+    rowEl.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+
+    rowEl.querySelectorAll('input').forEach(input => {
+      input.disabled = shouldDisable;
+    });
+
+    rowEl.querySelectorAll('.cc-select').forEach(select => {
+      const trigger = select.querySelector('.cc-select-trigger');
+      const options = select.querySelectorAll('.cc-select-option');
+      select.classList.toggle('cc-select--disabled', shouldDisable);
+      if (shouldDisable) setSelectState(select, false);
+      if (trigger) trigger.disabled = shouldDisable;
+      options.forEach(option => {
+        option.disabled = shouldDisable;
+      });
+    });
+  });
+}
+
 // ---------- Color detection utilities for picker fallbacks ----------
 // When a color setting is empty, the picker needs a prefilled value that
 // reflects the ACTUAL current rendered color, not a guess. We read from the
@@ -1474,6 +1805,45 @@ function detectSidebarColors() {
     activeBg: activeBgColor || '#ffffff',
     activeText: activeTextColor || textColor || '#ffffff',
   };
+}
+
+function syncGlobalNavToggleControls(forceHide = settings.extensionEnabled && settings.sidebarRestyle && settings.sidebarLabelPosition === 'right') {
+  const header = document.querySelector('#header.ic-app-header, .ic-app-header');
+  if (!header) return;
+
+  header.querySelectorAll('button, a, [role="button"]').forEach(el => {
+    const label = [
+      el.getAttribute('aria-label') || '',
+      el.getAttribute('title') || '',
+      el.textContent || '',
+    ].join(' ').toLowerCase().replace(/\s+/g, ' ').trim();
+
+    const isGlobalNavToggle =
+      label.includes('exit global navigation') ||
+      label.includes('minimize global navigation') ||
+      label.includes('collapse global navigation');
+
+    if (!isGlobalNavToggle) return;
+
+    if (forceHide) {
+      if (!el.dataset.ccPrevDisplay) el.dataset.ccPrevDisplay = el.style.display || '';
+      if (!el.dataset.ccPrevTabindex) el.dataset.ccPrevTabindex = el.getAttribute('tabindex') ?? '';
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('tabindex', '-1');
+      el.dataset.ccGlobalNavToggleHidden = 'true';
+      return;
+    }
+
+    if (el.dataset.ccGlobalNavToggleHidden !== 'true') return;
+    el.style.display = el.dataset.ccPrevDisplay || '';
+    if (el.dataset.ccPrevTabindex === '') el.removeAttribute('tabindex');
+    else el.setAttribute('tabindex', el.dataset.ccPrevTabindex);
+    el.removeAttribute('aria-hidden');
+    delete el.dataset.ccGlobalNavToggleHidden;
+    delete el.dataset.ccPrevDisplay;
+    delete el.dataset.ccPrevTabindex;
+  });
 }
 
 function textControl(key, placeholder = '') {
@@ -1681,17 +2051,22 @@ function tabListView() {
 
 function previewSidebar() {
   const items = [
-    { label: 'Account', icon: 'M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 12c4 0 8 2 8 6v2H4v-2c0-4 4-6 8-6z' },
+    { label: 'Account', avatar: true },
     { label: 'Dashboard', icon: 'M3 3h8v8H3V3zm10 0h8v5h-8V3zm0 7h8v11h-8V10zM3 13h8v8H3v-8z' },
-    { label: 'Courses', icon: 'M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h16v3H4v-3zm0 5h16v2H4v-2z' },
+    { label: 'Courses', icon: 'M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h16v3H4v-3zm0 5h16v2H4v-2z', badge: '3' },
     { label: 'Calendar', icon: 'M19 4h-2V2h-2v2H9V2H7v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z' },
-    { label: 'Inbox', icon: 'M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z' },
+    { label: 'Inbox', icon: 'M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z', badge: '2' },
   ];
   return `
     <div class="cc-preview-sidebar-frame">
       ${items.map((it, i) => `
         <div class="cc-preview-sidebar-item ${i === 1 ? 'active' : ''}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${it.icon}" fill="currentColor"/></svg>
+          <div class="cc-preview-sidebar-icon-slot${it.avatar ? ' cc-preview-sidebar-icon-slot--avatar' : ''}">
+            ${it.avatar
+              ? '<div class="cc-preview-sidebar-avatar" aria-hidden="true"></div>'
+              : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${it.icon}" fill="currentColor"/></svg>`}
+            ${it.badge ? `<span class="cc-preview-sidebar-badge">${it.badge}</span>` : ''}
+          </div>
           <div class="cc-preview-sidebar-label">${it.label}</div>
         </div>
       `).join('')}
@@ -1729,13 +2104,14 @@ function tabSidebar() {
 }
 
 function previewWidget() {
+  const now = Date.now();
   const sample = [
-    { title: 'Linear Algebra HW 8', type: 'assignment', course: 'MATH 314', complete: false },
-    { title: 'Database Lab 4',      type: 'assignment', course: 'CSCE 451', complete: false },
-    { title: 'Weekly Announcement', type: 'announcement', course: 'BSAD 411', complete: false },
-    { title: 'Discussion: Ch. 16',  type: 'discussion_topic', course: 'MGMT 311', complete: false },
-    { title: 'Quiz 11',              type: 'quiz', course: 'MATH 314', complete: true },
-    { title: 'Case Study 3',         type: 'assignment', course: 'BSAD 411', complete: true },
+    { title: 'Linear Algebra HW 8', type: 'assignment',       course: 'MATH 314', complete: false, dueAt: new Date(now + 6 * 60 * 60 * 1000).toISOString() },
+    { title: 'Database Lab 4',      type: 'assignment',       course: 'CSCE 451', complete: false, dueAt: new Date(now + 54 * 60 * 60 * 1000).toISOString() },
+    { title: 'Weekly Announcement', type: 'announcement',     course: 'BSAD 411', complete: false, dueAt: new Date(now + 18 * 60 * 60 * 1000).toISOString() },
+    { title: 'Discussion: Ch. 16',  type: 'discussion_topic', course: 'MGMT 311', complete: false, dueAt: new Date(now - 3 * 60 * 60 * 1000).toISOString() },
+    { title: 'Quiz 11',             type: 'quiz',             course: 'MATH 314', complete: true,  dueAt: new Date(now - 12 * 60 * 60 * 1000).toISOString() },
+    { title: 'Case Study 3',        type: 'assignment',       course: 'BSAD 411', complete: true,  dueAt: new Date(now + 20 * 60 * 60 * 1000).toISOString() },
   ];
   let items = sample.slice();
   if (settings.widgetHideAnnouncements) items = items.filter(i => i.type !== 'announcement');
@@ -1816,17 +2192,43 @@ function previewWidget() {
     progress = `<div class="cc-preview-widget-bar"><div class="cc-preview-widget-fill" style="width:${pct}%"></div></div>`;
   }
 
-  // Cap the preview list so the card always fits in the preview column,
-  // even with ring mode + legend taking extra vertical space.
-  const maxListItems = style === 'ring' ? 3 : 4;
-  const rows = items.length === 0
-    ? `<div class="cc-preview-widget-empty">Nothing to show. 🎉</div>`
-    : items.slice(0, maxListItems).map(i => `
-        <div class="cc-preview-widget-item ${i.complete ? 'done' : ''}">
-          <div class="cc-preview-widget-check ${i.complete ? 'checked' : ''}">${i.complete ? '✓' : ''}</div>
-          <div>${i.title}</div>
+  const previewSectionState = defaultWidgetSectionState();
+  const sections = widgetSections(items).map(section => ({
+    ...section,
+    open: previewSectionState[section.key] ?? section.open,
+  }));
+  const sectionRows = sections.map(section => {
+    const rows = section.tasks.length === 0
+      ? `<div class="cc-preview-widget-empty">${section.empty}</div>`
+      : section.tasks.slice(0, 2).map(i => `
+          <div class="cc-preview-widget-item ${i.complete ? 'done' : ''}" data-section="${section.key}">
+            <div class="cc-preview-widget-check ${i.complete ? 'checked' : ''}">${i.complete ? '✓' : ''}</div>
+            <div class="cc-preview-widget-item-body">
+              <div class="cc-preview-widget-item-title">${i.title}</div>
+              <div class="cc-preview-widget-item-meta">${i.course}</div>
+            </div>
+          </div>
+        `).join('');
+    return `
+      <div class="cc-preview-widget-section${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}">
+        <div class="cc-preview-widget-section-toggle">
+          <div class="cc-preview-widget-section-head">
+            <div class="cc-preview-widget-section-topline">
+              <span class="cc-preview-widget-section-label">${section.label}</span>
+              <span class="cc-preview-widget-section-count">${section.tasks.length}</span>
+            </div>
+            <div class="cc-preview-widget-section-note">${section.note}</div>
+          </div>
+          <span class="cc-preview-widget-section-chevron" aria-hidden="true">
+            <svg viewBox="0 0 20 20" focusable="false"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
         </div>
-      `).join('');
+        <div class="cc-preview-widget-section-panel-wrap">
+          <div class="cc-preview-widget-list">${rows}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 
   const hideHeaderCount = style === 'ring';
   return `
@@ -1836,7 +2238,7 @@ function previewWidget() {
         ${hideHeaderCount ? '' : `<div class="cc-preview-widget-count">${done}/${total}</div>`}
       </div>
       ${progress}
-      <div class="cc-preview-widget-list">${rows}</div>
+      <div class="cc-preview-widget-sections">${sectionRows}</div>
     </div>
   `;
 }
@@ -1866,19 +2268,41 @@ function tabWidget() {
           { value: 'type',    label: 'Type' },
         ])),
       ]},
-      { title: 'Filters', rows: [
-        row('Default view', selectControl('widgetFilter', [
-          { value: 'all',       label: 'All tasks' },
-          { value: 'overdue',   label: 'Overdue' },
-          { value: 'due_soon',  label: 'Due in 24h' },
-          { value: 'this_week', label: 'This week' },
-        ]), 'Which smart folder is active when the dashboard loads.'),
+      { title: 'Content', rows: [
         row('Show completed', toggleControl('widgetShowCompleted')),
         row('Hide announcements', toggleControl('widgetHideAnnouncements')),
         row('Hide discussions', toggleControl('widgetHideDiscussions')),
       ]},
       { title: 'Previews', rows: [
         row('Task previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value when preview data is available.'),
+      ]},
+    ],
+  };
+}
+
+function previewRecentFeedback() {
+  const items = [
+    { title: 'Paper 2 feedback available', detail: 'Introduction to Psychology - Rubric updated with inline comments', href: '#', iconHtml: '' },
+    { title: 'Lab 4 grade posted', detail: 'Database Design - 18/20 points with note from instructor', href: '#', iconHtml: '' },
+    { title: 'Discussion response reviewed', detail: 'Business Strategy - "Strong synthesis of the case study"', href: '#', iconHtml: '' },
+    { title: 'Quiz 11 comments added', detail: 'Linear Algebra - Re-check question 5 explanation', href: '#', iconHtml: '' },
+    { title: 'Case Study 3 feedback available', detail: 'MGMT 311 - Suggestions posted in SpeedGrader notes', href: '#', iconHtml: '' },
+    { title: 'Short reflection reviewed', detail: 'World History - Instructor left a summary comment', href: '#', iconHtml: '' },
+  ];
+  return `<div class="cc-preview-feedback-frame">${recentFeedbackWidgetMarkup(items)}</div>`;
+}
+
+function tabRecentFeedback() {
+  return {
+    title: 'Recent Feedback',
+    desc: 'Re-skins Canvas\'s native Recent Feedback sidebar list as a custom card.',
+    preview: previewRecentFeedback(),
+    groups: [
+      { title: 'Behavior', rows: [
+        row('Enable widget', toggleControl('recentFeedbackEnabled'), 'Turn off to keep Canvas\'s default Recent Feedback list.'),
+      ]},
+      { title: 'Display', rows: [
+        row('Show details', toggleControl('recentFeedbackShowDetails'), 'Display the secondary feedback text under each title.'),
       ]},
     ],
   };
@@ -1908,6 +2332,7 @@ const TAB_RENDERERS = {
   listview:     tabListView,
   sidebar:      tabSidebar,
   widget:       tabWidget,
+  recentfeedback: tabRecentFeedback,
   integrations: tabIntegrations,
 };
 
@@ -1988,6 +2413,7 @@ function renderTabPane() {
       menu.querySelectorAll('.cc-select-option').forEach(opt => {
         opt.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (opt.disabled) return;
           const key = el.dataset.setting;
           const value = opt.dataset.value;
           el.dataset.value = value;
@@ -1996,8 +2422,10 @@ function renderTabPane() {
           setSelectState(el, false);
           await saveSettings({ [key]: value });
           applySettings(settings);
+          syncControlAvailability(root);
           if (PREVIEW_REACTIVE_KEYS.has(key)) refreshPreview();
           if (WIDGET_RERENDER_KEYS.has(key)) rerenderWidget();
+          if (RECENT_FEEDBACK_RERENDER_KEYS.has(key)) rerenderRecentFeedback();
         });
       });
       return;
@@ -2021,6 +2449,7 @@ function renderTabPane() {
 
       await saveSettings({ [key]: value });
       applySettings(settings);
+      syncControlAvailability(root);
 
       // Special: if widget toggle changed, inject or remove
       if (key === 'widgetEnabled') {
@@ -2031,12 +2460,17 @@ function renderTabPane() {
         }
       }
 
+      if (key === 'recentFeedbackEnabled' && !value) {
+        restoreNativeRecentFeedback();
+      }
+
       // Re-render the preview when it needs to reflect the new setting
       // (progress style, filters, sort, card theme — things CSS vars can't fix on their own)
       if (PREVIEW_REACTIVE_KEYS.has(key)) refreshPreview();
 
       // Re-render the real widget to pick up progress / sort / filter changes
       if (WIDGET_RERENDER_KEYS.has(key)) rerenderWidget();
+      if (RECENT_FEEDBACK_RERENDER_KEYS.has(key)) rerenderRecentFeedback();
     });
   });
 
@@ -2047,6 +2481,7 @@ function renderTabPane() {
 // side-effects like re-syncing sidebar picker fallbacks once Canvas's
 // active-item styles are applied.
 function postRenderTabPane() {
+  syncControlAvailability();
   if (currentTab === 'sidebar') {
     syncSidebarPickerFallbacks();
     // Canvas sometimes delays applying --active styles — re-run once
@@ -2059,13 +2494,19 @@ function postRenderTabPane() {
 const PREVIEW_REACTIVE_KEYS = new Set([
   'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
-  'widgetShowFraction', 'widgetFilter',
+  'widgetShowFraction',
+  'recentFeedbackShowDetails',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
   'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
-  'widgetShowFraction', 'widgetFilter',
+  'widgetShowFraction',
+]);
+
+const RECENT_FEEDBACK_RERENDER_KEYS = new Set([
+  'recentFeedbackEnabled',
+  'recentFeedbackShowDetails',
 ]);
 
 function refreshPreview() {
@@ -2087,6 +2528,10 @@ async function rerenderWidget() {
   }
   existing.remove();
   await injectWidget();
+}
+
+function rerenderRecentFeedback() {
+  syncRecentFeedbackWidget();
 }
 
 // ---------- routing & observation ----------
@@ -2122,7 +2567,13 @@ function applyDashboardView() {
 function tick() {
   if (!settings.extensionEnabled) return;
   applyDashboardView();
+  if (!settings.sidebarBgColor || !settings.sidebarTextColor || !settings.sidebarActiveColor || !settings.sidebarActiveTextColor) {
+    applySettings(settings);
+  } else {
+    syncGlobalNavToggleControls();
+  }
   if (isDashboard()) injectWidget();
+  syncRecentFeedbackWidget();
   if (settings.bgColor) applyBgInline();
 }
 
@@ -2152,6 +2603,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
     settings[k] = newValue;
   }
   applySettings(settings);
+  const keys = Object.keys(changes);
+  if (keys.some(key => WIDGET_RERENDER_KEYS.has(key))) {
+    rerenderWidget();
+  }
+  if (keys.some(key => RECENT_FEEDBACK_RERENDER_KEYS.has(key))) {
+    rerenderRecentFeedback();
+  }
 });
 
 // ---------- bootstrap ----------
