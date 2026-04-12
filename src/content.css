@@ -2850,9 +2850,10 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 /* ---------- Global Dark Mode ----------
-   Gated on data-cc-dark-mode="on". Overrides Canvas's default light theme.
+   Gated on data-cc-dark-mode="on". Notion-style warm dark theme.
    The customization modal is excluded — it always stays light. */
 
+/* Base page backgrounds */
 [data-cc-dark-mode="on"] body,
 [data-cc-dark-mode="on"] .ic-app,
 [data-cc-dark-mode="on"] #wrapper,
@@ -2875,7 +2876,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-dark-mode="on"] .PlannerHeader,
 [data-cc-dark-mode="on"] #dashboard-activity,
 [data-cc-dark-mode="on"] .ic-Dashboard-Activity {
-  background-color: #1a1d21 !important;
+  background-color: #1e1e1e !important;
 }
 
 /* Canvas content surfaces (panels, cards, course pages) */
@@ -2892,14 +2893,14 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-dark-mode="on"] .sticky-toolbar,
 [data-cc-dark-mode="on"] .header-bar,
 [data-cc-dark-mode="on"] nav#breadcrumbs {
-  background-color: #23272b !important;
+  background-color: #252525 !important;
 }
 
 /* Canvas header / top nav */
 [data-cc-dark-mode="on"] #header,
 [data-cc-dark-mode="on"] .ic-app-header,
 [data-cc-dark-mode="on"] .ic-app-header__logomark-container {
-  background-color: #111316 !important;
+  background-color: #141414 !important;
 }
 
 /* Body text */
@@ -2907,26 +2908,26 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-dark-mode="on"] #content *:not(svg):not(svg *):not(.cc-modal-root):not(.cc-modal-root *),
 [data-cc-dark-mode="on"] #dashboard *:not(svg):not(svg *):not(.cc-modal-root):not(.cc-modal-root *),
 [data-cc-dark-mode="on"] [class*="PlannerItem-styles__root"] *:not(svg):not(svg *) {
-  color: #e8eaed !important;
+  color: #e8e8e8 !important;
 }
 
 /* Borders */
 [data-cc-dark-mode="on"] .ic-DashboardCard {
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
 [data-cc-dark-mode="on"] [class*="PlannerItem-styles__root"] {
-  border-top-color: rgba(255, 255, 255, 0.08) !important;
-  border-right-color: rgba(255, 255, 255, 0.08) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  border-top-color: rgba(255, 255, 255, 0.07) !important;
+  border-right-color: rgba(255, 255, 255, 0.07) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 /* Form inputs */
 [data-cc-dark-mode="on"] input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not(.cc-modal-root input),
 [data-cc-dark-mode="on"] select:not(.cc-modal-root select),
 [data-cc-dark-mode="on"] textarea:not(.cc-modal-root textarea) {
-  background-color: #2c3036 !important;
-  color: #e8eaed !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: #2c2c2c !important;
+  color: #e8e8e8 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Modal always stays light */
@@ -2940,122 +2941,188 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   background-color: transparent !important;
 }
 
-/* Widget stays readable in dark mode */
+/* ---- Tasks widget ---- */
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-widget {
-  background: #23272b !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #252525 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card {
-  background: #2a2f33 !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #2c2c2c !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
   box-shadow: none !important;
 }
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card.is-open {
   box-shadow: none !important;
 }
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-label,
+
+/* Section label text */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-label {
+  color: #e8e8e8 !important;
+}
+
+/* Section count badge + chevron button */
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-count,
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-empty {
-  background: rgba(255, 255, 255, 0.04) !important;
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-chevron {
+  background: rgba(255, 255, 255, 0.07) !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #b0b0b0 !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-toggle:hover .cc-section-chevron {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Section empty state */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-empty {
+  color: #9e9e9e !important;
+}
+
+/* Task cards */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Task text */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-title,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-title,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-course {
+  color: #e8e8e8 !important;
 }
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-count,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-fraction,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-meta {
-  color: #aeb8c2 !important;
+  color: #9e9e9e !important;
 }
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-title,
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-title,
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-course,
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-label,
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-count {
-  color: #e8eaed !important;
+
+/* Completed tasks */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-done .cc-task-title {
+  color: #666666 !important;
 }
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task {
-  background: rgba(255, 255, 255, 0.02) !important;
-}
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
-}
+
+/* Due date chips — plain muted, no color coding */
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-due--overdue,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-due--soon,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task-due--week {
-  color: #e8eaed !important;
+  color: #9e9e9e !important;
 }
 
-[data-cc-dark-mode="on"] .cc-progress-circle-pct {
-  color: #e8eaed !important;
+/* Checkboxes */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-check {
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task[data-urgency="overdue"] .cc-check {
+  border-color: rgba(220, 120, 120, 0.50) !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task[data-urgency="due_soon"] .cc-check {
+  border-color: rgba(210, 175, 90, 0.50) !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-task[data-urgency="due_week"] .cc-check {
+  border-color: rgba(120, 170, 200, 0.50) !important;
 }
 
+/* Progress — bar track */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Progress — label text */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-label {
+  color: #9e9e9e !important;
+}
+
+/* Progress — segments empty track */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-seg {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Progress — circle/rings pct text */
+[data-cc-dark-mode="on"] .cc-progress-circle-pct,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-rings-pct {
+  color: #e8e8e8 !important;
+}
+[data-cc-dark-mode="on"] .cc-fraction--circle,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-fraction--ring {
+  color: #9e9e9e !important;
+}
+
+/* Progress — rings legend */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-ring-legend-item {
+  color: #e8e8e8 !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-ring-legend-count {
+  color: #9e9e9e !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-rings-empty {
+  color: #9e9e9e !important;
+}
+
+/* ---- Recent Feedback widget ---- */
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-widget {
-  background: #23272b !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #252525 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
-
-[data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-count,
+[data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-count {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #b0b0b0 !important;
+}
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-empty {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #9e9e9e !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item:hover,
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item:focus {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-title,
-[data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-count,
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item-title {
-  color: #e8eaed !important;
+  color: #e8e8e8 !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item-detail,
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-empty,
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-more {
-  color: #aeb8c2 !important;
+  color: #9e9e9e !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-show-all {
-  color: #a9cff2 !important;
+  color: #a8c4d8 !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-show-all:hover {
   background: rgba(255, 255, 255, 0.06) !important;
-  color: #c5dff5 !important;
+  color: #c0d8e8 !important;
 }
-
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-icon {
-  background: rgba(78, 126, 166, 0.18) !important;
-  color: #a9cff2 !important;
+  background: rgba(100, 140, 180, 0.15) !important;
+  color: #a8c4d8 !important;
 }
 
+/* ---- Tooltip ---- */
 [data-cc-dark-mode="on"] #cc-preview-tooltip {
-  background: #20252a !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  background: #2c2c2c !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
 }
 [data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-title {
-  color: #e8eaed !important;
+  color: #e8e8e8 !important;
 }
 [data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-desc {
-  color: #aeb8c2 !important;
+  color: #9e9e9e !important;
 }
 [data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-chip {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
-  color: #c4ccd4 !important;
+  color: #c0c0c0 !important;
 }
 [data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-chip--accent {
-  background: rgba(74, 126, 166, 0.16) !important;
-  border-color: rgba(159, 209, 236, 0.22) !important;
-  color: #9fd1ec !important;
+  background: rgba(80, 130, 170, 0.18) !important;
+  border-color: rgba(160, 200, 230, 0.22) !important;
+  color: #a0c4dc !important;
 }
 
 /* ---------- Sidebar: label position ---------- */

@@ -1096,11 +1096,11 @@ function syncRecentFeedbackWidget() {
 
 const TABS = [
   { id: 'general',      label: 'General' },
-  { id: 'cards',        label: 'Card View' },
-  { id: 'listview',     label: 'List View' },
-  { id: 'sidebar',      label: 'Left Sidebar' },
-  { id: 'widget',       label: 'Tasks Widget' },
-  { id: 'recentfeedback', label: 'Recent Feedback' },
+  { id: 'cards',        label: 'Cards' },
+  { id: 'listview',     label: 'List' },
+  { id: 'sidebar',      label: 'Sidebar' },
+  { id: 'widget',       label: 'To Do' },
+  { id: 'recentfeedback', label: 'Feedback' },
   { id: 'integrations', label: 'Integrations' },
 ];
 
@@ -1883,18 +1883,18 @@ function tabGeneral() {
     groups: [
       { title: 'Extension', rows: [
         row('Enable Custom Canvas', toggleControl('extensionEnabled'), 'Master switch. Turn off to restore Canvas defaults everywhere.'),
-        row('Dark mode', toggleControl('darkMode'), 'Force a dark theme across all Canvas pages.'),
+        row('Dark Mode', toggleControl('darkMode'), 'Force a dark theme across all Canvas pages.'),
       ]},
       { title: 'Productivity', rows: [
-        row('Command palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to search active courses and assignments from this week through the next 8 weeks.'),
+        row('Command Palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to search active courses and assignments from this week through the next 8 weeks.'),
       ]},
       { title: 'Scroll Bars', rows: [
-        row('Hide scroll bars', toggleControl('hideScrollBars'), 'Hides nested vertical and horizontal scroll bars while keeping the main page scroll bar visible.'),
+        row('Hide Scroll Bars', toggleControl('hideScrollBars'), 'Hides nested vertical and horizontal scroll bars while keeping the main page scroll bar visible.'),
       ]},
       { title: 'Background', rows: [
         row('Color', colorControl('bgColor', '#ffffff'), 'Leave default to keep Canvas\'s background.'),
         row('Image URL', textControl('bgImage', 'https://...'), 'Paste a direct image URL.'),
-        row('Image blur', rangeControl('bgBlur', 0, 20, 1, 'px')),
+        row('Image Blur', rangeControl('bgBlur', 0, 20, 1, 'px')),
       ]},
       { title: 'Text', rows: [
         row('Color', colorControl('textColor', '#2d3b45'), 'Override Canvas\'s body text color.'),
@@ -1915,7 +1915,7 @@ function tabGeneral() {
         ]), 'Loaded from Google Fonts on first use.'),
       ]},
       { title: 'Modal', rows: [
-        row('Accent color', colorControl('modalAccentColor', '#fc5050'), 'Used for active tab text, selected dropdown options, toggles, and sliders inside this modal.'),
+        row('Accent Color', colorControl('modalAccentColor', '#fc5050'), 'Used for active tab text, selected dropdown options, toggles, and sliders inside this modal.'),
       ]},
     ],
   };
@@ -1962,11 +1962,11 @@ function tabCards() {
     groups: [
       { title: 'Colors', rows: [
         row('Background', colorControl('cardBgColor', '#ffffff'), 'Background of each card body. Leave unset to use Canvas\'s default.'),
-        row('Text color', colorControl('cardTextColor', '#2d3b45'), 'Text on each card. Leave unset to use Canvas\'s default.'),
-        row('Accent color', colorControl('accentColor', '#008ee2'), 'Used for links, buttons, and progress bars.'),
+        row('Text Color', colorControl('cardTextColor', '#2d3b45'), 'Text on each card. Leave unset to use Canvas\'s default.'),
+        row('Accent Color', colorControl('accentColor', '#008ee2'), 'Used for links, buttons, and progress bars.'),
       ]},
       { title: 'Shape', rows: [
-        row('Corner radius', rangeControl('cardRadius', 0, 24, 1, 'px'), 'Applies to cards and planner items.'),
+        row('Corner Radius', rangeControl('cardRadius', 0, 24, 1, 'px'), 'Applies to cards and planner items.'),
         row('Shadow', selectControl('cardShadow', [
           { value: 'none', label: 'None' },
           { value: 'soft', label: 'Soft' },
@@ -1974,11 +1974,11 @@ function tabCards() {
         ]), 'Applies to cards and planner items.'),
       ]},
       { title: 'Image', rows: [
-        row('Show card image', toggleControl('cardShowImage'), 'Card View only. Hide to show only the course color block.'),
-        row('Image opacity', rangeControl('cardImageOpacity', 0, 1, 0.05), 'Card View only.'),
+        row('Show Card Image', toggleControl('cardShowImage'), 'Card View only. Hide to show only the course color block.'),
+        row('Image Opacity', rangeControl('cardImageOpacity', 0, 1, 0.05), 'Card View only.'),
       ]},
       { title: 'Layout', rows: [
-        row('Header height', rangeControl('cardHeaderHeight', 60, 200, 5, 'px'), 'Card View only.'),
+        row('Header Height', rangeControl('cardHeaderHeight', 60, 200, 5, 'px'), 'Card View only.'),
       ]},
     ],
   };
@@ -2056,19 +2056,19 @@ function tabListView() {
     groups: [
       { title: 'Item Style', rows: [
         row('Background', colorControl('plannerItemBg', '#ffffff'), 'Background of each planner item row. Leave unset to use Canvas\'s default.'),
-        row('Text color', colorControl('plannerItemTextColor', '#2d3b45'), 'Title and meta text on each item.'),
-        row('Accent bar width', rangeControl('plannerBarWidth', 0, 12, 1, 'px'), 'Width of the colored left stripe showing the course color.'),
-        row('Item spacing', rangeControl('plannerItemSpacing', 4, 24, 2, 'px'), 'Gap between items in the list.'),
+        row('Text Color', colorControl('plannerItemTextColor', '#2d3b45'), 'Title and meta text on each item.'),
+        row('Accent Bar Width', rangeControl('plannerBarWidth', 0, 12, 1, 'px'), 'Width of the colored left stripe showing the course color.'),
+        row('Item Spacing', rangeControl('plannerItemSpacing', 4, 24, 2, 'px'), 'Gap between items in the list.'),
       ]},
       { title: 'Day Headers', rows: [
         row('Background', colorControl('plannerDayBg', '#f5f5f5'), 'Background of each day\'s header strip.'),
-        row('Text color', colorControl('plannerDayTextColor', '#2d3b45'), 'Color of the date label in each day header.'),
+        row('Text Color', colorControl('plannerDayTextColor', '#2d3b45'), 'Color of the date label in each day header.'),
       ]},
       { title: 'Completed Items', rows: [
         row('Opacity', rangeControl('plannerDoneOpacity', 20, 100, 5, '%'), 'How faded completed items appear. Lower = more muted.'),
       ]},
       { title: 'Recent Activity', rows: [
-        row('Item background', colorControl('activityItemBg', '#ffffff'), 'Background of each activity feed item.'),
+        row('Item Background', colorControl('activityItemBg', '#ffffff'), 'Background of each activity feed item.'),
       ]},
     ],
   };
@@ -2107,22 +2107,22 @@ function tabSidebar() {
     preview: previewSidebar(),
     groups: [
       { title: 'Visibility', rows: [
-        row('Enable sidebar restyle', toggleControl('sidebarRestyle'), 'Tighter spacing, rounded active state.'),
-        row('Show labels', toggleControl('sidebarShowLabels'), 'Turn off to show icons only.'),
-        row('Label position', selectControl('sidebarLabelPosition', [
+        row('Enable Sidebar Restyle', toggleControl('sidebarRestyle'), 'Tighter spacing, rounded active state.'),
+        row('Show Labels', toggleControl('sidebarShowLabels'), 'Turn off to show icons only.'),
+        row('Label Position', selectControl('sidebarLabelPosition', [
           { value: 'bottom', label: 'Below icon' },
           { value: 'right', label: 'Right of icon' },
         ]), 'Below icon keeps the standard stacked layout. Right of icon collapses the rail to icons and expands on hover to reveal labels.'),
       ]},
       { title: 'Colors', rows: [
         row('Background', colorControl('sidebarBgColor', detected.bg), 'The sidebar\'s main fill color.'),
-        row('Text & icons', colorControl('sidebarTextColor', detected.text), 'Color of labels and SVG icons.'),
-        row('Active item background', colorControl('sidebarActiveColor', detected.activeBg), 'Background of the currently selected nav item.'),
-        row('Active item text', colorControl('sidebarActiveTextColor', detected.activeText), 'Text and icon color of the currently selected nav item.'),
+        row('Text & Icons', colorControl('sidebarTextColor', detected.text), 'Color of labels and SVG icons.'),
+        row('Active Item Background', colorControl('sidebarActiveColor', detected.activeBg), 'Background of the currently selected nav item.'),
+        row('Active Item Text', colorControl('sidebarActiveTextColor', detected.activeText), 'Text and icon color of the currently selected nav item.'),
       ]},
       { title: 'Sizing', rows: [
-        row('Icon size', rangeControl('sidebarIconSize', 14, 32, 1, 'px')),
-        row('Label size', rangeControl('sidebarLabelSize', 8, 14, 1, 'px')),
+        row('Icon Size', rangeControl('sidebarIconSize', 14, 32, 1, 'px')),
+        row('Label Size', rangeControl('sidebarLabelSize', 8, 14, 1, 'px')),
       ]},
     ],
   };
@@ -2275,33 +2275,33 @@ function tabWidget() {
     preview: previewWidget(),
     groups: [
       { title: 'Behavior', rows: [
-        row('Enable widget', toggleControl('widgetEnabled'), 'Turn off to keep Canvas\'s default To Do list.'),
+        row('Enable Widget', toggleControl('widgetEnabled'), 'Turn off to keep Canvas\'s default To Do list.'),
       ]},
       { title: 'Progress', rows: [
         row('Style', selectControl('widgetProgressStyle', [
           { value: 'bar',        label: 'Bar' },
           { value: 'segments',   label: 'Segments' },
           { value: 'circle',     label: 'Circle' },
-          { value: 'ring',       label: 'Ring (per course)' },
+          { value: 'ring',       label: 'Ring' },
         ])),
         ...(settings.widgetProgressStyle !== 'ring' ? [row('Color', colorControl('widgetProgressColor', '#8eaec4'))] : []),
-        row('Show fraction', toggleControl('widgetShowFraction'), 'Display "done / total tasks" below the progress indicator.'),
+        row('Show Fraction', toggleControl('widgetShowFraction'), 'Display "done / total tasks" below the progress indicator.'),
       ]},
       { title: 'Sort', rows: [
-        row('Sort by', selectControl('widgetSortBy', [
-          { value: 'dueDate', label: 'Due date' },
+        row('Sort By', selectControl('widgetSortBy', [
+          { value: 'dueDate', label: 'Due Date' },
           { value: 'status',  label: 'Status' },
           { value: 'course',  label: 'Course' },
           { value: 'type',    label: 'Type' },
         ])),
       ]},
       { title: 'Content', rows: [
-        row('Show completed', toggleControl('widgetShowCompleted')),
-        row('Hide announcements', toggleControl('widgetHideAnnouncements')),
-        row('Hide discussions', toggleControl('widgetHideDiscussions')),
+        row('Show Completed', toggleControl('widgetShowCompleted')),
+        row('Hide Announcements', toggleControl('widgetHideAnnouncements')),
+        row('Hide Discussions', toggleControl('widgetHideDiscussions')),
       ]},
       { title: 'Previews', rows: [
-        row('Task previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value when preview data is available.'),
+        row('Task Previews', toggleControl('assignmentPreviewsEnabled'), 'Hover a task to see its description and point value when preview data is available.'),
       ]},
     ],
   };
@@ -2326,10 +2326,10 @@ function tabRecentFeedback() {
     preview: previewRecentFeedback(),
     groups: [
       { title: 'Behavior', rows: [
-        row('Enable widget', toggleControl('recentFeedbackEnabled'), 'Turn off to keep Canvas\'s default Recent Feedback list.'),
+        row('Enable Widget', toggleControl('recentFeedbackEnabled'), 'Turn off to keep Canvas\'s default Recent Feedback list.'),
       ]},
       { title: 'Display', rows: [
-        row('Show details', toggleControl('recentFeedbackShowDetails'), 'Display the secondary feedback text under each title.'),
+        row('Show Details', toggleControl('recentFeedbackShowDetails'), 'Display the secondary feedback text under each title.'),
       ]},
     ],
   };
