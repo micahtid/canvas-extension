@@ -6,6 +6,86 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-11
+
+### Tasks Widget + Recent Feedback — Scroll-edge fade masks (REVERTED)
+- **Where:** `src/content.css`, `src/content.js`
+- **What:** Removed scroll-edge fade masks (`.cc-fade-top`, `.cc-fade-bottom`, `.cc-fade-both` CSS classes and `updateScrollFade`/`initScrollFade` JS functions). Originally added then removed by request.
+
+### Tasks Widget — Improve task card text readability
+- **Where:** `src/content.css` (`.cc-task-title`, `.cc-task-meta`)
+- **What:** Bumped task title from `11.5px` → `12.5px` (eliminates subpixel rendering inconsistency), line-height from `1.25` → `1.3`, and margin-bottom from `1px` → `2px` for more breathing room before the meta row. Meta font-size from `10px` → `11px` for easier scanning of course names and due dates.
+
+### Tasks Widget — Fix excess height on collapsed sections
+- **Where:** `src/content.css` (`.cc-section-panel`, `.cc-section-card.is-open .cc-section-panel`)
+- **What:** Moved `padding-top: 10px` from the base `.cc-section-panel` rule (always applied) to the `.is-open` variant only. The padding was part of the element's own box and leaked through the `0fr` grid collapse, adding ~10px of extra space below the toggle when closed. Also added `padding-top` to the transition so it animates smoothly on open/close.
+
+### Recent Feedback Widget — Scrollable list with max height
+- **Where:** `src/content.css` (`.cc-feedback-list`)
+- **What:** Added `max-height: 280px; overflow-y: auto; scrollbar-width: none` to the feedback list so it scrolls when expanded beyond the visible area. Webkit scrollbar hidden to match the Tasks widget style.
+
+### Recent Feedback Widget — Truncate list with "Show more" button
+- **Where:** `src/content.js` (`recentFeedbackWidgetMarkup`, `syncRecentFeedbackWidget`); `src/content.css` (`.cc-feedback-hidden`, `.cc-feedback-show-all`)
+- **What:** Added `FEEDBACK_SHOW_LIMIT = 3` constant. Items beyond the first 3 receive class `cc-feedback-hidden` (`display: none`). A "Show N more" button is rendered below the list when hidden items exist; clicking it removes the hidden class from all items and removes itself. Button styled with hover state and dark-mode override.
+
+### Tasks Widget + Recent Feedback — Count badge sizing and centering fix
+- **Where:** `src/content.css` (`.cc-section-count`, `.cc-feedback-count`)
+- **What:** Replaced fixed `width: 24px; height: 18px; display: block; line-height: 16px` with `min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center`. The pill now self-sizes around its content (compact for "0", wider for "15"), and flexbox centering is used instead of the `line-height` trick which was unreliable across fonts. Font-size 10px → 9px.
+
+### Recent Feedback Widget — Match counter style to Tasks widget
+- **Where:** `src/content.css` (`.cc-feedback-count`)
+- **What:** Replaced the old 24×24 pill (`inline-flex`, padding 0 8px, `#f5f7f9` bg) with the same pill geometry used by `.cc-section-count` in the Tasks widget: 24×18px fixed, `padding: 0`, `rgba(255,255,255,0.8)` bg, `rgba(45,59,69,0.1)` border, `font-size: 10px`, `line-height: 16px`, `text-align: center`.
+
+### Tasks Widget — Fix collapsible section chevron shift
+- **Where:** `src/content.css` (`.cc-section-chevron`)
+- **What:** Added `transform-origin: center center` and `will-change: transform` to the chevron element so the rotation pivot is always the geometric center and the browser composites the rotation on the GPU layer, eliminating any subpixel shift during open/close.
+
+### Tasks Widget — Smaller checkbox and separator dots
+- **Where:** `src/content.css` (`.cc-check`, `.cc-task-sep`)
+- **What:** Checkbox reduced from 14×14px to 12×12px (`flex: 0 0 12px`, `border-radius: 2px`, `font-size: 8px`, `line-height: 9px`). Separator dot `font-size` reduced from 7px to 5px.
+
+### Tasks Widget — Move section card vertical spacing onto the toggle button
+- **Where:** `src/content.css` (`.cc-section-card`, `.cc-section-toggle`)
+- **What:** Removed vertical padding from the card (`8px 10px` → `0 10px`) and placed it on the toggle button instead (`padding: 0` → `padding: 6px 0`). The button now owns its own breathing room, so `align-items: center` reliably centers label/count/chevron within the button's own content box rather than within an implicit card-padding region. Cards are shorter and content is optically centered.
+
+### Tasks Widget — Section card polish (Overdue / Due Soon / This Week / All)
+- **Where:** `src/content.js` (`sectionMarkup`); `src/content.css` (`.cc-section-card`, `.cc-section-toggle`, `.cc-section-label`, `.cc-section-right`, `.cc-section-count`, `.cc-section-chevron`, dark-mode block).
+- **What:** Reduced card padding from `12px` to `8px 10px 0` (no bottom padding); `padding-bottom: 8px` re-added only on `.is-open` so collapsed cards have no extra bottom space. Removed section description lines ("Past due and open.", "Within 24 hours.", etc.) — `<p class="cc-section-note">` removed from markup and its CSS deleted. Background tints lightened closer to white (e.g. overdue `#fbf5f4` → `#fef9f8`). Restructured toggle so count badge and chevron share a new `.cc-section-right` flex container with `gap: 4px`, bringing them visually adjacent. Both badges shrunk slightly (count `22px` → `18px`, chevron `20px` → `18px`, SVG `14px` → `12px`). Removed stale `.cc-section-head`, `.cc-section-topline`, `.cc-section-note` CSS blocks and their dark-mode overrides.
+
+### Tasks Widget — Task card text made more compact
+- **Where:** `src/content.css` (`.cc-task-link`, `.cc-task-row`, `.cc-task-title`, `.cc-task-meta`).
+- **What:** Title `14px → 12.5px`, line-height `1.3 → 1.25`, bottom margin `2px → 1px`. Meta `11px → 10px`, gap `4px → 3px`. Card link padding `8px 10px → 6px 8px`, row gap `10px → 8px`.
+
+### Tasks Widget — Checkbox smaller; sep dots smaller; ring center shifted down
+- **Where:** `src/content.css` (`.cc-check`, `.cc-task-sep`, `.cc-progress-rings-center`).
+- **What:** Checkbox `18×18px → 14×14px`, border-radius `4px → 3px`, checkmark font `12px → 9px`, line-height `16px → 11px`. Sep dots gained `font-size: 7px` (inheriting the 10px meta size was too large). Ring center `padding-top: 17px → 21px` — shifts the pct+fraction group ~4px lower so it reads as intentionally below-center rather than at dead-center.
+
+### Tasks Widget — Count badge fixed-width oval; ring fraction tightened; title smaller
+- **Where:** `src/content.css` (`.cc-section-count`, `.cc-progress-rings-center`, `.cc-fraction--ring`, `.cc-task-title`).
+- **What:** Count badge changed from `min-width: 18px` + `padding: 0 6px` (variable width) to fixed `width: 24px; height: 18px; padding: 0` — all badges are now an identical 24×18 oval regardless of digit count. Replaced flex centering with `line-height: 16px; text-align: center` (16px = 18px height − 2px borders) for reliable text centering. Ring fraction: `font-size: 8px → 7px`, gap `1px → 0`. Task title: `12.5px → 11.5px`.
+
+### Tasks Widget — Count/chevron true centering; ring fraction repositioned
+- **Where:** `src/content.css` (`.cc-section-count`, `.cc-section-chevron`, `.cc-progress-rings-center`, `.cc-fraction--ring`).
+- **What:** Added `box-sizing: border-box` and `overflow: hidden` to count and chevron so the 18px dimension correctly includes the 1px border, giving a clean 16px inner flex area. Ring center changed to `justify-content: flex-start` with `padding-top: 17px` — this puts the percentage line-box center at the exact geometric center of the 56px ring center (28px from top), with the fraction (shrunk to `8px`) hanging 1px below it.
+
+### Tasks Widget — Progress fraction placement (ring center + bar dedup)
+- **Where:** `src/content.js` (`activityRingsMarkup`, `progressMarkup`, `renderWidget`); `src/content.css` (`.cc-progress-rings-center`, `.cc-fraction--ring`).
+- **What:** Ring view: fraction (`done/total`) now renders inside `.cc-progress-rings-center` directly below the percentage, via new `.cc-fraction--ring` style (9.5px, tabular-nums). Center div changed to `flex-direction: column; gap: 2px` so they stack. The outer `fractionHtml` is suppressed for ring style. Bar view: `cc-count` header badge removed (`hideHeaderCount` extended to cover bar) so only the `cc-fraction` below the bar remains. `progressMarkup` and `activityRingsMarkup` gain a `showFraction` parameter to thread this through.
+
+### Tasks Widget — Count/chevron centering fix; section tint colors strengthened
+- **Where:** `src/content.css` (`.cc-section-right`, `.cc-section-count`, `.cc-section-chevron`, `.cc-section-chevron svg`, `.cc-section-card` tints).
+- **What:** Changed `.cc-section-right`, `.cc-section-count`, and `.cc-section-chevron` from `inline-flex` to `flex` and added `line-height: 1` to block parent line-height from skewing vertical centering. Section card tints restored to clearly distinguishable values: overdue `#fde8e7` (rose), due-soon `#fef2d8` (amber), this-week `#e4f1fb` (blue), all `#eef2f6` (slate). Section borders now use the urgency hue at low opacity for coherence.
+
+### Tasks Widget — Collapsible max-height, tooltip shadow, contrast fixes
+- **Where:** `src/content.css` (`.cc-section-list`, `#cc-preview-tooltip`, `.cc-task-due--*`, `.cc-task-meta`, dark-mode tooltip).
+- **What:**
+  - Max-height of open sections increased: non-all `188px → 248px`, all `260px → 340px`.
+  - Assignment preview tooltip shadow stripped back to `0 2px 8px rgba(15,23,42,0.08)` (dark mode: `0 2px 8px rgba(0,0,0,0.28)`) — removes the large dramatic spread.
+  - Urgency due-date text colors darkened to meet WCAG AA (≥4.5:1) on near-white backgrounds: overdue `#b54747 → #c03535` (~5.6:1), due-soon `#9d6f14 → #8a5e0a` (~5.3:1), this-week `#4f7890 → #2e6a8a` (~6:1).
+  - Task meta text (`#6b7780 → #505e67`) darkened for legibility at 11px.
+
+---
+
 ## 2026-04-09 (PRD — Canvas Enhancer feature set)
 
 ### General — Global Dark Mode
