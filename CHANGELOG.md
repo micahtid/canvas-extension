@@ -8,6 +8,42 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ## 2026-04-11
 
+### General — Default font changed to Inter
+- **Where:** `src/content.js` (defaults `fontFamily`)
+- **What:** Changed the default `fontFamily` setting from `'default'` to `'Inter'` so new installs get Inter as the site font out of the box.
+
+### Tasks Widget — Remove fraction label in Bar and Segments modes
+- **Where:** `src/content.js` (`renderWidget`)
+- **What:** Removed the standalone `fractionHtml` element ("7 / 15 tasks") that appeared between the progress indicator and the section cards in Bar and Segments modes. The "Show fraction" toggle still works for Ring and Circle modes, which embed the fraction inside their center.
+
+### Tasks Widget — Reduce gap between section header and task list when expanded
+- **Where:** `src/content.css` (`.cc-section-card.is-open .cc-section-panel`, `.cc-preview-widget-section.is-open .cc-preview-widget-list`)
+- **What:** Reduced `padding-top` from `10px` to `4px` on the expanded panel, removing the extra bottom-margin appearance below section labels like "Overdue". Applied to both the live widget and preview.
+
+### Tasks Widget — Circle and Half Circle progress modes
+- **Where:** `src/content.js` (`circleProgressMarkup`, `progressMarkup`, `previewWidget`, settings dropdown); `src/content.css` (`.cc-progress-circle`, `.cc-progress-circle-svg`, `.cc-progress-circle-center`, `.cc-progress-circle-pct`, `.cc-fraction--circle`, dark-mode override)
+- **What:** Added two new progress style options: "Circle" (full donut) and "Half Circle" (semicircular gauge). Both use a single SVG arc with the user's `widgetProgressColor`, show percentage in the center, and support the "Show fraction" toggle. The color picker appears for these modes (hidden only for Ring). Header count hidden for circle styles. Preview and live widget both render consistently.
+
+### Tasks Widget — Customizable progress bar/segment color
+- **Where:** `src/content.js` (defaults `widgetProgressColor`, `progressMarkup`, `previewWidget`, settings UI, `PREVIEW_REACTIVE_KEYS`, `WIDGET_RERENDER_KEYS`)
+- **What:** Added `widgetProgressColor` setting (default `#8eaec4`). A color picker appears in the Progress settings group when style is Bar or Segments (hidden for Ring). The chosen color is applied inline to the bar fill and done-segment backgrounds in both the live widget and the settings preview.
+
+### Recent Feedback — Count badge height fix
+- **Where:** `src/content.css` (`.cc-feedback-count`)
+- **What:** Bumped count pill height from `16px` to `18px` to match the Tasks Widget section count sizing.
+
+### Settings Dialog — Match Tasks Widget preview to real widget structure
+- **Where:** `src/content.js` (`previewWidget` section markup); `src/content.css` (`.cc-preview-widget-section-toggle`, `.cc-preview-widget-section-label`, `.cc-preview-widget-section-count`, `.cc-preview-widget-section-chevron`, etc.)
+- **What:** Removed the `cc-preview-widget-section-head`, `cc-preview-widget-section-topline`, and `cc-preview-widget-section-note` elements from the preview. The toggle now matches the real widget: label + right group (count pill + chevron) in a single row. Section card padding changed from `10px` to `0 10px` with `padding-bottom: 8px` on `.is-open`, `border-radius` to `12px`, toggle `min-height: 28px`. Count pill and chevron sizes/colors aligned to the real widget values.
+
+### Tasks Widget — Remove colored due dates in task cards
+- **Where:** `src/content.css` (`.cc-task-due--overdue`, `.cc-task-due--soon`, `.cc-task-due--week`, dark-mode overrides)
+- **What:** Replaced per-urgency colors (red, amber, blue) with a single neutral color (`#2d3b45` light, `#e8eaed` dark) for all due date/time text. Font-weight 700 retained.
+
+### Settings Dialog — Fix Tasks Widget live preview overflow
+- **Where:** `src/content.js` (`previewWidget`); `src/content.css` (`.cc-preview-col`, `.cc-preview-content`, `.cc-preview-widget-list`, `.cc-preview-widget-section.is-open .cc-preview-widget-list`)
+- **What:** All preview collapsible sections now render closed so the widget fits within the preview pane. Fixed the same `padding-top` leak on `.cc-preview-widget-list` (moved to `.is-open` only). Changed `.cc-preview-col` from `overflow: hidden` to scrollable (`overflow-y: auto`, hidden scrollbar) with `align-items: flex-start` + `margin: auto 0` on content so previews center when short but scroll instead of clipping when tall.
+
 ### Tasks Widget + Recent Feedback — Scroll-edge fade masks (REVERTED)
 - **Where:** `src/content.css`, `src/content.js`
 - **What:** Removed scroll-edge fade masks (`.cc-fade-top`, `.cc-fade-bottom`, `.cc-fade-both` CSS classes and `updateScrollFade`/`initScrollFade` JS functions). Originally added then removed by request.

@@ -49,7 +49,7 @@ const DEFAULTS = {
 
   // Page-level text + font
   textColor: '',
-  fontFamily: 'default',
+  fontFamily: 'Inter',
 
   // Modal accent (used by active tab, selected dropdown option, toggle on, slider)
   modalAccentColor: '#fc5050',
@@ -57,6 +57,7 @@ const DEFAULTS = {
   // Weekly Tasks widget
   widgetEnabled: true,
   widgetProgressStyle: 'bar', // 'bar' | 'ring' | 'segments'
+  widgetProgressColor: '#8eaec4',
   widgetSortBy: 'dueDate',    // 'dueDate' | 'status' | 'course' | 'type'
   widgetShowCompleted: true,
   widgetHideAnnouncements: false,
@@ -752,14 +753,43 @@ function activityRingsMarkup(groups, colors, totalPct, done, total, showFraction
   `;
 }
 
+function circleProgressMarkup(pct, done, total, showFraction) {
+  const barColor = settings.widgetProgressColor || '#8eaec4';
+  const trackColor = hexToRgba(barColor, 0.18);
+  const size = 120;
+  const strokeW = 10;
+  const r = (size / 2) - (strokeW / 2) - 2;
+  const cx = size / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - pct / 100);
+  const fraction = showFraction ? `<div class="cc-fraction cc-fraction--circle">${done}/${total}</div>` : '';
+  return `
+    <div class="cc-progress-circle">
+      <div class="cc-progress-circle-svg" style="width:${size}px;height:${size}px;">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+          <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="${strokeW}"/>
+          <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${barColor}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cx})"/>
+        </svg>
+        <div class="cc-progress-circle-center">
+          <div class="cc-progress-circle-pct">${pct}%</div>
+          ${fraction}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function progressMarkup(style, done, total, pct, tasks, colors, showFraction) {
   if (style === 'ring') {
     const groups = groupByCourse(tasks);
     return activityRingsMarkup(groups, colors || {}, pct, done, total, showFraction);
   }
+  if (style === 'circle') return circleProgressMarkup(pct, done, total, showFraction);
+
+  const barColor = settings.widgetProgressColor || '#8eaec4';
   if (style === 'segments') {
     const n = total || 1;
-    const segs = Array.from({ length: n }, (_, i) => `<div class="cc-progress-seg${i < done ? ' done' : ''}"></div>`).join('');
+    const segs = Array.from({ length: n }, (_, i) => `<div class="cc-progress-seg${i < done ? ' done' : ''}"${i < done ? ` style="background:${barColor}"` : ''}></div>`).join('');
     return `
       <div class="cc-progress-segments">${segs}</div>
       <div class="cc-progress-label">${pct}% complete</div>
@@ -767,7 +797,7 @@ function progressMarkup(style, done, total, pct, tasks, colors, showFraction) {
   }
   return `
     <div class="cc-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
-      <div class="cc-progress-bar" style="width:${pct}%"></div>
+      <div class="cc-progress-bar" style="width:${pct}%;background:${barColor}"></div>
     </div>
     <div class="cc-progress-label">${pct}% complete</div>
   `;
@@ -856,14 +886,10 @@ function renderWidget(container, tasks, colors) {
   const sections = widgetSections(tasks);
 
   const showFraction = !!settings.widgetShowFraction;
-  // Ring embeds the fraction inside the ring center; bar/segments render it below the progress element
-  const fractionHtml = showFraction && style !== 'ring'
-    ? `<div class="cc-fraction">${done} / ${total} tasks</div>`
-    : '';
   const sectionsHtml = sections.map(section => widgetSectionMarkup(section, now)).join('');
 
   // Header count is redundant when a fraction is already displayed near the progress element
-  const hideHeaderCount = style === 'ring' || style === 'bar';
+  const hideHeaderCount = style === 'ring' || style === 'bar' || style === 'circle';
   container.innerHTML = `
     <div class="cc-widget" data-style="${style}">
       <div class="cc-header">
@@ -871,7 +897,6 @@ function renderWidget(container, tasks, colors) {
         ${hideHeaderCount ? '' : `<span class="cc-count">${done}/${total}</span>`}
       </div>
       ${progressMarkup(style, done, total, pct, tasks, colors, showFraction)}
-      ${fractionHtml}
       <div class="cc-sections">${sectionsHtml}</div>
     </div>
   `;
@@ -2184,18 +2209,21 @@ function previewWidget() {
         <div class="cc-preview-widget-rings-legend">${legend}</div>
       </div>
     `;
+  } else if (style === 'circle') {
+    progress = circleProgressMarkup(pct, done, total, !!settings.widgetShowFraction);
   } else if (style === 'segments') {
+    const previewBarColor = settings.widgetProgressColor || '#8eaec4';
     const n = Math.max(total, 1);
-    const segs = Array.from({ length: n }, (_, i) => `<div class="cc-preview-widget-seg${i < done ? ' done' : ''}"></div>`).join('');
+    const segs = Array.from({ length: n }, (_, i) => `<div class="cc-preview-widget-seg${i < done ? ' done' : ''}"${i < done ? ` style="background:${previewBarColor}"` : ''}></div>`).join('');
     progress = `<div class="cc-preview-widget-segments">${segs}</div>`;
   } else {
-    progress = `<div class="cc-preview-widget-bar"><div class="cc-preview-widget-fill" style="width:${pct}%"></div></div>`;
+    const previewBarColor = settings.widgetProgressColor || '#8eaec4';
+    progress = `<div class="cc-preview-widget-bar"><div class="cc-preview-widget-fill" style="width:${pct}%;background:${previewBarColor}"></div></div>`;
   }
 
-  const previewSectionState = defaultWidgetSectionState();
   const sections = widgetSections(items).map(section => ({
     ...section,
-    open: previewSectionState[section.key] ?? section.open,
+    open: false,
   }));
   const sectionRows = sections.map(section => {
     const rows = section.tasks.length === 0
@@ -2212,15 +2240,12 @@ function previewWidget() {
     return `
       <div class="cc-preview-widget-section${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}">
         <div class="cc-preview-widget-section-toggle">
-          <div class="cc-preview-widget-section-head">
-            <div class="cc-preview-widget-section-topline">
-              <span class="cc-preview-widget-section-label">${section.label}</span>
-              <span class="cc-preview-widget-section-count">${section.tasks.length}</span>
-            </div>
-            <div class="cc-preview-widget-section-note">${section.note}</div>
-          </div>
-          <span class="cc-preview-widget-section-chevron" aria-hidden="true">
-            <svg viewBox="0 0 20 20" focusable="false"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cc-preview-widget-section-label">${section.label}</span>
+          <span class="cc-preview-widget-section-right">
+            <span class="cc-preview-widget-section-count">${section.tasks.length}</span>
+            <span class="cc-preview-widget-section-chevron" aria-hidden="true">
+              <svg viewBox="0 0 20 20" focusable="false"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
           </span>
         </div>
         <div class="cc-preview-widget-section-panel-wrap">
@@ -2230,7 +2255,7 @@ function previewWidget() {
     `;
   }).join('');
 
-  const hideHeaderCount = style === 'ring';
+  const hideHeaderCount = style === 'ring' || style === 'circle';
   return `
     <div class="cc-preview-widget-frame" data-style="${style}">
       <div class="cc-preview-widget-header">
@@ -2254,10 +2279,12 @@ function tabWidget() {
       ]},
       { title: 'Progress', rows: [
         row('Style', selectControl('widgetProgressStyle', [
-          { value: 'bar',      label: 'Bar' },
-          { value: 'ring',     label: 'Ring' },
-          { value: 'segments', label: 'Segments' },
+          { value: 'bar',        label: 'Bar' },
+          { value: 'segments',   label: 'Segments' },
+          { value: 'circle',     label: 'Circle' },
+          { value: 'ring',       label: 'Ring (per course)' },
         ])),
+        ...(settings.widgetProgressStyle !== 'ring' ? [row('Color', colorControl('widgetProgressColor', '#8eaec4'))] : []),
         row('Show fraction', toggleControl('widgetShowFraction'), 'Display "done / total tasks" below the progress indicator.'),
       ]},
       { title: 'Sort', rows: [
@@ -2492,14 +2519,14 @@ function postRenderTabPane() {
 }
 
 const PREVIEW_REACTIVE_KEYS = new Set([
-  'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
+  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
   'recentFeedbackShowDetails',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
-  'widgetProgressStyle', 'widgetSortBy', 'widgetShowCompleted',
+  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetShowCompleted',
   'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
 ]);
