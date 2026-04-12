@@ -8,6 +8,22 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ## 2026-04-11
 
+### Settings — Title Case for all row labels and option values
+- **Where:** `src/content.js` (all `row()` calls in `tabGeneral`, `tabCards`, `tabListView`, `tabSidebar`, `tabWidget`, `tabRecentFeedback`)
+- **What:** Capitalised every settings row label to Title Case (e.g., `'Dark mode'`→`'Dark Mode'`, `'Show completed'`→`'Show Completed'`, `'Sort by'`→`'Sort By'`, etc.). Also renamed `'Ring (per course)'`→`'Ring'` in the progress style dropdown and `'Due date'`→`'Due Date'` in the sort-by dropdown.
+
+### Settings — Rename settings tabs
+- **Where:** `src/content.js` (`TABS` constant)
+- **What:** Renamed tabs: Cards, List (was List View), Sidebar, To Do (was Widget), Feedback (was Recent Feedback). Integrations and General unchanged.
+
+### Dark Mode — Notion-style palette rewrite
+- **Where:** `src/content.css` (entire `/* ---------- Global Dark Mode ---------- */` block)
+- **What:** Replaced the blue-tinted palette (`#1a1d21` base) with a warmer Notion-style palette (`#1e1e1e` base, `#252525` cards, `#2c2c2c` elevated, `#141414` nav, `#e8e8e8` primary text, `#9e9e9e` secondary text, `rgba(255,255,255,0.07)` borders). Fixed the wrong `.cc-section-label` background rule (label is text, not a badge). Added previously missing coverage: `.cc-check` borders, `.cc-done .cc-task-title`, `.cc-section-chevron`, `.cc-progress` track, `.cc-progress-label`, `.cc-progress-seg` empty track, `.cc-fraction--circle`, `.cc-fraction--ring`, `.cc-progress-rings-pct`, ring legend items.
+
+---
+
+
+
 ### General — Default font changed to Inter
 - **Where:** `src/content.js` (defaults `fontFamily`)
 - **What:** Changed the default `fontFamily` setting from `'default'` to `'Inter'` so new installs get Inter as the site font out of the box.
