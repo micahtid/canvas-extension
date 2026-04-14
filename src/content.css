@@ -394,9 +394,9 @@ html.cc-ready body {
 }
 
 #cc-weekly-tasks .cc-section-toggle:hover .cc-section-chevron {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.8);
   border-color: rgba(45, 59, 69, 0.1);
-  color: #314351;
+  color: #3f4f5b;
 }
 
 #cc-weekly-tasks .cc-section-panel-wrap {
@@ -465,7 +465,7 @@ html.cc-ready body {
 
 #cc-weekly-tasks .cc-task-link {
   display: block;
-  padding: 6px 8px;
+  padding: 8px 8px;
   text-decoration: none;
   color: inherit;
 }
@@ -932,6 +932,40 @@ html.cc-ready body {
 .ic-DashboardCard__header_hero,
 .ic-DashboardCard__header-button-bg {
   height: var(--cc-card-header-height, 110px) !important;
+}
+
+.ic-DashboardCard__header,
+.ic-DashboardCard__header_hero {
+  position: relative !important;
+}
+
+.cc-card-grade-tag {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  z-index: 2 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 40px !important;
+  padding: 4px 6px !important;
+  border-radius: 999px !important;
+  background: rgba(15, 23, 42, 0.52) !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.cc-card-grade-tag:hover,
+.cc-card-grade-tag:focus-visible {
+  background: rgba(15, 23, 42, 0.64) !important;
+  color: #ffffff !important;
 }
 
 
@@ -1922,6 +1956,26 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   transition: opacity 0.2s;
 }
 
+.cc-preview-card-grade {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.52);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
 [data-cc-card-image="hidden"] .cc-preview-card-image {
   display: none;
 }
@@ -2082,14 +2136,14 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-frame {
-  width: 60px;
+  width: 92px;
   overflow: hidden;
-  transition: background 0.32s ease, width 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background 0.2s ease;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-icon-slot {
   position: absolute;
-  left: 26px;
+  left: 18px;
   top: 50%;
   width: calc(var(--cc-sidebar-icon-size, 22px) * 0.72);
   height: calc(var(--cc-sidebar-icon-size, 22px) * 0.72);
@@ -2108,19 +2162,19 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-label {
   position: absolute;
-  left: 48px;
-  right: 12px;
+  left: 34px;
+  right: 8px;
   top: 0;
   bottom: 0;
   display: flex;
   align-items: center;
-  max-width: 0;
-  opacity: 0;
+  max-width: calc(100% - 42px);
+  opacity: 1;
   overflow: hidden;
   text-align: left;
-  transform: translateX(-2px);
-  font-size: calc(var(--cc-sidebar-label-size, 10px) + 2px);
-  transition: max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: none;
+  font-size: var(--cc-sidebar-label-size, 10px);
+  transition: color 0.15s ease;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-item svg {
@@ -2137,8 +2191,8 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-frame:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-frame:focus-within {
-  width: 176px;
-  box-shadow: 4px 0 14px rgba(15, 23, 42, 0.10);
+  width: 92px;
+  box-shadow: none;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .cc-preview-sidebar-frame:hover .cc-preview-sidebar-item,
@@ -2148,15 +2202,15 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .cc-preview-sidebar-frame:hover .cc-preview-sidebar-label,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .cc-preview-sidebar-frame:focus-within .cc-preview-sidebar-label {
-  max-width: 96px;
+  max-width: calc(100% - 42px);
   opacity: 1;
-  transform: translateX(0);
-  font-size: calc(var(--cc-sidebar-label-size, 10px) + 3px);
+  transform: none;
+  font-size: var(--cc-sidebar-label-size, 10px);
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .cc-preview-sidebar-frame:hover .cc-preview-sidebar-icon-slot:not(.cc-preview-sidebar-icon-slot--avatar),
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .cc-preview-sidebar-frame:focus-within .cc-preview-sidebar-icon-slot:not(.cc-preview-sidebar-icon-slot--avatar) {
-  transform: translate(-50%, -50%) scale(1.12);
+  transform: translate(-50%, -50%);
 }
 
 [data-cc-sidebar-labels="off"] .cc-preview-sidebar-frame {
@@ -2166,7 +2220,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .cc-preview-sidebar-frame,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .cc-preview-sidebar-frame:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .cc-preview-sidebar-frame:focus-within {
-  width: 60px;
+  width: 92px;
 }
 
 [data-cc-sidebar-labels="off"] .cc-preview-sidebar-item {
@@ -2849,58 +2903,316 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   line-height: 1.35;
 }
 
-/* ---------- Global Dark Mode ----------
-   Gated on data-cc-dark-mode="on". Notion-style warm dark theme.
-   The customization modal is excluded — it always stays light. */
+/* ---------- Global Dark Mode — Universal Paint-Through Strategy ----------
+   Gated on data-cc-dark-mode="on". Instead of enumerating every Canvas
+   selector, we use a "nuke-then-repaint" pattern:
 
-/* Base page backgrounds */
-[data-cc-dark-mode="on"] body,
-[data-cc-dark-mode="on"] .ic-app,
-[data-cc-dark-mode="on"] #wrapper,
-[data-cc-dark-mode="on"] #main,
-[data-cc-dark-mode="on"] #not_right_side,
-[data-cc-dark-mode="on"] #content,
-[data-cc-dark-mode="on"] #content-wrapper,
-[data-cc-dark-mode="on"] #dashboard,
-[data-cc-dark-mode="on"] .ic-Layout-wrapper,
-[data-cc-dark-mode="on"] .ic-Layout-columns,
-[data-cc-dark-mode="on"] .ic-Layout-contentWrapper,
-[data-cc-dark-mode="on"] .ic-Layout-contentMain,
-[data-cc-dark-mode="on"] .ic-app-main-content,
-[data-cc-dark-mode="on"] .ic-app-main-content__primary,
-[data-cc-dark-mode="on"] .ic-app-main-content__secondary,
-[data-cc-dark-mode="on"] #right-side,
-[data-cc-dark-mode="on"] #right-side-wrapper,
-[data-cc-dark-mode="on"] #DashboardCard_Container,
-[data-cc-dark-mode="on"] .PlannerApp,
-[data-cc-dark-mode="on"] .PlannerHeader,
-[data-cc-dark-mode="on"] #dashboard-activity,
-[data-cc-dark-mode="on"] .ic-Dashboard-Activity {
-  background-color: #1e1e1e !important;
+     1. Layer 0 — one blanket rule sets background:transparent on every
+        descendant of .ic-app (and portal-mounted menus/dialogs). Exemptions:
+        elements with inline background styles (course card hero colors),
+        our own cc-* widgets (they handle their own dark mode further down),
+        SVG children, images, and avatar circles.
+     2. Layers 1–6 — specific rules re-paint the page, sidebar, cards,
+        content surfaces, buttons, inputs, text, links, and icons. They
+        always win because they have higher specificity or come later in
+        source order.
+
+   Net effect: any new or unknown Canvas element inherits the dark page
+   background by default, instead of leaking a stray white box. The modal
+   adopts its own opaque design system separate from the Canvas chrome. */
+
+[data-cc-dark-mode="on"] {
+  --cc-dark-page-bg: #191919;
+  --cc-dark-nav-bg: #141414;              /* sidebar: darker than page so it reads as a distinct region */
+  --cc-dark-surface: #202020;
+  --cc-dark-surface-raised: #252525;
+  --cc-dark-border: rgba(255, 255, 255, 0.09);
+  --cc-dark-text: #e8e8e8;
+  --cc-dark-muted: #a1a1a1;
+  --cc-dark-link: #d9d9d9;
+  --cc-dark-link-hover: #ffffff;
+  --cc-dark-icon: #d4d4d4;
 }
 
-/* Canvas content surfaces (panels, cards, course pages) */
-[data-cc-dark-mode="on"] .ic-DashboardCard,
-[data-cc-dark-mode="on"] .ic-DashboardCard__link,
-[data-cc-dark-mode="on"] .ic-DashboardCard__action-container,
-[data-cc-dark-mode="on"] .ic-DashboardCard__header_content,
-[data-cc-dark-mode="on"] [class*="PlannerItem-styles__root"],
-[data-cc-dark-mode="on"] .recent_activity li,
-[data-cc-dark-mode="on"] .ic-Dashboard-Activity .stream-item,
-[data-cc-dark-mode="on"] .course-menu,
-[data-cc-dark-mode="on"] #wiki_page_show,
-[data-cc-dark-mode="on"] #course_home_content,
-[data-cc-dark-mode="on"] .sticky-toolbar,
-[data-cc-dark-mode="on"] .header-bar,
-[data-cc-dark-mode="on"] nav#breadcrumbs {
-  background-color: #252525 !important;
+/* ===== Layer 0 — Blanket nuke: wipe every background-COLOR inside the
+   Canvas app. Wrapped in :where() so the blanket has specificity (0,2,0)
+   instead of (0,7,3) — any class-level repaint rule below ties or wins on
+   source order instead of getting crushed. We intentionally leave
+   background-image alone so the institution logo (painted as a
+   background-image on the logomark) and any other bg-image chrome survive.
+   Exemptions keep inline-styled backgrounds (course card hero colors), our
+   own cc-* widgets, SVGs, images, and avatars intact. */
+[data-cc-dark-mode="on"] .ic-app *:not(:where([style*="background"], [class*="cc-"], [id^="cc-"], [class*="dp-"], [id^="dp-"], svg, svg *, img, .ic-avatar, .ic-avatar *)) {
+  background-color: transparent !important;
 }
 
-/* Canvas header / top nav */
+/* Portal-mounted surfaces (React menus, tooltips, dialogs, flash messages)
+   mount outside #application — catch them too so dropdowns don't flash white.
+   Same :where() specificity trick. */
+[data-cc-dark-mode="on"] :where([role="menu"], [role="listbox"], [role="tooltip"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget, [class*="Menu__"], [class*="Popover__"], [class*="Tooltip__"], [class*="Modal__"], [class*="Tray__"], #flash_message_holder, #nav-tray-portal) *:not(:where([style*="background"], [class*="cc-"], [id^="cc-"], svg, svg *, img)) {
+  background-color: transparent !important;
+}
+
+/* ===== Layer 1 — Page-level surfaces: dark page background =====
+   The data-cc-dark-mode attribute lives on <html> itself, so we match html
+   directly rather than with a descendant combinator. All other rules prefix
+   with an ID (#application, #header, #content, #DashboardCard_Container) so
+   they beat the blanket's (0,7,3) specificity — a plain class selector like
+   `.ic-app` would lose and the surface would stay transparent. */
+html[data-cc-dark-mode="on"],
+html[data-cc-dark-mode="on"] body,
+html[data-cc-dark-mode="on"] #application,
+html[data-cc-dark-mode="on"] #wrapper,
+html[data-cc-dark-mode="on"] #main,
+html[data-cc-dark-mode="on"] #not_right_side,
+html[data-cc-dark-mode="on"] #content,
+html[data-cc-dark-mode="on"] #content-wrapper,
+html[data-cc-dark-mode="on"] #dashboard,
+html[data-cc-dark-mode="on"] #application .ic-app,
+html[data-cc-dark-mode="on"] #application .ic-Layout-wrapper,
+html[data-cc-dark-mode="on"] #application .ic-Layout-columns,
+html[data-cc-dark-mode="on"] #application .ic-Layout-contentWrapper,
+html[data-cc-dark-mode="on"] #application .ic-Layout-contentMain,
+html[data-cc-dark-mode="on"] #application .ic-app-main-content,
+html[data-cc-dark-mode="on"] #application .ic-app-main-content__primary,
+html[data-cc-dark-mode="on"] #application .ic-app-main-content__secondary,
+html[data-cc-dark-mode="on"] #right-side,
+html[data-cc-dark-mode="on"] #right-side-wrapper,
+html[data-cc-dark-mode="on"] #DashboardCard_Container,
+html[data-cc-dark-mode="on"] #application .PlannerApp,
+html[data-cc-dark-mode="on"] #application .PlannerHeader,
+html[data-cc-dark-mode="on"] #dashboard-activity,
+html[data-cc-dark-mode="on"] #application .ic-Dashboard-Activity,
+html[data-cc-dark-mode="on"] #application .ic-DashboardCard__box,
+html[data-cc-dark-mode="on"] #application .ic-DashboardCard__box__container {
+  background-color: var(--cc-dark-page-bg) !important;
+  color: var(--cc-dark-text) !important;
+}
+
+/* Belt: fill the full scroll height so no stray white shows below the
+   dashboard when it's shorter than the viewport, or when the user scrolls
+   past the content in longer pages. */
+html[data-cc-dark-mode="on"],
+html[data-cc-dark-mode="on"] body {
+  min-height: 100vh !important;
+}
+
+/* Canvas content surfaces: intentionally transparent so they blend with the
+   page bg instead of reading as flat boxes. The blanket above already cleared
+   their background-color; we just set borders here to keep separators visible. */
+[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"], .course-menu, #section-tabs, #section-tabs .section, #wiki_page_show, #course_home_content, #course_show_secondary, .content-box, .item-group-container, .ig-header, .ig-list, .ig-row, .module-sequence-footer, .module-sequence-footer-content, .summary, .ic-item-row, .assignment-details, .student-assignment-overview, .header-bar-outer-container, .sticky-toolbar, .header-bar, .page-toolbar, .breadcrumbs, nav#breadcrumbs) {
+  background-color: transparent !important;
+  border-color: var(--cc-dark-border) !important;
+}
+
+/* Raised surfaces that should "float" off the page — cards, planner items,
+   recent-activity entries — keep a distinct darker background. Prefixed with
+   #application so this beats the blanket's (0,7,3) specificity. */
+html[data-cc-dark-mode="on"] #application :is(.ic-DashboardCard, .ic-DashboardCard__link, .ic-DashboardCard__action-container, .ic-DashboardCard__header_content, [class*="PlannerItem-styles__root"], .recent_activity li, .ic-Dashboard-Activity .stream-item) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border-color: transparent !important;
+}
+
+/* Dashboard chrome should melt into the page, not read as a separate panel. */
+[data-cc-dark-mode="on"] #dashboard_header_container,
+[data-cc-dark-mode="on"] .ic-Dashboard-header__layout,
+[data-cc-dark-mode="on"] [class*="Dashboard-header__layout"],
+[data-cc-dark-mode="on"] [class*="ic-Dashboard-header"] {
+  background-color: var(--cc-dark-page-bg) !important;
+  border-color: transparent !important;
+}
+
+/* ===== Layer 2 — Sidebar / top nav: distinct darker surface ===== */
 [data-cc-dark-mode="on"] #header,
 [data-cc-dark-mode="on"] .ic-app-header,
-[data-cc-dark-mode="on"] .ic-app-header__logomark-container {
-  background-color: #141414 !important;
+[data-cc-dark-mode="on"] .ic-app-header__logomark-container,
+[data-cc-dark-mode="on"] .ic-app-header__main-navigation {
+  background-color: var(--cc-dark-nav-bg) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--cc-dark-text) !important;
+}
+
+/* Kill Canvas's built-in separator line above the profile link — it's
+   barely visible on light backgrounds but shows up clearly in dark mode.
+   Canvas draws it via various means (border-top on the li/link, ::before
+   pseudo, or box-shadow) — zero them all out on every sidebar element. */
+[data-cc-dark-mode="on"] #header *,
+[data-cc-dark-mode="on"] .ic-app-header *,
+[data-cc-dark-mode="on"] #header *::before,
+[data-cc-dark-mode="on"] #header *::after,
+[data-cc-dark-mode="on"] .ic-app-header *::before,
+[data-cc-dark-mode="on"] .ic-app-header *::after {
+  border-top-color: transparent !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none !important;
+}
+/* Belt: also kill the full border (some elements use border-top shorthand). */
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-item,
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-item:has(#global_nav_profile_link),
+[data-cc-dark-mode="on"] #global_nav_profile_link {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Active sidebar nav item: force a visible dark-mode highlight with text+icon
+   in pure white so the active page is obvious. Prefix with #header so the
+   rule beats the Layer-0 blanket (which wipes .ic-app descendant bg-colors
+   at (0,7,3) specificity — class-only rules lose to it). */
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item .ic-app-header__menu-list-link.ic-app-header__menu-list-link--active,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item .ic-app-header__menu-list-link[aria-current="page"] {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 8px !important;
+  margin: 0 4px !important;
+  color: #ffffff !important;
+}
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link .menu-item__text,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link [class*="menu-item__text"],
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active .ic-app-header__menu-list-link > div:last-child,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-link[aria-current="page"] .menu-item__text,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-link[aria-current="page"] [class*="menu-item__text"],
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-link[aria-current="page"] > div:last-child {
+  color: #ffffff !important;
+}
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active svg,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item--active svg path,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-link[aria-current="page"] svg,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-link[aria-current="page"] svg path {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Account Profile avatar: visible dark-mode ring around the profile so the
+   user can see where the avatar ends against the sidebar background.
+   Apply only to the .ic-avatar wrapper — NOT to the img inside it.
+   Putting border/box-shadow on both created double outlines and caused the
+   image to appear off-center. */
+html[data-cc-dark-mode="on"] #header #global_nav_profile_link .ic-avatar,
+html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item:has(#global_nav_profile_link) .ic-avatar {
+  border: 2px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) !important;
+  overflow: hidden !important;
+}
+
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link,
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link .menu-item__text,
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link [class*="menu-item__text"],
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link > div:last-child,
+[data-cc-dark-mode="on"] #header .mobile-header-hamburger,
+[data-cc-dark-mode="on"] #header .mobile-header-hamburger:visited {
+  color: var(--cc-dark-text) !important;
+}
+
+[data-cc-dark-mode="on"] :is(.ic-app-nav-toggle-and-crumbs, .ic-app-crumbs, #breadcrumbs, #left-side, #sticky-container, #section-tabs-header-subtitle, #section-tabs, #course_show_secondary),
+[data-cc-dark-mode="on"] :is(.ic-app-nav-toggle-and-crumbs, .ic-app-crumbs, #breadcrumbs, #left-side, #sticky-container, #section-tabs-header-subtitle, #section-tabs, #course_show_secondary) *:not(svg):not(svg *) {
+  color: var(--cc-dark-text) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#section-tabs, #breadcrumbs, .ic-app-crumbs, #course_show_secondary) :is(a, a:visited, a.active, .active > a, [aria-current="page"]) {
+  color: var(--cc-dark-text) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#section-tabs, #breadcrumbs, .ic-app-crumbs, #course_show_secondary) :is(a:hover, a:focus, a.active:hover, .active > a:hover, [aria-current="page"]:hover) {
+  color: #ffffff !important;
+}
+
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link svg,
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link .ic-icon-svg,
+[data-cc-dark-mode="on"] .ic-app-header__menu-list-link svg path,
+[data-cc-dark-mode="on"] #header .mobile-header-hamburger svg,
+[data-cc-dark-mode="on"] #header .mobile-header-hamburger svg path {
+  fill: currentColor !important;
+  color: var(--cc-dark-icon) !important;
+}
+
+/* Notification badge on sidebar icons (Inbox unread, etc.) — keep Canvas's
+   accent red so counts are readable, but paint explicitly so the blanket
+   doesn't wipe the fill. Prefixed with #header to clear (0,7,3). */
+html[data-cc-dark-mode="on"] #header .menu-item__badge,
+html[data-cc-dark-mode="on"] #header .menu-item-icon-container .menu-item__badge,
+html[data-cc-dark-mode="on"] #header [class*="menu-item__badge"] {
+  background-color: #e0062f !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px var(--cc-dark-nav-bg) !important;
+}
+
+/* Empty badge spans (no unread count) — hide them so they don't render as
+   a tiny red line next to the Account/Avatar icon. */
+html[data-cc-dark-mode="on"] #header .menu-item__badge:empty,
+html[data-cc-dark-mode="on"] #header [class*="menu-item__badge"]:empty {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Courses / Account / Calendar fly-out tray (#nav-tray-portal) — Instructure
+   UI mounts this outside .ic-app. Paint the outer tray container and ALL
+   nested wrappers (InstUI uses css-xxx-Tray and css-xxx-trayContent classes)
+   so none of them leak a transparent region. */
+html[data-cc-dark-mode="on"] #nav-tray-portal,
+html[data-cc-dark-mode="on"] #nav-tray-portal > *,
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="tray"],
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="Tray__"],
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="tray__content"],
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="trayContent"],
+html[data-cc-dark-mode="on"] #nav-tray-portal .navigation-tray-container,
+html[data-cc-dark-mode="on"] #nav-tray-portal [role="dialog"],
+html[data-cc-dark-mode="on"] #nav-tray-portal [role="region"] {
+  background-color: var(--cc-dark-surface) !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-cc-dark-mode="on"] #nav-tray-portal *:not(svg):not(svg *) {
+  color: var(--cc-dark-text) !important;
+}
+
+html[data-cc-dark-mode="on"] #nav-tray-portal :is(svg, .icon-line, .ui-icon, [class*="icon-"]) {
+  color: var(--cc-dark-icon) !important;
+}
+
+/* Tray active course/link hover */
+html[data-cc-dark-mode="on"] #nav-tray-portal a:hover,
+html[data-cc-dark-mode="on"] #nav-tray-portal a:focus,
+html[data-cc-dark-mode="on"] #nav-tray-portal [role="menuitem"]:hover,
+html[data-cc-dark-mode="on"] #nav-tray-portal [role="menuitem"]:focus {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+}
+
+[data-cc-dark-mode="on"] #immersive_reader_mount_point button,
+[data-cc-dark-mode="on"] #immersive_reader_mount_point button > span {
+  background: var(--cc-dark-surface-raised) !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+  box-shadow: none !important;
+}
+
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):hover,
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):focus {
+  background-color: #2a2a2a !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+/* Canvas SVG icons served as <img> tags — their paths are dark and invisible
+   on a dark background. Invert them so they read as light icons. */
+[data-cc-dark-mode="on"] img[src*="/images/svg-icons/"] {
+  filter: invert(0.85) !important;
 }
 
 /* Body text */
@@ -2908,12 +3220,238 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-dark-mode="on"] #content *:not(svg):not(svg *):not(.cc-modal-root):not(.cc-modal-root *),
 [data-cc-dark-mode="on"] #dashboard *:not(svg):not(svg *):not(.cc-modal-root):not(.cc-modal-root *),
 [data-cc-dark-mode="on"] [class*="PlannerItem-styles__root"] *:not(svg):not(svg *) {
-  color: #e8e8e8 !important;
+  color: var(--cc-dark-text) !important;
 }
 
-/* Borders */
-[data-cc-dark-mode="on"] .ic-DashboardCard {
-  border-color: rgba(255, 255, 255, 0.07) !important;
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) :is(label, legend, .control-label, .form-label, .text-muted, .muted, .ig-details, .module-item-details, .item-group-condensed) {
+  color: var(--cc-dark-muted) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item) {
+  color: var(--cc-dark-link) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):hover,
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):focus {
+  color: var(--cc-dark-link-hover) !important;
+}
+
+/* BROAD link paint — catches every link anywhere in the Canvas app that
+   isn't scoped by the rule above (embedded in cards, breadcrumbs, footers,
+   floating containers, user_content blocks, etc.). Excludes our own widgets
+   and dashboard card links so their themed colors survive. */
+[data-cc-dark-mode="on"] .ic-app a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):not([class*="cc-"]),
+[data-cc-dark-mode="on"] .ic-app a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):not([class*="cc-"]):visited {
+  color: var(--cc-dark-link) !important;
+}
+[data-cc-dark-mode="on"] .ic-app a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):not([class*="cc-"]):hover,
+[data-cc-dark-mode="on"] .ic-app a:not(.Button):not(.btn):not(.ic-DashboardCard__link):not(.cc-task-link):not(.cc-feedback-item):not([class*="cc-"]):focus {
+  color: var(--cc-dark-link-hover) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) :is(svg, .icon-line, .ui-icon, [class*="icon-"]) {
+  color: var(--cc-dark-icon) !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) svg :is(path, rect, circle, ellipse, polygon, polyline, line):not([fill="none"]) {
+  fill: currentColor !important;
+}
+
+/* Stroke: only override elements that have NO inline stroke attribute —
+   elements with stroke="..." (e.g. our Tasks widget progress circle using
+   the user's widgetProgressColor) keep their attribute color. */
+[data-cc-dark-mode="on"] :is(#content, #dashboard, #right-side, .ic-app-main-content) svg :is(path, rect, circle, ellipse, polygon, polyline, line):not([stroke]) {
+  stroke: currentColor !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #right-side, #course_show_secondary, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs, #section-tabs, #breadcrumbs) :is(i[class*="icon-"], span[class*="icon-"], .icon-download, .ui-icon, [class*="Icon__"]) {
+  color: var(--cc-dark-icon) !important;
+  background-color: transparent !important;
+}
+
+[data-cc-dark-mode="on"] :is(#content, #right-side, #course_show_secondary, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs, #section-tabs, #breadcrumbs) :is(i[class*="icon-"], span[class*="icon-"], .icon-download, .ui-icon, [class*="Icon__"])::before {
+  color: var(--cc-dark-icon) !important;
+  background-color: transparent !important;
+}
+
+/* Any element that looks like an icon or icon-button anywhere in the Canvas
+   app gets transparent bg + light color. Catches one-off Canvas buttons that
+   use Instructure UI classes (css-xxx-IconDownload etc.). */
+html[data-cc-dark-mode="on"] #application :is([class*="IconDownload"], [class*="icon-download"], [class*="download-button"], a.download, button.download) {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--cc-dark-icon) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+
+/* Icon buttons in the main content area (toolbars, kebabs, inline actions)
+   — give them a soft surface so the glyph sits on a readable pill instead
+   of dissolving into the page. Prefix with #application so specificity wins. */
+html[data-cc-dark-mode="on"] #application :is(#content, #right-side, .ic-app-main-content, .header-bar, .page-toolbar, .sticky-toolbar) :is(button.Button--icon-action, .Button--icon-action, button[class*="Icon__"], [role="button"][class*="Icon__"]) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-icon) !important;
+}
+
+/* InstUI icon svgs inside those buttons — guarantee the glyph paints light. */
+html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg,
+html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg * {
+  color: currentColor !important;
+  fill: currentColor !important;
+}
+
+/* Random red lines — Canvas draws red borders/shadows/outlines on a handful
+   of states (form validation errors, unpublished indicators, certain alert
+   containers, inbox unread markers). Kill the red and replace with our
+   neutral dark-border color so the UI reads consistently. The red badge
+   circles (unread counts) are intentionally kept — they're a useful accent. */
+[data-cc-dark-mode="on"] :is(.ui-state-error, .error_box, .error_text, input.error, [aria-invalid="true"], .ic-Form-message--error, [class*="FormField__"][class*="error"], .discussion-section.message_wrapper table, hr) {
+  border-color: var(--cc-dark-border) !important;
+  box-shadow: none !important;
+  outline-color: var(--cc-dark-border) !important;
+}
+/* Canvas draws some left-accent publish/unpublish markers as a 4px colored
+   left border — neutralize them so they don't cut across the dark surface. */
+[data-cc-dark-mode="on"] :is(.ig-row, .ig-header, .ic-item-row, .item-group-condensed .ig-row, .item-group-condensed .ig-header, .stream-item, .discussion-entry) {
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+  box-shadow: none !important;
+}
+/* hr elements — Canvas defaults them to near-red on some surfaces.
+   Use a higher opacity than --cc-dark-border so horizontal rules are
+   actually visible as dividers rather than invisible lines. */
+[data-cc-dark-mode="on"] .ic-app hr {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border: none !important;
+  height: 1px !important;
+}
+
+/* ===== Canvas notifications / LTI alerts — the "This tool needs to be
+   loaded in a new browser window" message and friends are rendered via
+   .ic-notification / .alert / .alert-info / #unsupported_browser etc.
+   Canvas paints them with white/yellow/blue backgrounds; repaint to our
+   raised surface so they read correctly in dark mode. */
+[data-cc-dark-mode="on"] .ic-app :is(.ic-notification, .ic-notification__content, .ic-notification__body, .alert, .alert-info, .alert-warning, .alert-success, .alert-error, .alert-message, #unsupported_browser, #browser_alert, .browser-alert, .unsupported-browser, .ic-flash-info, .ic-flash-success, .ic-flash-warning, .ic-flash-error, .tool_launch .alert, #tool_content ~ .alert, .lti_external_tool_frame ~ .alert, [class*="Alert__"], [class*="Alert__content"]) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border: 1px solid var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+  box-shadow: none !important;
+}
+/* Recurse: the alert's inner content (paragraphs, links, headers) should
+   all sit on that same raised surface rather than drift back to transparent
+   from the blanket. */
+[data-cc-dark-mode="on"] .ic-app :is(.ic-notification, .alert, .alert-info, .alert-warning, .alert-success, .alert-error, [class*="Alert__"]) :is(p, h1, h2, h3, h4, h5, span, div, a, strong, em) {
+  color: var(--cc-dark-text) !important;
+}
+[data-cc-dark-mode="on"] .ic-app :is(.ic-notification, .alert, .alert-info, .alert-warning, [class*="Alert__"]) a {
+  color: var(--cc-dark-link) !important;
+}
+
+/* Notification & unread badges — extend the red-pill paint to every
+   location Canvas draws one, not just #header. Covers the sidebar bell,
+   course-nav unread markers, inbox unread counts, discussion new-activity
+   indicators, etc. */
+[data-cc-dark-mode="on"] .ic-app :is(.menu-item__badge, [class*="menu-item__badge"], .unread-count, .nav-badge, .ic-unread-badge, .ic-unread-badge__total-count, .ic-notification__icon, .recent_activity .unread-count, .message-list .read-state:before, .discussion-new-activity, .unread-messages-count, .unread-grade) {
+  background-color: #e0062f !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0 0 2px var(--cc-dark-page-bg) !important;
+}
+/* Sidebar-specific badge: ring in the sidebar bg so the pill pops against
+   the darker nav. Higher specificity than the rule above via #header. */
+[data-cc-dark-mode="on"] #header :is(.menu-item__badge, [class*="menu-item__badge"], .nav-badge) {
+  box-shadow: 0 0 0 2px var(--cc-dark-nav-bg) !important;
+}
+/* Dashboard course card notification/action badges (unread count pills that
+   sit on top of the action icon buttons). The blanket cleared their background;
+   repaint them as red pills matching the sidebar badge style. */
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__action-badge,
+html[data-cc-dark-mode="on"] #DashboardCard_Container [class*="action-badge"],
+html[data-cc-dark-mode="on"] #DashboardCard_Container [class*="item_count"] {
+  background-color: #e0062f !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0 0 2px var(--cc-dark-surface-raised) !important;
+}
+
+/* Activity feed stream-type icons — Canvas draws colored circles to indicate
+   the notification type (announcement, assignment, etc.). The blanket cleared
+   their background-color; repaint with a neutral tinted circle so the glyph
+   stays readable. */
+[data-cc-dark-mode="on"] .ic-app .stream-icon,
+[data-cc-dark-mode="on"] .ic-app [class*="stream-icon"] {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  color: var(--cc-dark-icon) !important;
+}
+
+/* Inline-styled backgrounds Canvas injects on the Inbox/Conversations page
+   (e.g. selected-thread highlight rgb(229, 242, 248)). The blanket exempts
+   [style*="background"] to protect course card hero colors; this higher-
+   specificity rule overrides those specific in-content inline backgrounds. */
+html[data-cc-dark-mode="on"] #application [style*="background-color: rgb(229, 242"],
+html[data-cc-dark-mode="on"] #application [style*="background-color:rgb(229, 242"],
+html[data-cc-dark-mode="on"] #application [style*="background-color: rgb(229,242"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Missing / Late submission pills — keep them amber / red-ish but on our
+   surfaces so they don't read as bright Canvas-white pills. */
+[data-cc-dark-mode="on"] .ic-app :is(.submission-late-pill, .submission-late-pill span) {
+  background-color: #8a6a1e !important;
+  color: #ffe8a8 !important;
+  border-color: transparent !important;
+}
+[data-cc-dark-mode="on"] .ic-app :is(.submission-missing-pill, .submission-missing-pill span) {
+  background-color: #7a1e22 !important;
+  color: #ffcccc !important;
+  border-color: transparent !important;
+}
+
+/* Course-card outer: light, Canvas-style drop shadow — the card should read
+   as a subtle lift off the dark page, not a dramatic floating slab. All
+   border/outline properties are zeroed so no ring draws around the card.
+   Prefixed with #DashboardCard_Container so specificity beats the blanket. */
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.22) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+}
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__box,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__box__container {
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__link,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__header,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__header_hero,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__header_content,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__action-container,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard__action,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .Button--icon-action-rev,
+html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-more {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--cc-dark-icon) !important;
+}
+
+/* Course-card three-dots action button: no pill background.
+   Needs #content + #DashboardCard_Container in the selector to out-rank the
+   generic "buttons in content get a surface-raised bg" rule above. */
+[data-cc-dark-mode="on"] #content #DashboardCard_Container .ic-DashboardCard .ic-DashboardCard__action-container button,
+[data-cc-dark-mode="on"] #content #DashboardCard_Container .ic-DashboardCard .Button--icon-action-rev,
+[data-cc-dark-mode="on"] #content #DashboardCard_Container .ic-DashboardCard .Button--icon-action-rev:hover,
+[data-cc-dark-mode="on"] #content #DashboardCard_Container .ic-DashboardCard .Button--icon-action-rev:focus,
+[data-cc-dark-mode="on"] #content #DashboardCard_Container .ic-DashboardCard .icon-more {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 [data-cc-dark-mode="on"] [class*="PlannerItem-styles__root"] {
   border-top-color: rgba(255, 255, 255, 0.07) !important;
@@ -2925,20 +3463,221 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-dark-mode="on"] input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not(.cc-modal-root input),
 [data-cc-dark-mode="on"] select:not(.cc-modal-root select),
 [data-cc-dark-mode="on"] textarea:not(.cc-modal-root textarea) {
-  background-color: #2c2c2c !important;
-  color: #e8e8e8 !important;
+  background-color: var(--cc-dark-surface) !important;
+  color: var(--cc-dark-text) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-/* Modal always stays light */
-[data-cc-dark-mode="on"] .cc-modal-root,
-[data-cc-dark-mode="on"] .cc-modal-root * {
-  background-color: revert;
-  color: revert;
-  border-color: revert;
+/* ===== Layer 3 (portals) — Canvas dropdowns / menus / tooltips / dialogs
+   mounted outside #application (via React portals). The blanket above cleared
+   their backgrounds; repaint the outer surface AND every inner chrome wrapper
+   (InstUI uses css-xxx-Modal__layout / Modal__body / Modal__header / Tray__content
+   generated classes). Enumerate them all — that's how BetterCanvas survives
+   Canvas updates. */
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="tooltip"], [role="dialog"], .ui-menu, .ui-dialog, .ui-dialog .ui-dialog-content, .ui-widget-content, [class*="Menu__menu"], [class*="Popover__content"], [class*="Tooltip__content"], [class*="Modal__layout"], [class*="Modal__body"], [class*="Modal__header"], [class*="Modal__footer"], [class*="Modal__container"], [class*="Tray__content"], [class*="Tray__layout"], .ReactModal__Content, .ReactModalPortal > div, .ic-Modal, .ic-Modal__content) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
+/* Inner dialog chrome — title bar, button pane, close button — all dark. */
+[data-cc-dark-mode="on"] :is(.ui-dialog-titlebar, .ui-dialog-titlebar.ui-widget-header, .ui-dialog-buttonpane, .ui-dialog-title, .ic-Modal__title, [class*="Modal__header"] h1, [class*="Modal__header"] h2, [class*="Modal__header"] h3) {
+  background-color: var(--cc-dark-surface-raised) !important;
+  color: var(--cc-dark-text) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="tooltip"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__menu"], [class*="Popover__content"], [class*="Tooltip__content"], [class*="Modal__"], [class*="Tray__"]) *:not(svg):not(svg *):not([class*="cc-"]):not([class*="cc-"] *) {
+  color: var(--cc-dark-text) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+/* Links inside dialogs/modals/trays — the scoped rule below only covers
+   #content/#dashboard/#right-side, so portal-mounted content keeps Canvas's
+   default near-black link color on the dark bg. Force them to light here. */
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__"], [class*="Popover__"], [class*="Modal__"], [class*="Tray__"], #nav-tray-portal, #flash_message_holder) a,
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__"], [class*="Popover__"], [class*="Modal__"], [class*="Tray__"], #nav-tray-portal, #flash_message_holder) a:visited {
+  color: var(--cc-dark-link) !important;
+}
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__"], [class*="Popover__"], [class*="Modal__"], [class*="Tray__"], #nav-tray-portal, #flash_message_holder) a:hover,
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__"], [class*="Popover__"], [class*="Modal__"], [class*="Tray__"], #nav-tray-portal, #flash_message_holder) a:focus {
+  color: var(--cc-dark-link-hover) !important;
+}
+/* Menu/list item hover */
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], .ui-menu, [class*="Menu__"]) :is([role="menuitem"], [role="option"], li, a):hover,
+[data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], .ui-menu, [class*="Menu__"]) :is([role="menuitem"], [role="option"], li, a):focus {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+}
+
+/* ===== Tables in main content — subtle row separators, no stripes ===== */
+[data-cc-dark-mode="on"] :is(#content, .ic-app-main-content) :is(table, thead, tbody, tfoot, tr, th, td) {
+  background-color: transparent !important;
+  border-color: var(--cc-dark-border) !important;
+}
+
+/* ===== To Do widget — force dark section-card bg to beat the
+   data-section="overdue"/"due_soon"/"due_week" per-section backgrounds that
+   match at the same specificity. The existing rule further down already
+   sets #2c2c2c, but we use higher specificity here to guarantee the win. */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card[data-section],
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card[data-course] {
+  --cc-section-bg: #2c2c2c !important;
+  --cc-section-border: rgba(255, 255, 255, 0.08) !important;
+  background-color: #2c2c2c !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* "Classes" grouping mode: section keys are "course__CourseName" — these
+   don't need a raised-card background. Transparent lets them flush against
+   the widget so the list reads as a flat grouped list, not a stack of boxes. */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card[data-course-colorized="true"] {
+  background: var(--cc-section-bg-dark) !important;
+}
+
 [data-cc-dark-mode="on"] .cc-modal-root {
   background-color: transparent !important;
+  color: var(--cc-dark-text) !important;
+  --cc-ds-primary: #f2f2f2;
+  --cc-ds-accent-shadow: #1b1b1b;
+  --cc-ds-bg: #171717;
+  --cc-ds-surface: var(--cc-dark-surface);
+  --cc-ds-border: var(--cc-dark-border);
+  --cc-ds-text: var(--cc-dark-text);
+  --cc-ds-body: var(--cc-dark-muted);
+  --cc-ds-muted: #7d7d7d;
+  --cc-ds-footer: #131313;
+}
+[data-cc-dark-mode="on"] .cc-modal-backdrop {
+  background: rgba(6, 6, 6, 0.76) !important;
+  backdrop-filter: blur(10px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(135%) !important;
+}
+[data-cc-dark-mode="on"] .cc-modal {
+  background: var(--cc-ds-bg) !important;
+  border-color: var(--cc-ds-border) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.3) !important;
+}
+[data-cc-dark-mode="on"] .cc-modal-header,
+[data-cc-dark-mode="on"] .cc-modal-body,
+[data-cc-dark-mode="on"] .cc-modal-tabs,
+[data-cc-dark-mode="on"] .cc-modal-pane,
+[data-cc-dark-mode="on"] .cc-controls-col {
+  background: var(--cc-ds-bg) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-col {
+  background-color: var(--cc-dark-page-bg) !important;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1.2px) !important;
+}
+[data-cc-dark-mode="on"] .cc-select-trigger:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled {
+  background: #1b1b1b !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-row-title,
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-row-hint,
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-range-value {
+  color: #7d7d7d !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled input[type="text"],
+[data-cc-dark-mode="on"] .cc-row--disabled input[type="color"],
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-select {
+  background: #151515 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled input[type="text"],
+[data-cc-dark-mode="on"] .cc-row--disabled input[type="color"],
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-select-trigger,
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-select-option,
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-select-chevron {
+  color: #7d7d7d !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-toggle-track {
+  background: #2a2a2a !important;
+}
+[data-cc-dark-mode="on"] .cc-row--disabled .cc-toggle-thumb {
+  background: #1c1c1c !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-card,
+[data-cc-dark-mode="on"] .cc-preview-btn-secondary,
+[data-cc-dark-mode="on"] .cc-preview-input,
+[data-cc-dark-mode="on"] .cc-preview-bg-card,
+[data-cc-dark-mode="on"] .cc-preview-widget-frame,
+[data-cc-dark-mode="on"] #cc-preview-tooltip {
+  background: var(--cc-ds-surface) !important;
+  border-color: var(--cc-ds-border) !important;
+  color: var(--cc-ds-text) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-bg-card {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-card-code,
+[data-cc-dark-mode="on"] .cc-preview-card-term,
+[data-cc-dark-mode="on"] .cc-preview-widget-count,
+[data-cc-dark-mode="on"] .cc-preview-ring-legend-count,
+[data-cc-dark-mode="on"] .cc-preview-widget-item-meta,
+[data-cc-dark-mode="on"] .cc-preview-widget-empty,
+[data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-desc {
+  color: var(--cc-ds-body) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-title,
+[data-cc-dark-mode="on"] .cc-preview-widget-rings-pct,
+[data-cc-dark-mode="on"] .cc-preview-ring-legend-item,
+[data-cc-dark-mode="on"] .cc-preview-widget-section-label,
+[data-cc-dark-mode="on"] .cc-preview-widget-item,
+[data-cc-dark-mode="on"] .cc-preview-widget-item-title,
+[data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-title {
+  color: var(--cc-ds-text) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-bar,
+[data-cc-dark-mode="on"] .cc-preview-widget-seg {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section {
+  --cc-preview-section-bg: #1f1f1f;
+  --cc-preview-section-border: rgba(255, 255, 255, 0.1);
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section[data-section="all"] {
+  --cc-preview-section-bg: #1d1d1d;
+  --cc-preview-section-border: rgba(255, 255, 255, 0.1);
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section[data-section="overdue"] {
+  --cc-preview-section-bg: #241617;
+  --cc-preview-section-border: rgba(220, 145, 145, 0.18);
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section[data-section="due_soon"] {
+  --cc-preview-section-bg: #241e14;
+  --cc-preview-section-border: rgba(214, 183, 120, 0.18);
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section[data-section="due_week"] {
+  --cc-preview-section-bg: #1e1e1e;
+  --cc-preview-section-border: rgba(255, 255, 255, 0.1);
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section[data-course-colorized="true"] {
+  background: var(--cc-preview-section-bg-dark) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-section-count,
+[data-cc-dark-mode="on"] .cc-preview-widget-section-chevron {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--cc-ds-body) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-item {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-cc-dark-mode="on"] .cc-preview-widget-check {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+[data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-chip {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--cc-ds-body) !important;
+}
+[data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-chip--accent {
+  background: rgba(79, 128, 175, 0.18) !important;
+  border-color: rgba(125, 170, 214, 0.22) !important;
+  color: #a9d3ff !important;
 }
 
 /* ---- Tasks widget ---- */
@@ -2946,10 +3685,20 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   background: #252525 !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
 }
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-toggle,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-toggle:hover,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-toggle:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card {
   background: #2c2c2c !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
   box-shadow: none !important;
+}
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card[data-course-colorized="true"] {
+  background: var(--cc-section-bg-dark) !important;
 }
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-card.is-open {
   box-shadow: none !important;
@@ -2968,7 +3717,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   color: #b0b0b0 !important;
 }
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-toggle:hover .cc-section-chevron {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
 }
 
 /* Section empty state */
@@ -3039,9 +3788,10 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 }
 
 /* Progress — circle/rings pct text */
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-label,
 [data-cc-dark-mode="on"] .cc-progress-circle-pct,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-progress-rings-pct {
-  color: #e8e8e8 !important;
+  color: var(--cc-dark-text) !important;
 }
 [data-cc-dark-mode="on"] .cc-fraction--circle,
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-fraction--ring {
@@ -3091,15 +3841,15 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   color: #9e9e9e !important;
 }
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-show-all {
-  color: #a8c4d8 !important;
+  color: var(--cc-dark-text) !important;
 }
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-show-all:hover {
   background: rgba(255, 255, 255, 0.06) !important;
-  color: #c0d8e8 !important;
+  color: #ffffff !important;
 }
 [data-cc-dark-mode="on"] :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-icon {
-  background: rgba(100, 140, 180, 0.15) !important;
-  color: #a8c4d8 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--cc-dark-text) !important;
 }
 
 /* ---- Tooltip ---- */
@@ -3120,9 +3870,9 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   color: #c0c0c0 !important;
 }
 [data-cc-dark-mode="on"] #cc-preview-tooltip .cc-tooltip-chip--accent {
-  background: rgba(80, 130, 170, 0.18) !important;
-  border-color: rgba(160, 200, 230, 0.22) !important;
-  color: #a0c4dc !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--cc-dark-text) !important;
 }
 
 /* ---------- Sidebar: label position ---------- */
@@ -3130,7 +3880,6 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="bottom"] #header.ic-app-header,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="bottom"] .ic-app-header,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="bottom"] .ic-app-header__logomark-container {
-  width: 92px !important;
   overflow-x: hidden !important;
   box-shadow: none !important;
 }
@@ -3178,31 +3927,27 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] #header.ic-app-header,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header {
-  width: 60px !important;
   overflow-x: hidden !important;
-  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.30s ease !important;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease !important;
   z-index: 40 !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__logomark-container {
-  width: 60px !important;
   overflow: hidden !important;
-  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  transition: background-color 0.2s ease !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] #header.ic-app-header:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] #header.ic-app-header:focus-within,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header:focus-within {
-  width: 176px !important;
-  box-shadow: 4px 0 14px rgba(15, 23, 42, 0.10) !important;
+  box-shadow: none !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] #header.ic-app-header:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] #header.ic-app-header:focus-within,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .ic-app-header:hover,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .ic-app-header:focus-within {
-  width: 60px !important;
   box-shadow: none !important;
 }
 
@@ -3210,14 +3955,14 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] #header.ic-app-header:focus-within .ic-app-header__logomark-container,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header:hover .ic-app-header__logomark-container,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header:focus-within .ic-app-header__logomark-container {
-  width: 176px !important;
+  overflow: hidden !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] #header.ic-app-header:hover .ic-app-header__logomark-container,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] #header.ic-app-header:focus-within .ic-app-header__logomark-container,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .ic-app-header:hover .ic-app-header__logomark-container,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="off"] .ic-app-header:focus-within .ic-app-header__logomark-container {
-  width: 60px !important;
+  overflow: hidden !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__main-navigation {
@@ -3250,7 +3995,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__menu-list-link > .menu-item-icon-container {
   position: absolute !important;
-  left: 22px !important;
+  left: 18px !important;
   top: 50% !important;
   transform: translate(-50%, -50%) !important;
   width: 18px !important;
@@ -3311,23 +4056,23 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__menu-list-link [class*="menu-item__text"],
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__menu-list-link > div:last-child {
   position: absolute !important;
-  left: 48px !important;
-  right: 12px !important;
+  left: 34px !important;
+  right: 8px !important;
   top: 0 !important;
   bottom: 0 !important;
   display: flex !important;
   align-items: center !important;
   flex: 0 1 auto !important;
-  max-width: 0 !important;
-  opacity: 0 !important;
+  max-width: calc(100% - 42px) !important;
+  opacity: 1 !important;
   min-width: 0 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   line-height: 1.2 !important;
-  transform: translateX(-2px) !important;
-  font-size: calc(var(--cc-sidebar-label-size, 10px) + 2px) !important;
-  transition: max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), font-size 0.28s ease !important;
+  transform: none !important;
+  font-size: var(--cc-sidebar-label-size, 10px) !important;
+  transition: color 0.15s ease !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] .ic-app-header__menu-list-link .menu-item__text,
@@ -3348,17 +4093,17 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .ic-app-header:focus-within .ic-app-header__menu-list-link .menu-item__text,
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .ic-app-header:focus-within .ic-app-header__menu-list-link [class*="menu-item__text"],
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .ic-app-header:focus-within .ic-app-header__menu-list-link > div:last-child {
-  max-width: 96px !important;
+  max-width: calc(100% - 42px) !important;
   opacity: 1 !important;
-  transform: translateX(0) !important;
-  font-size: calc(var(--cc-sidebar-label-size, 10px) + 3px) !important;
+  transform: none !important;
+  font-size: var(--cc-sidebar-label-size, 10px) !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] #header.ic-app-header:hover .ic-app-header__menu-list-link > .menu-item-icon-container:not(:has(img, .ic-avatar)),
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] #header.ic-app-header:focus-within .ic-app-header__menu-list-link > .menu-item-icon-container:not(:has(img, .ic-avatar)),
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .ic-app-header:hover .ic-app-header__menu-list-link > .menu-item-icon-container:not(:has(img, .ic-avatar)),
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"][data-cc-sidebar-labels="on"] .ic-app-header:focus-within .ic-app-header__menu-list-link > .menu-item-icon-container:not(:has(img, .ic-avatar)) {
-  transform: translate(-50%, -50%) scale(1.12) !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 [data-cc-sidebar-restyle="on"][data-cc-sidebar-label-pos="right"] #header.ic-app-header button[aria-label*="global navigation" i],
@@ -3723,6 +4468,64 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   display: block;
   width: 11px;
   height: 11px;
+}
+
+[data-cc-dark-mode="on"] .cc-pal-backdrop {
+  background: rgba(6, 6, 6, 0.66);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-cc-dark-mode="on"] #cc-palette {
+  background: var(--cc-dark-surface);
+  border-color: var(--cc-dark-border);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58), 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+[data-cc-dark-mode="on"] .cc-pal-search-row,
+[data-cc-dark-mode="on"] .cc-pal-footer {
+  border-color: var(--cc-dark-border);
+}
+
+[data-cc-dark-mode="on"] .cc-pal-search-icon,
+[data-cc-dark-mode="on"] .cc-pal-section-header,
+[data-cc-dark-mode="on"] .cc-pal-empty,
+[data-cc-dark-mode="on"] .cc-pal-scope,
+[data-cc-dark-mode="on"] .cc-pal-sub,
+[data-cc-dark-mode="on"] .cc-pal-footer {
+  color: var(--cc-dark-muted);
+}
+
+[data-cc-dark-mode="on"] #cc-palette-input {
+  color: var(--cc-dark-text);
+}
+
+[data-cc-dark-mode="on"] #cc-palette-input::placeholder {
+  color: #7f7f7f;
+}
+
+[data-cc-dark-mode="on"] .cc-pal-item:hover,
+[data-cc-dark-mode="on"] .cc-pal-item.cc-pal-active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-cc-dark-mode="on"] .cc-pal-name,
+[data-cc-dark-mode="on"] .cc-pal-highlight {
+  color: var(--cc-dark-text);
+}
+
+[data-cc-dark-mode="on"] .cc-pal-badge,
+[data-cc-dark-mode="on"] .cc-pal-status,
+[data-cc-dark-mode="on"] .cc-pal-key {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--cc-dark-border);
+  color: var(--cc-dark-muted);
+}
+
+[data-cc-dark-mode="on"] .cc-pal-status.is-complete {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--cc-dark-border);
+  color: var(--cc-dark-text);
 }
 
 /* ---------- Integrations tab: disabled controls ---------- */

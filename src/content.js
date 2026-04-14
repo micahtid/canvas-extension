@@ -59,6 +59,7 @@ const DEFAULTS = {
   widgetProgressStyle: 'bar', // 'bar' | 'ring' | 'segments'
   widgetProgressColor: '#8eaec4',
   widgetSortBy: 'dueDate',    // 'dueDate' | 'status' | 'course' | 'type'
+  widgetGroupBy: 'priority',  // 'priority' | 'course'
   widgetShowCompleted: true,
   widgetHideAnnouncements: false,
   widgetHideDiscussions: false,
@@ -460,6 +461,86 @@ async function fetchCourseColors() {
   return courseColorCache;
 }
 
+let cardGradesPromise = null;
+async function fetchCardGrades() {
+  if (cardGradesPromise) return cardGradesPromise;
+  const params = new URLSearchParams();
+  params.append('include[]', 'concluded');
+  params.append('include[]', 'total_scores');
+  params.append('include[]', 'computed_current_score');
+  params.append('include[]', 'current_grading_period_scores');
+  params.set('per_page', '100');
+  cardGradesPromise = fetch(`/api/v1/courses?${params.toString()}`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+    .then(async res => {
+      if (!res.ok) throw new Error(`grades ${res.status}`);
+      return res.json();
+    })
+    .then(courses => {
+      const gradeMap = new Map();
+      for (const course of Array.isArray(courses) ? courses : []) {
+        const enrollment = Array.isArray(course?.enrollments) ? course.enrollments.find(Boolean) : null;
+        if (!enrollment) continue;
+        const rawScore = enrollment.has_grading_periods
+          ? enrollment.current_period_computed_current_score
+          : enrollment.computed_current_score;
+        const score = Number(rawScore);
+        if (!Number.isFinite(score)) continue;
+        gradeMap.set(Number(course.id), score);
+      }
+      return gradeMap;
+    })
+    .catch(err => {
+      console.warn('[CustomCanvas] card grades unavailable', err);
+      return new Map();
+    });
+  return cardGradesPromise;
+}
+
+function getCardCourseId(card) {
+  const link = card.querySelector('.ic-DashboardCard__link');
+  if (!link?.href) return null;
+  try {
+    const url = new URL(link.href, location.origin);
+    const match = url.pathname.match(/\/courses\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatCardGrade(score) {
+  if (!Number.isFinite(score)) return null;
+  const rounded = Math.round(score * 10) / 10;
+  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${label}%`;
+}
+
+async function injectCardGrades() {
+  const cards = document.querySelectorAll('.ic-DashboardCard');
+  if (!cards.length) return;
+  const grades = await fetchCardGrades();
+  cards.forEach(card => {
+    const existing = card.querySelector('.cc-card-grade-tag');
+    const courseId = getCardCourseId(card);
+    const label = courseId != null ? formatCardGrade(grades.get(courseId)) : null;
+    if (!label || courseId == null) {
+      existing?.remove();
+      return;
+    }
+    const host = card.querySelector('.ic-DashboardCard__header') || card.querySelector('.ic-DashboardCard__header_hero');
+    if (!host) return;
+    const tag = existing || document.createElement('a');
+    tag.className = 'cc-card-grade-tag';
+    tag.textContent = label;
+    tag.href = `/courses/${courseId}/grades`;
+    tag.setAttribute('aria-label', `Open course grades (${label})`);
+    if (tag.parentElement !== host) host.appendChild(tag);
+  });
+}
+
 function courseColorFor(task, colors, fallbackIndex) {
   // planner items give us context_type/id via plannable_date, but we need the contextName -> color mapping.
   // The /colors endpoint keys look like "course_<id>". task.contextCode on the planner item is typically "course_<id>".
@@ -620,7 +701,8 @@ function defaultWidgetSectionState() {
 
 let widgetSectionState = defaultWidgetSectionState();
 
-function widgetSections(tasks) {
+function widgetSections(tasks, colors = {}) {
+  if (settings.widgetGroupBy === 'course') return widgetSectionsByCourse(tasks, colors);
   const overdue = applyFilter(tasks, 'overdue');
   const dueSoon = applyFilter(tasks, 'due_soon');
   const dueWeek = applyFilter(tasks, 'due_week');
@@ -661,6 +743,21 @@ function widgetSections(tasks) {
   }));
 }
 
+function widgetSectionsByCourse(tasks, colors = {}) {
+  const groups = groupByCourse(tasks);
+  return groups.map((group, i) => {
+    const key = `course__${group.name}`;
+    return {
+      key,
+      label: group.name,
+      empty: 'No tasks for this course.',
+      tasks: group.tasks,
+      color: courseColorFor({ contextCode: group.contextCode }, colors, i),
+      open: widgetSectionState[key] ?? true,
+    };
+  });
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -670,21 +767,35 @@ function escapeHtml(s) {
 function groupByCourse(tasks) {
   const map = new Map();
   for (const t of tasks) {
-    const key = t.contextCode || t.contextName || 'other';
+    const name = t.contextName || t.course || 'Other';
+    const key = t.contextCode || name || 'other';
     if (!map.has(key)) {
       map.set(key, {
         key,
-        name: t.contextName || 'Other',
+        name,
         contextCode: t.contextCode,
         total: 0,
         done: 0,
+        tasks: [],
       });
     }
     const g = map.get(key);
     g.total++;
     if (t.complete) g.done++;
+    g.tasks.push(t);
   }
   return Array.from(map.values());
+}
+
+function widgetSectionStyle(section) {
+  if (!section?.color) return '';
+  const color = section.color;
+  return [
+    `--cc-section-bg:${hexToRgba(color, 0.10)}`,
+    `--cc-section-bg-dark:${hexToRgba(color, 0.14)}`,
+    `--cc-preview-section-bg:${hexToRgba(color, 0.10)}`,
+    `--cc-preview-section-bg-dark:${hexToRgba(color, 0.14)}`,
+  ].join(';');
 }
 
 // Cap visible rings at 3 — keeps each ring thick, the spacing legible, and
@@ -841,9 +952,10 @@ function widgetSectionMarkup(section, now = Date.now()) {
     ? `<li class="cc-section-empty">${section.empty}</li>`
     : section.tasks.map(task => taskItemMarkup(task, now)).join('');
   const panelId = `cc-section-panel-${section.key}`;
+  const style = widgetSectionStyle(section);
 
   return `
-    <section class="cc-section-card${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}">
+    <section class="cc-section-card${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}"${section.color ? ' data-course-colorized="true"' : ''}${style ? ` style="${style}"` : ''}>
       <button class="cc-section-toggle" data-section="${section.key}" type="button" aria-expanded="${section.open ? 'true' : 'false'}" aria-controls="${panelId}">
         <span class="cc-section-label">${section.label}</span>
         <span class="cc-section-right">
@@ -883,7 +995,7 @@ function renderWidget(container, tasks, colors) {
   const pct = total === 0 ? 100 : Math.round((done / total) * 100);
   const style = settings.widgetProgressStyle || 'bar';
   const now = Date.now();
-  const sections = widgetSections(tasks);
+  const sections = widgetSections(tasks, colors);
 
   const showFraction = !!settings.widgetShowFraction;
   const sectionsHtml = sections.map(section => widgetSectionMarkup(section, now)).join('');
@@ -1926,18 +2038,19 @@ function previewCards() {
   const assignIcon = `<svg viewBox="0 0 1920 1920" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1807 1920H113C50.9 1920 0 1869.1 0 1807V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1694c0 62.1-50.9 113-113 113zm-56.5-169.5v-1581H169.5v1581h1581zM338 1468.5h1244v169.5H338v-169.5zm0-338h1244v169.5H338V1130zm0-338h1244v169.5H338V792zm0-338h1244v169.5H338V454z"/></svg>`;
   const discIcon  = `<svg viewBox="0 0 1920 1920" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1920 1468.5c0 62-50.9 112.9-113 112.9h-338v225.8c0 62.1-50.9 113-113 113-30 0-58.6-11.9-79.7-33L831.6 1581.4H113C50.9 1581.4 0 1530.5 0 1468.5V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1355.5z"/></svg>`;
   const cards = [
-    { name: 'Linear Algebra',    code: 'MATH 314',  term: 'Spring 2026', color: '#0084c7', img: 'linear-gradient(160deg,#0084c7 0%,#00c389 100%)', icons: [assignIcon, discIcon] },
-    { name: 'Database Design',   code: 'CSCE 451',  term: 'Spring 2026', color: '#9c27b0', img: 'linear-gradient(160deg,#9c27b0 0%,#ff5722 100%)', icons: [assignIcon] },
-    { name: 'Business Strategy', code: 'MGMT 411',  term: 'Spring 2026', color: '#e67e22', img: 'linear-gradient(160deg,#e67e22 0%,#f1c40f 100%)', icons: [assignIcon, discIcon] },
-    { name: 'Discrete Math',     code: 'MATH 208',  term: 'Spring 2026', color: '#16a085', img: 'linear-gradient(160deg,#16a085 0%,#2ecc71 100%)', icons: [assignIcon] },
-    { name: 'Operating Systems', code: 'CSCE 351',  term: 'Spring 2026', color: '#c0392b', img: 'linear-gradient(160deg,#c0392b 0%,#d35400 100%)', icons: [assignIcon, discIcon] },
-    { name: 'World History',     code: 'HIST 201',  term: 'Spring 2026', color: '#2c3e50', img: 'linear-gradient(160deg,#2c3e50 0%,#7f8c8d 100%)', icons: [assignIcon] },
+    { name: 'Linear Algebra',    code: 'MATH 314',  term: 'Spring 2026', color: '#0084c7', img: 'linear-gradient(160deg,#0084c7 0%,#00c389 100%)', grade: '97%', icons: [assignIcon, discIcon] },
+    { name: 'Database Design',   code: 'CSCE 451',  term: 'Spring 2026', color: '#9c27b0', img: 'linear-gradient(160deg,#9c27b0 0%,#ff5722 100%)', grade: '91%', icons: [assignIcon] },
+    { name: 'Business Strategy', code: 'MGMT 411',  term: 'Spring 2026', color: '#e67e22', img: 'linear-gradient(160deg,#e67e22 0%,#f1c40f 100%)', grade: '95%', icons: [assignIcon, discIcon] },
+    { name: 'Discrete Math',     code: 'MATH 208',  term: 'Spring 2026', color: '#16a085', img: 'linear-gradient(160deg,#16a085 0%,#2ecc71 100%)', grade: '89%', icons: [assignIcon] },
+    { name: 'Operating Systems', code: 'CSCE 351',  term: 'Spring 2026', color: '#c0392b', img: 'linear-gradient(160deg,#c0392b 0%,#d35400 100%)', grade: '93%', icons: [assignIcon, discIcon] },
+    { name: 'World History',     code: 'HIST 201',  term: 'Spring 2026', color: '#2c3e50', img: 'linear-gradient(160deg,#2c3e50 0%,#7f8c8d 100%)', grade: '98%', icons: [assignIcon] },
   ];
   return `
     <div class="cc-preview-card-grid">
       ${cards.map(c => `
         <div class="cc-preview-card">
           <div class="cc-preview-card-header" style="background:${c.color};">
+            <div class="cc-preview-card-grade">${c.grade}</div>
             <div class="cc-preview-card-image" style="background-image:${c.img};"></div>
           </div>
           <div class="cc-preview-card-body">
@@ -2112,7 +2225,7 @@ function tabSidebar() {
         row('Label Position', selectControl('sidebarLabelPosition', [
           { value: 'bottom', label: 'Below icon' },
           { value: 'right', label: 'Right of icon' },
-        ]), 'Below icon keeps the standard stacked layout. Right of icon collapses the rail to icons and expands on hover to reveal labels.'),
+        ]), 'Below icon keeps the standard stacked layout. Right of icon keeps the native sidebar width and fits labels beside icons without expanding the rail.'),
       ]},
       { title: 'Colors', rows: [
         row('Background', colorControl('sidebarBgColor', detected.bg), 'The sidebar\'s main fill color.'),
@@ -2131,12 +2244,12 @@ function tabSidebar() {
 function previewWidget() {
   const now = Date.now();
   const sample = [
-    { title: 'Linear Algebra HW 8', type: 'assignment',       course: 'MATH 314', complete: false, dueAt: new Date(now + 6 * 60 * 60 * 1000).toISOString() },
-    { title: 'Database Lab 4',      type: 'assignment',       course: 'CSCE 451', complete: false, dueAt: new Date(now + 54 * 60 * 60 * 1000).toISOString() },
-    { title: 'Weekly Announcement', type: 'announcement',     course: 'BSAD 411', complete: false, dueAt: new Date(now + 18 * 60 * 60 * 1000).toISOString() },
-    { title: 'Discussion: Ch. 16',  type: 'discussion_topic', course: 'MGMT 311', complete: false, dueAt: new Date(now - 3 * 60 * 60 * 1000).toISOString() },
-    { title: 'Quiz 11',             type: 'quiz',             course: 'MATH 314', complete: true,  dueAt: new Date(now - 12 * 60 * 60 * 1000).toISOString() },
-    { title: 'Case Study 3',        type: 'assignment',       course: 'BSAD 411', complete: true,  dueAt: new Date(now + 20 * 60 * 60 * 1000).toISOString() },
+    { title: 'Linear Algebra HW 8', type: 'assignment',       course: 'MATH 314', contextName: 'MATH 314', complete: false, dueAt: new Date(now + 6 * 60 * 60 * 1000).toISOString() },
+    { title: 'Database Lab 4',      type: 'assignment',       course: 'CSCE 451', contextName: 'CSCE 451', complete: false, dueAt: new Date(now + 54 * 60 * 60 * 1000).toISOString() },
+    { title: 'Weekly Announcement', type: 'announcement',     course: 'BSAD 411', contextName: 'BSAD 411', complete: false, dueAt: new Date(now + 18 * 60 * 60 * 1000).toISOString() },
+    { title: 'Discussion: Ch. 16',  type: 'discussion_topic', course: 'MGMT 311', contextName: 'MGMT 311', complete: false, dueAt: new Date(now - 3 * 60 * 60 * 1000).toISOString() },
+    { title: 'Quiz 11',             type: 'quiz',             course: 'MATH 314', contextName: 'MATH 314', complete: true,  dueAt: new Date(now - 12 * 60 * 60 * 1000).toISOString() },
+    { title: 'Case Study 3',        type: 'assignment',       course: 'BSAD 411', contextName: 'BSAD 411', complete: true,  dueAt: new Date(now + 20 * 60 * 60 * 1000).toISOString() },
   ];
   let items = sample.slice();
   if (settings.widgetHideAnnouncements) items = items.filter(i => i.type !== 'announcement');
@@ -2237,8 +2350,9 @@ function previewWidget() {
             </div>
           </div>
         `).join('');
+    const style = widgetSectionStyle(section);
     return `
-      <div class="cc-preview-widget-section${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}">
+      <div class="cc-preview-widget-section${section.open ? ' is-open' : ' is-collapsed'}" data-section="${section.key}"${section.color ? ' data-course-colorized="true"' : ''}${style ? ` style="${style}"` : ''}>
         <div class="cc-preview-widget-section-toggle">
           <span class="cc-preview-widget-section-label">${section.label}</span>
           <span class="cc-preview-widget-section-right">
@@ -2276,6 +2390,10 @@ function tabWidget() {
     groups: [
       { title: 'Behavior', rows: [
         row('Enable Widget', toggleControl('widgetEnabled'), 'Turn off to keep Canvas\'s default To Do list.'),
+        row('Group By', selectControl('widgetGroupBy', [
+          { value: 'priority', label: 'Priority' },
+          { value: 'course',   label: 'Classes' },
+        ]), 'Priority groups tasks into Overdue / Due Soon / This Week / All. Classes creates one section per course.'),
       ]},
       { title: 'Progress', rows: [
         row('Style', selectControl('widgetProgressStyle', [
@@ -2519,15 +2637,15 @@ function postRenderTabPane() {
 }
 
 const PREVIEW_REACTIVE_KEYS = new Set([
-  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetShowCompleted',
-  'widgetHideAnnouncements', 'widgetHideDiscussions',
+  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetGroupBy',
+  'widgetShowCompleted', 'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
   'recentFeedbackShowDetails',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
-  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetShowCompleted',
-  'widgetHideAnnouncements', 'widgetHideDiscussions',
+  'widgetProgressStyle', 'widgetProgressColor', 'widgetSortBy', 'widgetGroupBy',
+  'widgetShowCompleted', 'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
 ]);
 
@@ -2599,7 +2717,8 @@ function tick() {
   } else {
     syncGlobalNavToggleControls();
   }
-  if (isDashboard()) injectWidget();
+  injectWidget();
+  if (isDashboard() && lastView === 'card') injectCardGrades();
   syncRecentFeedbackWidget();
   if (settings.bgColor) applyBgInline();
 }
