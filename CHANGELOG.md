@@ -8,6 +8,23 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ## 2026-04-15
 
+### Integrations tab — remove icon, align card to section formatting
+- **Where:** `src/content.js` (`tabIntegrations`, `refreshIntegrationsStatus`); `src/content.css` (`.cc-integ-card`, `.cc-integ-card-foot`; removed `.cc-integ-card-head`, `.cc-integ-icon`, `.cc-integ-meta`, `.cc-integ-name*`, `.cc-integ-badge*`, `.cc-integ-desc`)
+- **What:** Removed the Google Calendar icon and the entire card header. The card is now wrapped in a standard `.cc-section` with a `.cc-section-title` ("Google Calendar") matching the "Sync Settings" and "What to Sync" sections. `.cc-integ-card` border-radius changed from 14 px to 12 px to match `.cc-section-rows`; padding adjusted to `14px 18px` to match `.cc-row`. Removed the "Connected" badge (no header row to place it). Removed `border-top` from the foot (no head above it). Removed all now-dead CSS and the badge update from `refreshIntegrationsStatus()`.
+- **Why:** User found the icon unnecessary; heading style was inconsistent with the other sections in the same tab.
+
+### Integrations tab — service card v2: badge, white footer, real Disconnect button
+- **Where:** `src/content.js` (`tabIntegrations`, `refreshIntegrationsStatus`); `src/content.css` (`.cc-integ-*`, `[data-gcal-status]`, `.cc-gcal-dot/email`, `.cc-last-synced`, new `.cc-integ-badge`, `.cc-integ-foot-left/right`, `.cc-integ-account`)
+- **What:**
+  - **"Connected" badge** added next to the service name in the card header (`[data-gcal-badge]`); updated by `refreshIntegrationsStatus()` — appears as a small green pill when authenticated, hidden otherwise.
+  - **`[data-gcal-status]` → `display: contents`**: the element is now layout-transparent, so its two child divs (`.cc-integ-foot-left`, `.cc-integ-foot-right`) participate directly in the footer's `space-between` flex layout without a wrapper breaking the alignment.
+  - **Footer background** changed from `--cc-ds-bg` (grey) to `--cc-ds-surface` (white) — the full card is now a single white surface with only a hairline border-top separator.
+  - **`min-height: 64px`** on `.cc-integ-card-foot` prevents any height blink between connection states.
+  - **Disconnect is now a real `.cc-btn-ghost`** padded to `9px 16px` (matching `.cc-btn`) so both buttons in the footer are the same height.
+  - **Account indicator** redesigned: the green-pill chip is gone; the connected state shows a green dot + email text inline (`.cc-integ-account`), matching the flat account-info pattern used by Linear and Vercel.
+  - **`refreshIntegrationsStatus()`** now renders the entire footer in one pass, including the last-synced sub-label, so there is no separate `[data-gcal-last-synced]` query — the text is computed and injected in the same template literal as the rest of the footer.
+- **Why:** Disconnect was a tiny text link (hard to hit, unclear affordance). The grey card footer background was inconsistent with the white card header and the rest of the dialog. The account chip added a third visual style with no equivalent elsewhere in the UI.
+
 ### Integrations tab — service card layout redesign
 - **Where:** `src/content.js` (`tabIntegrations`, `renderTabPane`, `refreshIntegrationsStatus`); `src/content.css` (new `.cc-integ-*` classes, updated `[data-gcal-status]`, removed `.cc-gcal-status-stack` / `.cc-gcal-sync-stack`)
 - **What:**

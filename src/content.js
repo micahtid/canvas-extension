@@ -381,40 +381,41 @@ async function refreshIntegrationsStatus() {
   const local = await chrome.storage.local.get(['gcalEmail', 'gcalLastSynced']);
   const connected = !!token;
 
-  // Connection status — chip + disconnect when connected, or connect button when not.
-  // [data-gcal-status] is a flex-column container in the card footer left side.
+  // Render the complete card footer (left info column + right action buttons).
+  // [data-gcal-status] is display:contents so its child divs participate directly
+  // in the footer's flex space-between layout.
   const statusEl = root.querySelector('[data-gcal-status]');
   if (statusEl) {
     if (connected) {
+      const mins = local.gcalLastSynced
+        ? Math.round((Date.now() - local.gcalLastSynced) / 60000)
+        : null;
+      const lastText = mins === null ? 'Never synced'
+        : mins < 1 ? 'Last synced just now'
+        : mins < 60 ? `Last synced ${mins}m ago`
+        : `Last synced ${Math.round(mins / 60)}h ago`;
       statusEl.innerHTML = `
-        <span class="cc-gcal-chip" title="${escapeHtml(local.gcalEmail || '')}">
-          <span class="cc-gcal-dot"></span>
-          <span class="cc-gcal-email">${escapeHtml(local.gcalEmail || 'Google Account')}</span>
-        </span>
-        <button class="cc-btn-link" data-action="gcal-disconnect">Disconnect</button>`;
+        <div class="cc-integ-foot-left">
+          <div class="cc-integ-account">
+            <span class="cc-gcal-dot"></span>
+            <span class="cc-gcal-email" title="${escapeHtml(local.gcalEmail || '')}">${escapeHtml(local.gcalEmail || 'Google Account')}</span>
+          </div>
+          <div class="cc-last-synced">${lastText}</div>
+        </div>
+        <div class="cc-integ-foot-right">
+          <button class="cc-btn-ghost" data-action="gcal-disconnect">Disconnect</button>
+          <button class="cc-btn" data-action="gcal-sync">Sync Now</button>
+        </div>`;
     } else {
-      statusEl.innerHTML = `<button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>`;
+      statusEl.innerHTML = `
+        <div class="cc-integ-foot-left">
+          <div class="cc-integ-account cc-integ-account--off">Not connected</div>
+          <div class="cc-last-synced"></div>
+        </div>
+        <div class="cc-integ-foot-right">
+          <button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>
+        </div>`;
     }
-  }
-
-  // Last-synced timestamp — lives below the Sync Now button in the card footer
-  const lastSyncedEl = root.querySelector('[data-gcal-last-synced]');
-  if (lastSyncedEl) {
-    if (local.gcalLastSynced) {
-      const mins = Math.round((Date.now() - local.gcalLastSynced) / 60000);
-      const text = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
-      lastSyncedEl.textContent = `Last synced ${text}`;
-    } else {
-      lastSyncedEl.textContent = connected ? 'Never synced' : '';
-    }
-  }
-
-  // Sync area in the service card — enable/disable and dim based on connection
-  const syncEl = root.querySelector('.cc-integ-sync');
-  if (syncEl) {
-    const syncBtn = syncEl.querySelector('[data-action="gcal-sync"]');
-    if (syncBtn) syncBtn.disabled = !connected;
-    syncEl.classList.toggle('cc-integ-sync--off', !connected);
   }
 
   // Enable or disable gated settings rows based on connection state
@@ -2769,21 +2770,19 @@ function tabIntegrations() {
     desc: 'Connect Canvas to external services.',
     preview: null,
     html: `
-      <div class="cc-integ-card">
-        <div class="cc-integ-card-head">
-          <span class="cc-integ-icon">${calIcon}</span>
-          <div class="cc-integ-meta">
-            <div class="cc-integ-name">Google Calendar</div>
-            <div class="cc-integ-desc">Sync Canvas assignments and due dates to a dedicated "Canvas" calendar.</div>
-          </div>
-        </div>
-        <div class="cc-integ-card-foot">
-          <span data-gcal-status>
-            <button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>
-          </span>
-          <div class="cc-integ-sync cc-integ-sync--off">
-            <button class="cc-btn-ghost" data-action="gcal-sync" disabled>Sync Now</button>
-            <span class="cc-last-synced" data-gcal-last-synced></span>
+      <div class="cc-section">
+        <div class="cc-section-title">Google Calendar</div>
+        <div class="cc-integ-card">
+          <div class="cc-integ-card-foot">
+            <span data-gcal-status>
+              <div class="cc-integ-foot-left">
+                <div class="cc-integ-account cc-integ-account--off">Not connected</div>
+                <div class="cc-last-synced"></div>
+              </div>
+              <div class="cc-integ-foot-right">
+                <button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>
+              </div>
+            </span>
           </div>
         </div>
       </div>
