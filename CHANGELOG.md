@@ -6,7 +6,85 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-15
+
+### Integrations tab — service card layout redesign
+- **Where:** `src/content.js` (`tabIntegrations`, `renderTabPane`, `refreshIntegrationsStatus`); `src/content.css` (new `.cc-integ-*` classes, updated `[data-gcal-status]`, removed `.cc-gcal-status-stack` / `.cc-gcal-sync-stack`)
+- **What:**
+  - **`tabIntegrations()`** now returns a custom `html` block instead of a `groups` array. The Google Calendar service is represented as a prominent card (`.cc-integ-card`) with a header row (44×44 Google-blue icon + name + description) and a footer row split left/right: account status on the left, Sync Now + last-synced label on the right.
+  - The "Google Account" row and "Sync Now" row — previously two separate section cards stacked under the settings — are eliminated. Their content lives inside the single service card footer.
+  - The old "Sync" section is renamed "Sync Settings" and retains only Auto-sync + Sync window rows. "What to Sync" stays as its own section.
+  - **`renderTabPane()`** checks for `cfg.html` and uses it directly, falling back to the `cfg.groups` loop for all other tabs.
+  - **`refreshIntegrationsStatus()`** updated: connected state no longer wraps chip+disconnect in `.cc-gcal-status-stack` (the `[data-gcal-status]` flex-column handles it); the `.cc-integ-sync` area is dimmed via `cc-integ-sync--off` class instead of looking for the sync button inside gated rows.
+- **Why:** User found the previous layout (three separate stacked section cards, each containing just one or two rows) visually inconsistent with the rest of the dialog. The card pattern — one object per integration, with connection and sync actions colocated — matches how apps like Notion and Linear present integration settings.
+
+### Integrations tab — theme alignment + height-blink fixes (Google Account & Sync Now)
+- **Where:** `src/content.css` — `.cc-gcal-chip`, `.cc-gcal-email`, `.cc-gcal-status-stack`, `.cc-gcal-sync-stack`, `.cc-last-synced`, `.cc-btn-link`; new `[data-gcal-status]` rule; removed stale dark-mode overrides for chip, email, last-synced, btn-link
+- **What:**
+  - **Height-blink fix (Google Account row).** Added `[data-gcal-status]` rule with `min-height: 52px; display: inline-flex; align-items: center;`. The async `refreshIntegrationsStatus()` swaps the connect button (~36px) for the chip+disconnect stack (~52px); locking the wrapper to 52px keeps the row height constant in both states.
+  - **Height-blink fix (Sync Now row).** Added `display: block; min-height: 1.4em` to `.cc-last-synced` so the reserved line is always present, even before the first sync populates the text. Prevents the row from growing when the timestamp first appears.
+  - **Theme alignment.** `.cc-gcal-chip` background and border changed from hard-coded greens (`#f0faf0`, `#d4ead4`) to `var(--cc-ds-bg)` / `var(--cc-ds-border)` so the pill matches the dialog's own surface palette. `.cc-gcal-email`, `.cc-last-synced`, `.cc-btn-link` color values changed from hard-coded hex to CSS vars (`--cc-ds-body`, `--cc-ds-muted`) — these now auto-adapt in dark mode without manual overrides.
+  - **Dark mode simplification.** Removed four previously-needed overrides (chip bg/border, email color, last-synced color, btn-link color) since those elements now resolve correctly through the shared design-system vars.
+  - `.cc-gcal-status-stack` gap tightened from 6px → 4px (chip and Disconnect are one logical unit).
+- **Why:** The hard-coded green chip clashed with the dialog's neutral white/grey palette; height blinking was visible every time the Integrations tab opened while auth status resolved asynchronously.
+
+### Integrations — recover from deleted "Canvas" calendar + UI cleanup
+- **Where:** `src/content.js` (`gcalGetOrCreateCalendar`, `gcalSyncNow` upsert loop + catch, `refreshIntegrationsStatus`, `tabIntegrations` Sync Now row); `src/content.css` (new `.cc-gcal-status-stack`, `.cc-gcal-chip`, `.cc-btn-link`, `.cc-gcal-sync-stack`; retired `.cc-gcal-account` / `.cc-gcal-sync-wrap`)
+- **What:**
+  - **Self-healing calendar lookup.** `gcalGetOrCreateCalendar` now verifies the cached `gcalCalendarId` by issuing a `GET /calendars/{id}` before returning it. On 404/410/403 the cached ID and the entire `gcalEventMap` are cleared (every event in the map lived inside the dead calendar), then the function falls through to find-or-create a fresh "Canvas" calendar.
+  - **Sync loop resilience.** `gcalSyncNow` re-reads `gcalEventMap` from storage *after* `gcalGetOrCreateCalendar` so an in-memory copy can't shadow the cleared one. PATCH 404s still recreate the specific event; POST/PATCH 404/410 against the calendar itself now abort the sync instead of being silently swallowed. The outer `catch` clears `gcalCalendarId` + `gcalEventMap` on 404/410 so the next Sync Now creates a new calendar without requiring a reload. Logs sync stats (`created/updated/failed`).
+  - **UI redesign.** The Google Account row now renders a vertical stack: an account chip (green dot + ellipsis-truncated email) on top, with a small text-link "Disconnect" below it — replacing the old single-line chip that was pushing the Disconnect button off the right edge. Added a `.cc-btn-link` minimal text-link button variant. The Sync Now row now stacks the primary button above the "Last synced …" label instead of laying them out horizontally. Both stacks are right-aligned within the row control area.
+  - Dark-mode overrides updated for the renamed classes.
+- **Why:** User deleted the dedicated "Canvas" calendar in Google Calendar; subsequent syncs silently failed because the cached ID pointed at a dead calendar and event-POST errors were swallowed. Separately, the old Integrations tab layout was cramped enough that the "Disconnect" button was being visually truncated.
+- **Where:** `src/content.js` (`gcalBuildEvent`, new `gcalFormatLocalDate` helper)
+- **What:** Switched synced events from timed (`start.dateTime` / `end.dateTime` at the exact `due_at`) to all-day (`start.date` / `end.date` in `YYYY-MM-DD` form). Date is computed in the user's local time zone so an 11:59pm-due item lands on its actual due date instead of bleeding into the next UTC day. End date is start + 1 since Google treats `end.date` as exclusive for all-day events.
+- **Why:** All-day events are easier to scan in Google Calendar's week/month views than tiny timed slivers at midnight or late evening; existing synced events get converted on the next Sync Now via `PATCH`.
+
+## 2026-04-14
+
+### Integrations — strip trailing slash from OAuth redirect URI (REVERTED)
+- **Where:** `src/background.js` (`handleGetToken`)
+- **What:** Briefly stripped the trailing slash from `chrome.identity.getRedirectURL()` to work around a perceived Google Cloud Console limitation.
+- **Why reverted:** Google Cloud Console *does* accept trailing slashes in Authorized redirect URIs — the earlier issue was that the user had added the URI to the *JavaScript origins* field by mistake. Once added to the correct field (Authorized redirect URIs), the slash is preserved. Reverted so we send the canonical `https://<id>.chromiumapp.org/` form that matches what Google stores.
+
+### Integrations — move Google OAuth Client ID into `.env`
+- **Where:** `.env` (new, git-ignored), `.env.example` (new, committed), `.gitignore`, `vite.config.js`, `src/background.js`
+- **What:**
+  - `src/background.js` now declares `const GCAL_CLIENT_ID = '__GCAL_CLIENT_ID__'` — a build-time placeholder instead of a hardcoded value
+  - `vite.config.js` reads `.env` in the `copy-static-assets` plugin, substitutes `__GCAL_CLIENT_ID__` with the real value while copying `src/background.js` → `dist/background.js`, and warns if the key is missing or still the placeholder
+  - `.env.example` documents the expected keys; `.gitignore` excludes `.env` and `.env.local` so secrets never get committed
+- **Why:** Keeps the Client ID out of source control and makes it trivial to swap credentials without editing code.
+
+### Integrations — switch OAuth to launchWebAuthFlow for cross-browser support
+- **Where:** `src/background.js`, `src/content.js` (`gcalDisconnect`), `manifest.json`
+- **What:**
+  - Replaced `chrome.identity.getAuthToken` (Chrome-only) with `chrome.identity.launchWebAuthFlow`, which works in all Chromium browsers (Chrome, Edge, Brave, Opera, Vivaldi, Arc) and Firefox
+  - Background constructs a Google OAuth2 authorization URL, opens it via `launchWebAuthFlow`, parses the access token from the redirect fragment, and caches it in `chrome.storage.local` with an expiry timestamp
+  - `handleGetToken` returns the cached token if still valid (with a 60s buffer); otherwise it launches the OAuth flow when interactive, or returns null when not
+  - `handleRemoveToken` revokes the token at `oauth2.googleapis.com/revoke` and clears it from local storage
+  - Added `"key"` field to `manifest.json` to pin the extension ID across all Chromium browsers — one redirect URI works everywhere
+  - Added `browser_specific_settings.gecko` for Firefox compatibility
+  - Removed the `oauth2` block from `manifest.json` (only needed by `getAuthToken`)
+  - `gcalDisconnect` simplified — background handles token clearing and revocation
+- **Why:** Reported `"This API is not supported on Microsoft Edge"` error from the previous `getAuthToken`-based implementation. `launchWebAuthFlow` is the cross-browser standard.
+
 ## 2026-04-13
+
+### Integrations tab — Google Calendar sync
+- **Where:** Integrations tab (`src/content.js` `tabIntegrations()`, new `gcal*` helpers); `src/background.js` (OAuth token proxy); `src/content.css` (new `.cc-btn`, `.cc-btn-ghost`, `.cc-gcal-*`, `.cc-last-synced`); `manifest.json` (`oauth2`, `identity` permission, Google host permissions)
+- **What:**
+  - Replaced the disabled stub with a fully functional Google Calendar integration
+  - OAuth2 via `chrome.identity.getAuthToken` — no redirect pages or manual tokens
+  - On first connect, automatically creates a dedicated "Canvas" calendar in Google Calendar so Canvas events stay separate from the primary calendar
+  - "Sync Now" button pushes upcoming Canvas items as events; upserts (patches existing events, creates new ones) using a local event-ID map to prevent duplicates
+  - "Auto-sync on page load" toggle — fires `gcalSyncNow(false)` silently on every Canvas page load when enabled
+  - Configurable sync window (14–180 days ahead) via range slider
+  - Per-type toggles: Assignments, Quizzes, Discussions, Announcements
+  - Connected-account chip shows email + "Disconnect" button; disconnecting revokes the OAuth token and clears all local state
+  - Last-synced timestamp updates after each sync ("just now", "5m ago", etc.)
+  - Sections 2 & 3 are gated (greyed out) until the user is connected
+  - Added `row()` 4th `extraAttrs` parameter to support `data-gcal-gated` attribute on rows
+- **Why:** The Integrations tab was a non-functional stub. Implementing Google Calendar sync as the first real integration.
 
 ### Dark Mode — Round 8 fixes (avatar double outline, al-trigger download background)
 - **Where:** `src/content.css` (dark mode block)

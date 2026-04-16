@@ -1,9 +1,32 @@
 import { defineConfig } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { copyFileSync } from 'fs';
+import { copyFileSync, readFileSync, writeFileSync, existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Minimal .env loader — reads KEY=VALUE lines, ignores comments/blanks.
+function loadEnv() {
+  const envPath = resolve(__dirname, '.env');
+  const env = {};
+  if (!existsSync(envPath)) return env;
+  const raw = readFileSync(envPath, 'utf8');
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    // Strip surrounding quotes if present
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
+}
 
 export default defineConfig({
   build: {
@@ -28,6 +51,15 @@ export default defineConfig({
     {
       name: 'copy-static-assets',
       closeBundle() {
+        const env = loadEnv();
+        const clientId = env.GCAL_CLIENT_ID || '';
+        if (!clientId || clientId.startsWith('YOUR_')) {
+          console.warn(
+            '[custom-canvas] GCAL_CLIENT_ID missing or placeholder in .env — ' +
+            'Google Calendar integration will not work until you set it.'
+          );
+        }
+
         copyFileSync(
           resolve(__dirname, 'manifest.json'),
           resolve(__dirname, 'dist/manifest.json')
@@ -36,10 +68,14 @@ export default defineConfig({
           resolve(__dirname, 'src/content.css'),
           resolve(__dirname, 'dist/content.css')
         );
-        copyFileSync(
+
+        // background.js: substitute __GCAL_CLIENT_ID__ placeholder at copy time.
+        const bgSrc = readFileSync(
           resolve(__dirname, 'src/background.js'),
-          resolve(__dirname, 'dist/background.js')
+          'utf8'
         );
+        const bgOut = bgSrc.replace(/__GCAL_CLIENT_ID__/g, clientId);
+        writeFileSync(resolve(__dirname, 'dist/background.js'), bgOut);
       },
     },
   ],

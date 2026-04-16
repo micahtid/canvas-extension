@@ -92,6 +92,14 @@ const DEFAULTS = {
   // Command palette
   commandPaletteEnabled: true,
   hideScrollBars: false,
+
+  // Google Calendar integration
+  gcalAutoSync: false,
+  gcalDaysAhead: 60,
+  gcalSyncAssignments: true,
+  gcalSyncQuizzes: true,
+  gcalSyncDiscussions: false,
+  gcalSyncAnnouncements: false,
 };
 
 let settings = { ...DEFAULTS };
@@ -114,6 +122,307 @@ async function saveSettings(partial) {
   } catch (e) {
     console.warn('[CustomCanvas] save failed', e);
   }
+}
+
+// ---------- Google Calendar integration ----------
+
+async function gcalGetToken(interactive = false) {
+  // chrome.identity is unavailable in content scripts — proxy via background
+  console.log('[CC] gcalGetToken start, interactive=', interactive);
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'cc-gcal-get-token',
+      interactive,
+    });
+    console.log('[CC] gcalGetToken response:', response);
+    if (response?.error) {
+      console.warn('[CC] gcalGetToken error from bg:', response.error);
+    }
+    return response?.token || null;
+  } catch (e) {
+    console.warn('[CC] gcal token sendMessage failed', e);
+    return null;
+  }
+}
+
+async function gcalRequest(token, method, path, body) {
+  const opts = {
+    method,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/${path}`, opts);
+  if (res.status === 204) return null;
+  if (!res.ok) throw Object.assign(new Error(`GCal ${res.status}`), { status: res.status });
+  return res.json();
+}
+
+async function gcalGetOrCreateCalendar(token) {
+  const stored = await chrome.storage.local.get('gcalCalendarId');
+
+  // Verify the cached ID still points to a live calendar. If the user deleted
+  // the "Canvas" calendar in Google Calendar, the cached ID is stale — every
+  // event ID in gcalEventMap is also dead since those events lived inside
+  // that deleted calendar. Clear both and fall through to create a fresh one.
+  if (stored.gcalCalendarId) {
+    try {
+      await gcalRequest(token, 'GET',
+        `calendars/${encodeURIComponent(stored.gcalCalendarId)}`);
+      return stored.gcalCalendarId;
+    } catch (err) {
+      if (err.status === 404 || err.status === 410 || err.status === 403) {
+        console.log('[CC] cached calendar is gone — clearing stale state');
+        await chrome.storage.local.remove(['gcalCalendarId', 'gcalEventMap']);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // No (valid) cached ID — look for an existing "Canvas" calendar in the
+  // user's list before creating a new one, so we pick up a calendar the user
+  // may have created manually.
+  const list = await gcalRequest(token, 'GET', 'users/me/calendarList?maxResults=250');
+  const existing = (list?.items || []).find(c => c.summary === 'Canvas');
+  if (existing) {
+    await chrome.storage.local.set({ gcalCalendarId: existing.id });
+    return existing.id;
+  }
+
+  const cal = await gcalRequest(token, 'POST', 'calendars', {
+    summary: 'Canvas',
+    description: 'Assignments and due dates synced from Canvas LMS by Custom Canvas.',
+  });
+  // Explicitly reset the event map — if the old calendar was deleted the
+  // map was cleared above, but creating a fresh calendar also invalidates
+  // any events whose IDs might have lingered in memory.
+  await chrome.storage.local.set({ gcalCalendarId: cal.id, gcalEventMap: {} });
+  return cal.id;
+}
+
+// YYYY-MM-DD in the user's local time zone — so an 11:59pm-due item
+// stays on its actual due date instead of bleeding into the next UTC day.
+function gcalFormatLocalDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function gcalBuildEvent(item) {
+  const due = new Date(item.plannable.due_at);
+  const startDate = gcalFormatLocalDate(due);
+  // Google Calendar treats end.date as exclusive — end must be the day after
+  // start for a single all-day event.
+  const endDate = gcalFormatLocalDate(
+    new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1)
+  );
+  const title = item.context_name
+    ? `[${item.context_name}] ${item.plannable.title}`
+    : item.plannable.title;
+  return {
+    summary: title,
+    description: `View in Canvas: ${item.html_url || ''}`,
+    start: { date: startDate },
+    end:   { date: endDate },
+    extendedProperties: { private: { canvasId: `${item.plannable_type}_${item.plannable_id}` } },
+  };
+}
+
+async function gcalSyncNow(interactive = false) {
+  console.log('[CC] gcalSyncNow start, interactive=', interactive);
+  // Show "Connecting…" on the connect button while the OAuth popup is up
+  const connectBtn = document.querySelector(`#${MODAL_ID} [data-action="gcal-connect"]`);
+  if (interactive && connectBtn) {
+    connectBtn.disabled = true;
+    connectBtn.textContent = 'Connecting…';
+  }
+
+  try {
+    const token = await gcalGetToken(interactive);
+    console.log('[CC] gcalSyncNow token result:', token ? 'GOT TOKEN' : 'NO TOKEN');
+    if (!token) {
+      // User cancelled OAuth or auth failed — reset UI
+      await refreshIntegrationsStatus();
+      return;
+    }
+
+    // Fetch and store user email synchronously so the UI can show it
+    if (!(await chrome.storage.local.get('gcalEmail')).gcalEmail) {
+      try {
+        const info = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.json());
+        if (info.email) {
+          await chrome.storage.local.set({ gcalEmail: info.email });
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // Flip UI to connected state immediately — before the (potentially long) sync
+    await refreshIntegrationsStatus();
+
+    // Now mark the sync button as syncing
+    const syncBtn = document.querySelector(`#${MODAL_ID} [data-action="gcal-sync"]`);
+    if (syncBtn) { syncBtn.disabled = true; syncBtn.textContent = 'Syncing…'; }
+
+    const calId = await gcalGetOrCreateCalendar(token);
+
+    // Read the event map AFTER gcalGetOrCreateCalendar — if the prior Canvas
+    // calendar was deleted, that call wiped the map and we need the fresh
+    // (empty) one, not a stale in-memory copy.
+    const mapStored = await chrome.storage.local.get('gcalEventMap');
+    const eventMap = mapStored.gcalEventMap ? { ...mapStored.gcalEventMap } : {};
+
+    // Fetch Canvas planner items for the sync window
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + settings.gcalDaysAhead * 86400000);
+    const params = new URLSearchParams({
+      start_date: now.toISOString(),
+      end_date: windowEnd.toISOString(),
+      per_page: '100',
+    });
+    const res = await fetch(`/api/v1/planner/items?${params}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Canvas API ${res.status}`);
+    const allItems = await res.json();
+
+    // Filter by user-selected types (only whitelisted types with explicit true)
+    const typeFilter = {
+      assignment:       settings.gcalSyncAssignments,
+      quiz:             settings.gcalSyncQuizzes,
+      discussion_topic: settings.gcalSyncDiscussions,
+      announcement:     settings.gcalSyncAnnouncements,
+    };
+    const items = allItems.filter(item =>
+      item.plannable?.due_at && typeFilter[item.plannable_type] === true
+    );
+
+    // Upsert events into Google Calendar. Track failures so we can surface a
+    // meaningful status if everything fails (e.g., calendar deleted mid-sync).
+    let created = 0, updated = 0, failed = 0;
+    for (const item of items) {
+      const key = `${item.plannable_type}_${item.plannable_id}`;
+      const event = gcalBuildEvent(item);
+      try {
+        if (eventMap[key]) {
+          await gcalRequest(token, 'PATCH',
+            `calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventMap[key])}`, event);
+          updated++;
+        } else {
+          const res2 = await gcalRequest(token, 'POST',
+            `calendars/${encodeURIComponent(calId)}/events`, event);
+          if (res2?.id) { eventMap[key] = res2.id; created++; }
+        }
+      } catch (err) {
+        // PATCH 404 → the specific event was deleted; recreate it.
+        if (err.status === 404 && eventMap[key]) {
+          delete eventMap[key];
+          try {
+            const res2 = await gcalRequest(token, 'POST',
+              `calendars/${encodeURIComponent(calId)}/events`, event);
+            if (res2?.id) { eventMap[key] = res2.id; created++; }
+          } catch (err2) {
+            failed++;
+            // If re-POST fails with 404/410, the calendar itself is gone —
+            // abort the whole sync so the next run recreates the calendar.
+            if (err2.status === 404 || err2.status === 410) throw err2;
+          }
+        } else if (err.status === 404 || err.status === 410) {
+          // POST into a dead calendar — abort, next sync will recreate it.
+          throw err;
+        } else {
+          failed++;
+        }
+      }
+    }
+    console.log(`[CC] sync complete: ${created} created, ${updated} updated, ${failed} failed`);
+
+    await chrome.storage.local.set({ gcalEventMap: eventMap, gcalLastSynced: Date.now() });
+    if (syncBtn) { syncBtn.disabled = false; syncBtn.textContent = 'Sync Now'; }
+    await refreshIntegrationsStatus();
+
+  } catch (err) {
+    console.warn('[CustomCanvas] GCal sync failed', err);
+    // If the sync aborted because the calendar disappeared (404/410), drop
+    // the stale cached ID + event map so the next sync creates a fresh
+    // calendar without requiring the user to reload.
+    if (err?.status === 404 || err?.status === 410) {
+      await chrome.storage.local.remove(['gcalCalendarId', 'gcalEventMap']);
+    }
+    const btn = document.querySelector(`#${MODAL_ID} [data-action="gcal-sync"]`);
+    if (btn) {
+      btn.textContent = 'Sync failed';
+      setTimeout(() => {
+        if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Sync Now'; }
+      }, 3000);
+    }
+    // Reset the connect button if it's still showing "Connecting…"
+    await refreshIntegrationsStatus();
+  }
+}
+
+async function gcalDisconnect() {
+  try {
+    // Background clears its cached token + revokes it server-side
+    await chrome.runtime.sendMessage({ type: 'cc-gcal-remove-token' });
+  } catch { /* non-fatal */ }
+  await chrome.storage.local.remove(['gcalCalendarId', 'gcalEventMap', 'gcalLastSynced', 'gcalEmail']);
+  refreshIntegrationsStatus();
+}
+
+async function refreshIntegrationsStatus() {
+  const root = document.getElementById(MODAL_ID);
+  if (!root || currentTab !== 'integrations') return;
+
+  const token = await gcalGetToken(false);
+  const local = await chrome.storage.local.get(['gcalEmail', 'gcalLastSynced']);
+  const connected = !!token;
+
+  // Connection status — chip + disconnect when connected, or connect button when not.
+  // [data-gcal-status] is a flex-column container in the card footer left side.
+  const statusEl = root.querySelector('[data-gcal-status]');
+  if (statusEl) {
+    if (connected) {
+      statusEl.innerHTML = `
+        <span class="cc-gcal-chip" title="${escapeHtml(local.gcalEmail || '')}">
+          <span class="cc-gcal-dot"></span>
+          <span class="cc-gcal-email">${escapeHtml(local.gcalEmail || 'Google Account')}</span>
+        </span>
+        <button class="cc-btn-link" data-action="gcal-disconnect">Disconnect</button>`;
+    } else {
+      statusEl.innerHTML = `<button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>`;
+    }
+  }
+
+  // Last-synced timestamp — lives below the Sync Now button in the card footer
+  const lastSyncedEl = root.querySelector('[data-gcal-last-synced]');
+  if (lastSyncedEl) {
+    if (local.gcalLastSynced) {
+      const mins = Math.round((Date.now() - local.gcalLastSynced) / 60000);
+      const text = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+      lastSyncedEl.textContent = `Last synced ${text}`;
+    } else {
+      lastSyncedEl.textContent = connected ? 'Never synced' : '';
+    }
+  }
+
+  // Sync area in the service card — enable/disable and dim based on connection
+  const syncEl = root.querySelector('.cc-integ-sync');
+  if (syncEl) {
+    const syncBtn = syncEl.querySelector('[data-action="gcal-sync"]');
+    if (syncBtn) syncBtn.disabled = !connected;
+    syncEl.classList.toggle('cc-integ-sync--off', !connected);
+  }
+
+  // Enable or disable gated settings rows based on connection state
+  root.querySelectorAll('[data-gcal-gated]').forEach(rowEl => {
+    rowEl.classList.toggle('cc-row--disabled', !connected);
+    rowEl.setAttribute('aria-disabled', connected ? 'false' : 'true');
+    rowEl.querySelectorAll('input').forEach(el => { el.disabled = !connected; });
+  });
 }
 
 // Selectors for the page-level background sweep. Inline styles set via JS beat
@@ -1730,9 +2039,9 @@ function toggleModal() {
 
 // ---------- tab content ----------
 
-function row(label, control, hint = '') {
+function row(label, control, hint = '', extraAttrs = '') {
   return `
-    <div class="cc-row">
+    <div class="cc-row" ${extraAttrs}>
       <div class="cc-row-label">
         <div class="cc-row-title">${label}</div>
         ${hint ? `<div class="cc-row-hint">${hint}</div>` : ''}
@@ -2454,20 +2763,49 @@ function tabRecentFeedback() {
 }
 
 function tabIntegrations() {
+  const calIcon = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="16" height="16" rx="2.5"/><path d="M2 8h16M7 1v4M13 1v4"/></svg>`;
   return {
     title: 'Integrations',
-    desc: 'Connect Canvas Enhancer to external services.',
+    desc: 'Connect Canvas to external services.',
     preview: null,
-    groups: [
-      { title: 'Google Calendar', rows: [
-        row('Sync to Google Calendar',
-          `<button class="cc-btn-disabled" disabled>Sync now <span class="cc-soon-badge">Coming soon</span></button>`,
-          'Push Canvas assignments to your Google Calendar. OAuth2 setup coming in a future update.'),
-        row('Auto-sync new assignments',
-          `<label class="cc-toggle cc-disabled" aria-disabled="true"><input type="checkbox" disabled tabindex="-1"><span class="cc-toggle-track"><span class="cc-toggle-thumb"></span></span></label>`,
-          'Automatically add new due dates. Requires sync to be configured first.'),
-      ]},
-    ],
+    html: `
+      <div class="cc-integ-card">
+        <div class="cc-integ-card-head">
+          <span class="cc-integ-icon">${calIcon}</span>
+          <div class="cc-integ-meta">
+            <div class="cc-integ-name">Google Calendar</div>
+            <div class="cc-integ-desc">Sync Canvas assignments and due dates to a dedicated "Canvas" calendar.</div>
+          </div>
+        </div>
+        <div class="cc-integ-card-foot">
+          <span data-gcal-status>
+            <button class="cc-btn" data-action="gcal-connect">Connect Google Calendar</button>
+          </span>
+          <div class="cc-integ-sync cc-integ-sync--off">
+            <button class="cc-btn-ghost" data-action="gcal-sync" disabled>Sync Now</button>
+            <span class="cc-last-synced" data-gcal-last-synced></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cc-section">
+        <div class="cc-section-title">Sync Settings</div>
+        <div class="cc-section-rows">
+          ${row('Auto-sync on page load', toggleControl('gcalAutoSync'), 'Automatically sync every time you open Canvas.', 'data-gcal-gated')}
+          ${row('Sync window', rangeControl('gcalDaysAhead', 14, 180, 7, ' days'), 'How many days ahead to look for items to sync.', 'data-gcal-gated')}
+        </div>
+      </div>
+
+      <div class="cc-section">
+        <div class="cc-section-title">What to Sync</div>
+        <div class="cc-section-rows">
+          ${row('Assignments',   toggleControl('gcalSyncAssignments'),   '', 'data-gcal-gated')}
+          ${row('Quizzes',       toggleControl('gcalSyncQuizzes'),       '', 'data-gcal-gated')}
+          ${row('Discussions',   toggleControl('gcalSyncDiscussions'),   '', 'data-gcal-gated')}
+          ${row('Announcements', toggleControl('gcalSyncAnnouncements'), '', 'data-gcal-gated')}
+        </div>
+      </div>
+    `,
   };
 }
 
@@ -2520,19 +2858,23 @@ function renderTabPane() {
        </aside>`
     : '';
 
+  const controlsBody = cfg.html
+    ? cfg.html
+    : cfg.groups.map(g => `
+        <div class="cc-section">
+          <div class="cc-section-title">${g.title}</div>
+          <div class="cc-section-rows">
+            ${g.rows.join('')}
+          </div>
+        </div>
+      `).join('');
+
   pane.innerHTML = `
     <div class="cc-pane-layout${hasPreview ? '' : ' cc-pane-layout--full'}">
       ${previewCol}
       <section class="cc-controls-col">
         <h2 class="cc-pane-title">${cfg.title}</h2>
-        ${cfg.groups.map(g => `
-          <div class="cc-section">
-            <div class="cc-section-title">${g.title}</div>
-            <div class="cc-section-rows">
-              ${g.rows.join('')}
-            </div>
-          </div>
-        `).join('')}
+        ${controlsBody}
       </section>
     </div>
   `;
@@ -2619,6 +2961,17 @@ function renderTabPane() {
     });
   });
 
+  // Wire data-action buttons via delegation (covers dynamically injected buttons too).
+  // Use .onclick assignment so tab switches replace the handler rather than stack duplicates.
+  pane.onclick = (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'gcal-connect')    gcalSyncNow(true);
+    if (action === 'gcal-disconnect') gcalDisconnect();
+    if (action === 'gcal-sync')       gcalSyncNow(false);
+  };
+
   postRenderTabPane();
 }
 
@@ -2633,6 +2986,9 @@ function postRenderTabPane() {
     // after a frame and once after 120ms to catch late updates.
     requestAnimationFrame(syncSidebarPickerFallbacks);
     setTimeout(syncSidebarPickerFallbacks, 120);
+  }
+  if (currentTab === 'integrations') {
+    refreshIntegrationsStatus();
   }
 }
 
@@ -2798,6 +3154,9 @@ function domInit() {
       paletteOpen ? closePalette() : openPalette();
     }
   });
+
+  // Google Calendar auto-sync (non-interactive — silently skips if not connected)
+  if (settings.gcalAutoSync) gcalSyncNow(false);
 }
 
 // Safety net — if anything above throws before markReady() runs, force-reveal
