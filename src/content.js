@@ -3368,7 +3368,7 @@ function skinPlannerGroupings() {
   document.querySelectorAll('[class*="Grouping-styles__root"]').forEach(group => {
     group.style.setProperty('border', 'none', 'important');
     group.style.setProperty('border-top', 'none', 'important');
-    group.style.setProperty('overflow', 'hidden', 'important');
+    group.style.setProperty('overflow', 'visible', 'important');
     group.style.setProperty('border-radius', '8px', 'important');
     group.style.setProperty('margin-bottom', '10px', 'important');
     group.style.setProperty('box-shadow', '0 1px 3px rgba(0, 0, 0, 0.1)', 'important');
@@ -3382,16 +3382,43 @@ function skinPlannerGroupings() {
       title.style.setProperty('overflow-wrap', 'normal', 'important');
       title.style.setProperty('hyphens', 'none', 'important');
       title.style.setProperty('max-height', 'none', 'important');
+      title.style.setProperty('border-top-left-radius', '8px', 'important');
+      title.style.setProperty('border-bottom-left-radius', '8px', 'important');
+      title.style.setProperty('border-top-right-radius', '0', 'important');
+      title.style.setProperty('border-bottom-right-radius', '0', 'important');
     }
 
     const hero = group.querySelector('[class*="Grouping-styles__hero"]');
     if (hero) {
       hero.style.setProperty('overflow', 'hidden', 'important');
+      hero.style.setProperty('border-top-left-radius', '8px', 'important');
+      hero.style.setProperty('border-bottom-left-radius', '8px', 'important');
+      hero.style.setProperty('border-top-right-radius', '0', 'important');
+      hero.style.setProperty('border-bottom-right-radius', '0', 'important');
     }
 
     group.querySelectorAll('[class*="Grouping-styles__overlay"]').forEach(overlay => {
       overlay.style.setProperty('height', '100%', 'important');
+      overlay.style.setProperty('border-top-left-radius', '8px', 'important');
+      overlay.style.setProperty('border-bottom-left-radius', '8px', 'important');
+      overlay.style.setProperty('border-top-right-radius', '0', 'important');
+      overlay.style.setProperty('border-bottom-right-radius', '0', 'important');
     });
+
+    Array.from(group.children)
+      .filter(child => /\b(activityIndicator|NotificationBadge-styles__activityIndicator)\b/.test(child.className || ''))
+      .forEach(indicator => {
+        indicator.style.setProperty('position', 'absolute', 'important');
+        indicator.style.setProperty('left', '-18px', 'important');
+        indicator.style.setProperty('top', '50%', 'important');
+        indicator.style.setProperty('transform', 'translateY(-50%)', 'important');
+        indicator.style.setProperty('margin', '0', 'important');
+        indicator.style.setProperty('padding', '0', 'important');
+        indicator.style.setProperty('background', 'transparent', 'important');
+        indicator.style.setProperty('box-shadow', 'none', 'important');
+        indicator.style.setProperty('flex', 'none', 'important');
+        indicator.style.setProperty('z-index', '2', 'important');
+      });
 
     const items = group.querySelector('[class*="Grouping-styles__items"]');
     const wrappers = items

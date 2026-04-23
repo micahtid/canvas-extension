@@ -1395,13 +1395,41 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
 [class*="Grouping-styles__root"] {
   border: none !important;
   border-top: none !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   border-radius: 8px !important;
   margin-bottom: 10px !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   min-height: 0 !important;
   height: auto !important;
   align-self: start !important;
+}
+
+[class*="Grouping-styles__root"] > :is([class*="NotificationBadge-styles__activityIndicator"], [class*="activityIndicator"]) {
+  position: absolute !important;
+  left: -18px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  flex: none !important;
+  z-index: 2 !important;
+}
+
+[class*="Grouping-styles__hero"] {
+  overflow: hidden !important;
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+[class*="Grouping-styles__overlay"] {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 
 /* Course name in the colored hero sidebar: single-line with ellipsis.
@@ -1414,6 +1442,10 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   overflow-wrap: normal !important;
   hyphens: none !important;
   max-height: none !important;
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 [class*="Grouping-styles__title"]::after {
   display: none !important;
