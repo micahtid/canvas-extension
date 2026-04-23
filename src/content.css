@@ -19,10 +19,39 @@ html.cc-ready body {
 }
 
 #cc-weekly-tasks {
+  margin-top: 20px;
   margin-bottom: 20px;
   /* Inherit Canvas's body font (or the user's page-font override) so the
      widget matches every other component on the page. */
   font-family: inherit;
+}
+
+html[data-cc-page="course-grades"] #cc-grades-widget-host {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 20px;
+  padding-top: 20px;
+  background: #ffffff;
+  border-top: 1px solid #e8eaec;
+}
+
+html[data-cc-page="course-grades"] #cc-grades-widget-host #cc-weekly-tasks {
+  width: 100%;
+  max-width: 240px;
+  margin: 0;
+}
+
+html[data-cc-page="course-grades"] #right-side-wrapper,
+html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  html[data-cc-page="course-grades"] #cc-grades-widget-host #cc-weekly-tasks {
+    max-width: none;
+  }
 }
 
 #cc-weekly-tasks .cc-widget {
@@ -61,7 +90,7 @@ html.cc-ready body {
 }
 
 #cc-weekly-tasks .cc-progress {
-  height: 8px;
+  height: 5px;
   background: #eef1f3;
   border-radius: 999px;
   overflow: hidden;
@@ -70,7 +99,7 @@ html.cc-ready body {
 
 #cc-weekly-tasks .cc-progress-bar {
   height: 100%;
-  background: #8eaec4;
+  background: #6366f1;
   border-radius: 999px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -101,22 +130,20 @@ html.cc-ready body {
 #cc-weekly-tasks .cc-progress-rings-svg svg {
   display: block;
 }
-/* Center is a fixed 56x56 box, smaller than the innermost ring's inner
-   diameter — physically impossible for the text to touch the rings.
-   padding-top: 17px positions the pct line-box center at the geometric
-   center of the 56px container (28px from top), fraction hangs below. */
+/* Center box is a fixed 56x56, smaller than the innermost ring's inner
+   diameter. Content is centered as a block, then nudged down a few px for
+   optical balance — geometrically-centered numerals read as too high. */
 #cc-weekly-tasks .cc-progress-rings-center {
   position: absolute;
   top: 50%;
   left: 50%;
   width: 56px;
   height: 56px;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, calc(-50% + 4px));
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 21px;
+  justify-content: center;
   gap: 0;
   pointer-events: none;
 }
@@ -129,12 +156,13 @@ html.cc-ready body {
   line-height: 1;
 }
 #cc-weekly-tasks .cc-fraction--ring {
-  font-size: 7px;
+  font-size: 9px;
   font-weight: 600;
   color: #6b7780;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   white-space: nowrap;
+  margin-top: -1px;
 }
 #cc-weekly-tasks .cc-progress-rings-legend {
   width: 100%;
@@ -197,7 +225,7 @@ html.cc-ready body {
   border-radius: 3px;
 }
 #cc-weekly-tasks .cc-progress-seg.done {
-  background: #8eaec4;
+  background: #6366f1;
 }
 
 /* Progress — circle / half-circle variants */
@@ -222,10 +250,11 @@ html.cc-ready body {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, calc(-50% + 3px));
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0;
   pointer-events: none;
 }
@@ -244,7 +273,18 @@ html.cc-ready body {
   font-size: 10px;
   font-weight: 600;
   color: #6b7780;
-  margin-top: 2px;
+  line-height: 1;
+  margin-top: 0;
+}
+
+/* Arc fill animation — used by both circle and activity-ring progress arcs */
+@keyframes cc-arc-fill {
+  from { stroke-dashoffset: var(--arc-c); }
+  to   { stroke-dashoffset: var(--arc-offset); }
+}
+
+.cc-progress-arc {
+  animation: cc-arc-fill 0.85s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 /* Header spacing for circle styles */
@@ -262,7 +302,7 @@ html.cc-ready body {
   --cc-section-border: rgba(148, 163, 184, 0.28);
   border: 1px solid var(--cc-section-border);
   border-radius: 12px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: var(--cc-section-bg);
   box-shadow: none;
   box-sizing: border-box;
@@ -319,7 +359,7 @@ html.cc-ready body {
   min-width: 0;
   display: block;
   color: #2f3f4c;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
@@ -338,14 +378,14 @@ html.cc-ready body {
 #cc-weekly-tasks .cc-section-count {
   flex: 0 0 auto;
   min-width: 24px;
-  height: 18px;
+  height: 20px;
   box-sizing: border-box;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(45, 59, 69, 0.1);
   color: #3f4f5b;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -430,7 +470,7 @@ html.cc-ready body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
   scrollbar-width: none;
 }
 
@@ -465,7 +505,7 @@ html.cc-ready body {
 
 #cc-weekly-tasks .cc-task-link {
   display: block;
-  padding: 8px 8px;
+  padding: 10px 10px;
   text-decoration: none;
   color: inherit;
 }
@@ -517,11 +557,11 @@ html.cc-ready body {
 }
 
 #cc-weekly-tasks .cc-task-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: #2d3b45;
-  line-height: 1.3;
-  margin-bottom: 2px;
+  line-height: 1.35;
+  margin-bottom: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -536,11 +576,11 @@ html.cc-ready body {
 }
 
 #cc-weekly-tasks .cc-task-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: #505e67;
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
 }
 
@@ -577,6 +617,31 @@ html.cc-ready body {
   list-style: none;
 }
 
+/* Skeleton loader — replaces the old "Loading tasks…" text */
+@keyframes cc-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+#cc-weekly-tasks .cc-skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 4px 12px;
+}
+
+#cc-weekly-tasks .cc-sk-bar {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e5e7fb 25%, #f0f1ff 50%, #e5e7fb 75%);
+  background-size: 200% 100%;
+  animation: cc-shimmer 1.4s ease-in-out infinite;
+}
+#cc-weekly-tasks .cc-sk-bar--wide   { width: 85%; }
+#cc-weekly-tasks .cc-sk-bar--medium { width: 60%; animation-delay: 0.1s; }
+#cc-weekly-tasks .cc-sk-bar--narrow { width: 40%; animation-delay: 0.2s; }
+
+/* Legacy text loading/error states (error still uses .cc-error) */
 #cc-weekly-tasks .cc-loading,
 #cc-weekly-tasks .cc-error {
   padding: 12px 4px;
@@ -596,6 +661,15 @@ html.cc-ready body {
   color: #6b7780;
   font-size: 13px;
   text-align: center;
+}
+
+/* Fallback when every priority bucket is empty — one friendly message
+   replaces the per-section empty placeholders. */
+#cc-weekly-tasks .cc-all-empty {
+  padding: 22px 10px;
+  text-align: center;
+  color: #6b7780;
+  font-size: 13px;
 }
 
 /* ---------- Recent Feedback widget ---------- */
@@ -636,14 +710,14 @@ html.cc-ready body {
 :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-count {
   flex: 0 0 auto;
   min-width: 24px;
-  height: 18px;
+  height: 20px;
   box-sizing: border-box;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(45, 59, 69, 0.1);
   color: #3f4f5b;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -657,7 +731,7 @@ html.cc-ready body {
 :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   max-height: 280px;
   overflow-y: auto;
   scrollbar-width: none;
@@ -671,7 +745,7 @@ html.cc-ready body {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 11px;
+  padding: 12px 12px;
   border-radius: 10px;
   border: 1px solid #edf1f4;
   background: #fbfcfd;
@@ -726,14 +800,14 @@ html.cc-ready body {
 }
 
 :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item-title {
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.35;
   font-weight: 600;
   color: #2d3b45;
 }
 
 :is(#cc-recent-feedback, .cc-preview-feedback-frame) .cc-feedback-item-detail {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
   color: #6b7780;
 }
@@ -743,7 +817,7 @@ html.cc-ready body {
   border-radius: 10px;
   background: rgba(245, 247, 249, 0.8);
   color: #6b7780;
-  font-size: 13px;
+  font-size: 13.5px;
   text-align: center;
 }
 
@@ -1030,11 +1104,271 @@ html.cc-ready body {
   color: var(--cc-planner-item-text) !important;
 }
 
-/* Completed items fade. */
-[class*="PlannerItem-styles__root"][class*="complete"],
-[class*="PlannerItem-styles__root"][aria-label*="Complete"],
-[class*="PlannerItem-styles__root"][class*="completed"] {
+/* Completed items — behavior depends on the Style setting:
+   - fade (default): lower opacity via --cc-planner-done-opacity
+   - strikethrough:  keep full opacity, line-through the row title
+   - hide:           remove from the layout entirely
+   Selectors match the complete/completed class variants as well as the
+   aria-label fallback used by older Planner builds. */
+[data-cc-planner-done-style="fade"] [class*="PlannerItem-styles__root"][class*="complete"],
+[data-cc-planner-done-style="fade"] [class*="PlannerItem-styles__root"][aria-label*="Complete"],
+[data-cc-planner-done-style="fade"] [class*="PlannerItem-styles__root"][class*="completed"] {
   opacity: var(--cc-planner-done-opacity, 0.5) !important;
+}
+[data-cc-planner-done-style="strikethrough"] [class*="PlannerItem-styles__root"][class*="complete"],
+[data-cc-planner-done-style="strikethrough"] [class*="PlannerItem-styles__root"][aria-label*="Complete"],
+[data-cc-planner-done-style="strikethrough"] [class*="PlannerItem-styles__root"][class*="completed"] {
+  opacity: 1 !important;
+  text-decoration: line-through !important;
+  text-decoration-thickness: 1.5px;
+}
+[data-cc-planner-done-style="hide"] [class*="PlannerItem-styles__root"][class*="complete"],
+[data-cc-planner-done-style="hide"] [class*="PlannerItem-styles__root"][aria-label*="Complete"],
+[data-cc-planner-done-style="hide"] [class*="PlannerItem-styles__root"][class*="completed"] {
+  display: none !important;
+}
+
+/* Layout: Rows — flat list, no card background/shadow, thin bottom divider.
+   Course color bar and padding stay; radius collapses for a clean divider. */
+[data-cc-planner-layout="rows"] [class*="PlannerItem-styles__root"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 0 !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+/* Layout: Compact — maximize density. Hide the uppercase type-label row
+   and tighten padding so each item collapses toward a single visual line. */
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__root"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius: 0 !important;
+  padding: 4px 8px !important;
+  min-height: 0 !important;
+}
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__type"],
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__secondary"] {
+  display: none !important;
+}
+
+/* Layout: Grouped — one outer card per day grouping. Items inside render
+   as flat list rows with hairline dividers (NOT nested cards, following
+   NN/G guidance that cards-in-cards is an anti-pattern for lists of
+   similar items). Outer card matches the extension's own widget style:
+   1px neutral border + very subtle shadow. */
+[data-cc-planner-layout="grouped"] [class*="Day-styles__root"],
+[data-cc-planner-layout="grouped"] [class*="Day-styles__day"] {
+  background: var(--cc-planner-item-bg, #ffffff) !important;
+  border: 1px solid #e8eaec !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  margin-bottom: 16px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
+  border-radius: 0 !important;
+  padding: 12px 8px !important;
+  margin-top: 0 !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] + [class*="PlannerItem-styles__root"] {
+  margin-top: 0 !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]:last-child {
+  border-bottom: none !important;
+}
+
+/* ---- Long-text truncation (applies to grouped + compact) ----
+   Canvas course+type labels can run very long ("HNRS: SOFTWARE DEVEL
+   RAIK184H SEC 150 Spring 2026 ASSIGNMENT"). Clamp them to a single line
+   with ellipsis so rows stay the same height and scan cleanly. The
+   min-width:0 on the item root is required for flex children to be
+   allowed to shrink below content size. */
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"],
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__root"] {
+  min-width: 0 !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] > *,
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__root"] > * {
+  min-width: 0;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__type"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__title"],
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__type"],
+[data-cc-planner-layout="compact"] [class*="PlannerItem-styles__title"] {
+  display: block !important;
+  max-width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* A course+type label is noise; the course identity already lives in the
+   left color stripe. Trim it to a cap in grouped mode for consistency. */
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__type"] {
+  max-width: 60ch !important;
+}
+
+/* ---- "Show N completed items" row (Canvas's CompletedItemsFacade) ----
+   Make it look like another list row inside the day card so the eye
+   isn't jarred by differently-shaped affordance at the bottom. */
+[data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
+[data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
+[data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
+  display: block !important;
+  width: 100% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-top: 1px solid rgba(15, 23, 42, 0.06) !important;
+  border-radius: 0 !important;
+  padding: 12px 8px !important;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+/* ---- Consistent meta row: points / Graded / Feedback / due alignment ----
+   Canvas's detail row places these in a row but spacing / order varies
+   across item types. Force a flex row with a fixed gap so Graded /
+   Feedback chips always sit in the same spot and the row has a
+   predictable rhythm. `margin-left: auto` on tag-like elements pushes
+   them to the right side consistently. */
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px 10px !important;
+  min-width: 0;
+}
+/* Status-like chips (Graded / Feedback / Missing / Submitted) — flush right. */
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__status"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__badge"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__statusPill"] {
+  margin-left: auto !important;
+}
+
+/* Grouped refinement: softer gray course/day surface, white rounded task
+   cards, and a more consistent metadata rail. Kept scoped to grouped mode so
+   Cards / Rows / Compact stay unchanged. */
+[data-cc-planner-layout="grouped"] [class*="Day-styles__root"],
+[data-cc-planner-layout="grouped"] [class*="Day-styles__day"] {
+  background: var(--cc-planner-item-bg, #f5f7fa) !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+}
+
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] {
+  background: #ffffff !important;
+  border-top: 1px solid #e8eaec !important;
+  border-right: 1px solid #e8eaec !important;
+  border-bottom: 1px solid #e8eaec !important;
+  border-radius: 12px !important;
+  padding: 12px 12px 12px 10px !important;
+  margin-top: 0 !important;
+  min-height: 72px !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] + [class*="PlannerItem-styles__root"] {
+  margin-top: 8px !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]:last-child {
+  border-bottom: 1px solid #e8eaec !important;
+}
+
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__type"] {
+  max-width: 46ch !important;
+  font-size: 10px !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__title"] {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+}
+
+[data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
+[data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
+[data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
+  min-height: 72px !important;
+  background: #ffffff !important;
+  border: 1px solid #e8eaec !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  margin-top: 8px !important;
+  text-align: left !important;
+}
+
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 108px !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"] > *,
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"] > *,
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] > * {
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__status"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__badge"],
+[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__statusPill"] {
+  margin-left: 0 !important;
+  align-self: flex-end !important;
+}
+
+/* Emphasize Today — Canvas marks the active day with aria-label "Today".
+   Boost the first child (the date label) to draw the eye. */
+[data-cc-planner-emphasize-today="on"] [class*="Day-styles__root"][aria-label^="Today"] > :first-child,
+[data-cc-planner-emphasize-today="on"] [class*="Day-styles__day"][aria-label^="Today"] > :first-child,
+[data-cc-planner-emphasize-today="on"] .Day[aria-label^="Today"] > :first-child {
+  font-size: 1.15em !important;
+  font-weight: 800 !important;
+  color: var(--cc-accent, #008ee2) !important;
+}
+
+/* Hide Empty Days — drop Day containers with no PlannerItem children. */
+[data-cc-planner-hide-empty-days="on"] [class*="Day-styles__root"]:not(:has([class*="PlannerItem-styles__root"])),
+[data-cc-planner-hide-empty-days="on"] [class*="Day-styles__day"]:not(:has([class*="PlannerItem-styles__root"])),
+[data-cc-planner-hide-empty-days="on"] .Day:not(:has([class*="PlannerItem-styles__root"])) {
+  display: none !important;
+}
+
+/* Hide Activity Feed — hide the Recent Activity stream when the user wants
+   only planner items on the dashboard. */
+[data-cc-planner-hide-activity="on"] #dashboard-activity,
+[data-cc-planner-hide-activity="on"] .ic-Dashboard-Activity,
+[data-cc-planner-hide-activity="on"] .recent_activity {
+  display: none !important;
+}
+
+/* Compound override: when the user has chosen a custom item background AND
+   a flat layout, the user's color wins over the layout's transparent bg.
+   For Grouped, user's item-bg paints the outer day card (inner rows stay
+   transparent — they're list items, not cards). */
+[data-cc-planner-item-bg="on"][data-cc-planner-layout="rows"] [class*="PlannerItem-styles__root"],
+[data-cc-planner-item-bg="on"][data-cc-planner-layout="compact"] [class*="PlannerItem-styles__root"] {
+  background-color: var(--cc-planner-item-bg) !important;
+}
+[data-cc-planner-item-bg="on"][data-cc-planner-layout="grouped"] [class*="Day-styles__root"],
+[data-cc-planner-item-bg="on"][data-cc-planner-layout="grouped"] [class*="Day-styles__day"] {
+  background-color: var(--cc-planner-item-bg) !important;
 }
 
 /* Day header background + text color. */
@@ -1050,6 +1384,156 @@ html.cc-ready body {
 [data-cc-planner-day-text="on"] .planner-day *:not(svg):not(svg *) {
   color: var(--cc-planner-day-text) !important;
 }
+
+/* ─── List View: Canvas-native course Groupings ("Daily Class Cards") ───
+   Canvas organizes the List view Planner by day, then within each day by
+   course via .Grouping-styles__root. The user calls these "Daily Class Cards"
+   (one per course per day) containing "Task Cards" (.planner-item-raw).
+   All selectors use [class*="..."] to survive any CSS-module hashing. */
+
+/* Outer grouping container: remove all Canvas borders, round and clip the card. */
+[class*="Grouping-styles__root"] {
+  border: none !important;
+  border-top: none !important;
+  overflow: hidden !important;
+  border-radius: 8px !important;
+  margin-bottom: 10px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  min-height: 0 !important;
+  height: auto !important;
+  align-self: start !important;
+}
+
+/* Course name in the colored hero sidebar: single-line with ellipsis.
+   Canvas's default is a height-clamp + gradient-fade ::after; we replace both. */
+[class*="Grouping-styles__title"] {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+  max-height: none !important;
+}
+[class*="Grouping-styles__title"]::after {
+  display: none !important;
+}
+
+/* Items tray: subtle gray so Task Cards float above it.
+   Remove the colored top border Canvas injects between the hero and items. */
+[class*="Grouping-styles__items"] {
+  border-top: none !important;
+  background: #f2f3f5 !important;
+  padding: 8px !important;
+  display: block !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+/* Neutralize margins on any direct li wrappers; gap handles spacing. */
+[class*="Grouping-styles__items"] > * {
+  display: block !important;
+  flex: none !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+[class*="Grouping-styles__items"] > * + * {
+  margin-top: 6px !important;
+}
+
+.cc-completed-toggle-row {
+  display: block;
+  margin-top: 6px;
+  list-style: none;
+}
+
+.cc-completed-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: auto;
+  padding: 9px 10px;
+  border: 1px solid rgba(45, 59, 69, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #2a6fbe;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cc-completed-toggle-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transform: rotate(0deg);
+  transform-origin: center center;
+  transition: transform 0.18s ease;
+}
+
+.cc-completed-toggle-chevron svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.cc-completed-toggle-btn[aria-expanded="true"] .cc-completed-toggle-chevron {
+  transform: rotate(90deg);
+}
+
+.cc-completed-toggle-label {
+  display: inline-block;
+}
+
+.cc-completed-toggle-btn:hover,
+.cc-completed-toggle-btn:focus-visible {
+  background: #f6faff;
+  border-color: rgba(42, 111, 190, 0.3);
+  outline: none;
+}
+
+.planner-completed-items,
+[class*="CompletedItemsFacade-styles__root"] {
+  margin-left: 0 !important;
+  border-bottom: none !important;
+  padding: 0 !important;
+  padding-left: 0 !important;
+}
+
+[class*="CompletedItemsFacade-styles__contentPrimary"],
+[class*="NotificationBadge-styles__activityIndicator"] {
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Task Cards: white, rounded; shadow defines the card — no hard border lines.
+   Top-align children to prevent vertical centering in tall cards. */
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"] {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+  margin-top: 0 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09) !important;
+  border: none !important;
+}
+
+/* ── Task card: two-column layout ───────────────────────────────────────
+   Left  col: type label (muted, small) + title (bold, primary).
+   Right col: badges (top), then due + score below — all right-aligned.
+
+   Defensive overrides (important):
+   - Kill all flex-grow and min-heights that force vertical expansion.
+   - align-self: flex-start locks both columns to the top.
+   - Kill all auto-margins (Canvas's vertical spacer trick). */
+
+/* Stop the outer layout wrappers from inflating vertically. */
+
 
 /* Recent Activity stream items — radius + optional background. */
 .recent_activity li,
@@ -1129,6 +1613,75 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   display: initial !important;
   width: initial !important;
   height: initial !important;
+}
+
+/* ---------- Minimal scroll bars ---------- */
+
+/* Slim rounded thumb, no arrows, no track background. Applied page-wide.
+   Canvas ships its own scrollbar rules that win on specificity alone, so
+   every declaration here uses !important to guarantee the override. */
+[data-cc-minimal-scrollbars="on"],
+[data-cc-minimal-scrollbars="on"] body,
+[data-cc-minimal-scrollbars="on"] * {
+  scrollbar-width: auto !important;
+  scrollbar-color: #4b5563 transparent !important;
+}
+
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar {
+  width: 16px !important;
+  height: 16px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-track,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-track,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-track,
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-track-piece,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-track-piece,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-track-piece,
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-corner,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-corner,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-corner {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-thumb,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-thumb,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-thumb {
+  background: #4b5563 !important;
+  background-color: #4b5563 !important;
+  border-radius: 999px !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 24px !important;
+}
+
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-thumb:hover,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-thumb:hover,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-thumb:hover {
+  background: #374151 !important;
+  background-color: #374151 !important;
+}
+
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-button,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-button,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-button,
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-button:start,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-button:start,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-button:start,
+[data-cc-minimal-scrollbars="on"]::-webkit-scrollbar-button:end,
+[data-cc-minimal-scrollbars="on"] body::-webkit-scrollbar-button:end,
+[data-cc-minimal-scrollbars="on"] *::-webkit-scrollbar-button:end {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* ---------- Background (whole page) ---------- */
@@ -2388,7 +2941,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-preview-widget-fill {
   height: 100%;
-  background: #8eaec4;
+  background: #6366f1;
   border-radius: 999px;
 }
 
@@ -2753,6 +3306,404 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-preview-lv-row--done {
   opacity: var(--cc-planner-done-opacity, 0.5);
+}
+
+/* Strikethrough completion style: keep full opacity, line through the title. */
+.cc-preview-lv-row--strike {
+  opacity: 1 !important;
+}
+.cc-preview-lv-row--strike .cc-preview-lv-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+/* Rows layout: no per-row background; items separated by a thin divider.
+   The top border on every row already provides the divider, so we just
+   need to zero out anything that would read as a card. */
+.cc-preview-listview[data-layout="rows"] .cc-preview-lv-row {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* Compact layout: single-line rows, drop the course badge and type label.
+   Due text moves inline with the title. */
+.cc-preview-listview[data-layout="compact"] {
+  gap: 12px;
+}
+.cc-preview-listview[data-layout="compact"] .cc-preview-lv-day {
+  gap: 0;
+}
+.cc-preview-listview[data-layout="compact"] .cc-preview-lv-row {
+  padding: 5px 6px 5px 8px;
+  background: transparent !important;
+  box-shadow: none;
+  border-top: 1px solid #eef0f2;
+}
+.cc-preview-lv-title--compact {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cc-planner-item-text, #2d3b45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cc-preview-lv-due--compact {
+  font-size: 9px;
+  color: var(--cc-planner-item-text, #6b7780);
+  opacity: 0.75;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Today emphasis in the preview — accent color + heavier weight. */
+.cc-preview-lv-day-hdr--today .cc-preview-lv-day-name {
+  font-size: 15px;
+  color: var(--cc-accent, #008ee2);
+}
+.cc-preview-lv-day-hdr--today .cc-preview-lv-day-date {
+  color: var(--cc-accent, #008ee2);
+  opacity: 0.9;
+}
+
+/* ---------- Grouped layout (preview) ----------
+   One outer card per class. Inside: flat list rows with hairline dividers —
+   NOT nested cards. Rationale (NN/G): assignments within a course are a
+   "list of similar items" — cards-in-cards is an anti-pattern there.
+   All sizing on an 8pt grid; titles at the 14px floor. */
+.cc-preview-listview[data-layout="grouped"] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cc-preview-lv-group {
+  background: var(--cc-planner-item-bg, #ffffff);
+  /* Match the extension's own card style: 1px neutral border + very subtle
+     shadow. Same tokens as #cc-weekly-tasks .cc-widget / .cc-section-card. */
+  border: 1px solid #e8eaec;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cc-preview-lv-group-hdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* One accent: a slim colored bar anchoring the course name. Fixed 3px so
+   the header looks consistent regardless of the item-level bar-width slider. */
+.cc-preview-lv-group-accent {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--cc-group-color, #888);
+  flex-shrink: 0;
+}
+
+.cc-preview-lv-group-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cc-planner-item-text, #0f172a);
+  letter-spacing: -0.1px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-preview-lv-group-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 999px;
+  padding: 3px 8px;
+  line-height: 1.3;
+}
+
+.cc-preview-lv-group-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flat list rows, hairline-divided. No per-item background, no radius. */
+.cc-preview-lv-mini {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: transparent;
+  border-radius: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  transition: opacity 0.2s;
+}
+.cc-preview-lv-mini:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Circular list-style checkbox (Things / Apple Reminders convention). */
+.cc-preview-lv-mini .cc-preview-lv-chk {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.cc-preview-lv-mini .cc-preview-lv-chk--done {
+  background: var(--cc-accent, #008ee2);
+  border-color: var(--cc-accent, #008ee2);
+}
+
+.cc-preview-lv-mini-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-preview-lv-mini-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cc-planner-item-text, #0f172a);
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-preview-lv-mini-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  min-width: 0;
+}
+
+.cc-preview-lv-mini-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--cc-group-color, #64748b);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+.cc-preview-lv-mini-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.cc-preview-lv-mini-day {
+  font-weight: 600;
+  color: var(--cc-planner-item-text, #334155);
+  white-space: nowrap;
+}
+
+.cc-preview-lv-mini-sep {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.cc-preview-lv-mini-due {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* MISSING/status chip — pushed to the far right, sized for the 12px meta row. */
+.cc-preview-lv-status--inline {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+}
+
+.cc-preview-lv-mini--done {
+  opacity: var(--cc-planner-done-opacity, 0.5);
+}
+
+.cc-preview-lv-mini--strike {
+  opacity: 1 !important;
+}
+.cc-preview-lv-mini--strike .cc-preview-lv-mini-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: #94a3b8;
+}
+
+/* Grouped preview refinement: subtle gray course surface + white rounded task
+   tiles with a fixed right rail for tags, points, and due time. These rules
+   intentionally come after the earlier grouped block so they fully override it. */
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-group {
+  background: var(--cc-planner-item-bg, #f5f7fa);
+  border: 1px solid #e8eaec;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-group-hdr {
+  margin-bottom: 10px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-group-name {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-group-body {
+  gap: 8px;
+}
+
+.cc-preview-listview[data-layout="grouped"] :is(.cc-preview-lv-mini, .cc-preview-lv-mini-more) {
+  min-height: 72px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e8eaec;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini:last-child {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8eaec;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini .cc-preview-lv-chk {
+  margin-top: 0;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-day,
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-sep {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-side {
+  min-width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24px;
+  white-space: nowrap;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-pill--neutral {
+  color: #52606d;
+  background: #f8fafc;
+  border: 1px solid #d7dee5;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-pill--danger {
+  color: #b42318;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-points,
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-due {
+  font-size: 11px;
+  font-weight: 600;
+  color: #52606d;
+  white-space: nowrap;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-points--empty {
+  display: none;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e8eaec;
+  border-radius: 12px;
+  padding: 12px;
+  color: #1d6fd4;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cc-preview-listview[data-layout="grouped"] .cc-preview-lv-mini-more-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: #1d6fd4;
 }
 
 /* Small colored bullet dot — far left */
@@ -3458,6 +4409,18 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
   border-right-color: rgba(255, 255, 255, 0.07) !important;
   border-bottom-color: rgba(255, 255, 255, 0.07) !important;
 }
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="Day-styles__root"],
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="Day-styles__day"] {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"],
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
+[data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
+  background: var(--cc-dark-surface-raised) !important;
+  border-color: var(--cc-dark-border) !important;
+}
 
 /* Form inputs */
 [data-cc-dark-mode="on"] input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not(.cc-modal-root input),
@@ -3721,7 +4684,8 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
 }
 
 /* Section empty state */
-[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-empty {
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-section-empty,
+[data-cc-dark-mode="on"] #cc-weekly-tasks .cc-all-empty {
   color: #9e9e9e !important;
 }
 

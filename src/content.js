@@ -6,6 +6,7 @@
 //      data attributes on <html>.
 
 const WIDGET_ID = 'cc-weekly-tasks';
+const GRADES_WIDGET_HOST_ID = 'cc-grades-widget-host';
 const RECENT_FEEDBACK_WIDGET_ID = 'cc-recent-feedback';
 const FEEDBACK_SHOW_LIMIT = 3;
 const NATIVE_SELECTOR = '.Sidebar__TodoListContainer';
@@ -57,7 +58,7 @@ const DEFAULTS = {
   // Weekly Tasks widget
   widgetEnabled: true,
   widgetProgressStyle: 'bar', // 'bar' | 'ring' | 'segments'
-  widgetProgressColor: '#8eaec4',
+  widgetProgressColor: '#6366f1',
   widgetSortBy: 'dueDate',    // 'dueDate' | 'status' | 'course' | 'type'
   widgetGroupBy: 'priority',  // 'priority' | 'course'
   widgetShowCompleted: true,
@@ -65,6 +66,11 @@ const DEFAULTS = {
   widgetHideDiscussions: false,
 
   // List View (Planner) & Recent Activity
+  plannerLayout: 'cards',        // 'cards' | 'rows' | 'compact' — dominant look
+  plannerDoneStyle: 'fade',      // 'fade' | 'strikethrough' | 'hide'
+  plannerEmphasizeToday: true,   // accent the "Today" day header
+  plannerHideEmptyDays: false,   // skip day headers with no items
+  plannerHideActivity: false,    // remove Recent Activity feed from List view
   plannerItemBg: '',          // empty = Canvas default
   plannerItemTextColor: '',   // empty = Canvas default
   plannerBarWidth: 5,         // px — colored left stripe per item
@@ -92,6 +98,7 @@ const DEFAULTS = {
   // Command palette
   commandPaletteEnabled: true,
   hideScrollBars: false,
+  minimalScrollbars: true,
 
   // Google Calendar integration
   gcalAutoSync: false,
@@ -490,28 +497,25 @@ const FEEDBACK_TARGETS = [
 
 let lastAppliedBg = null;
 
+// Pre-join selector lists so the DOM sweep runs as two querySelectorAll
+// calls instead of ~70. Invalid selectors would break the whole string, so
+// we keep the try/catch for safety.
+const BG_SELECTOR = BG_TARGETS.join(',');
+const FEEDBACK_SELECTOR = FEEDBACK_TARGETS.join(',');
+const ALL_BG_SELECTOR = `${BG_SELECTOR},${FEEDBACK_SELECTOR}`;
+
 function clearBgInline() {
-  const all = [...BG_TARGETS, ...FEEDBACK_TARGETS];
-  for (const sel of all) {
-    try {
-      document.querySelectorAll(sel).forEach(el => {
-        el.style.removeProperty('background-color');
-        el.style.removeProperty('background-image');
-      });
-    } catch {}
-  }
+  try {
+    document.querySelectorAll(ALL_BG_SELECTOR).forEach(el => {
+      el.style.removeProperty('background-color');
+      el.style.removeProperty('background-image');
+    });
+  } catch {}
 }
 
 function applyBgInline() {
   if (!document.body) return; // document_start — body not parsed yet
-  if (!settings.extensionEnabled) {
-    if (lastAppliedBg) {
-      clearBgInline();
-      lastAppliedBg = null;
-    }
-    return;
-  }
-  const color = settings.bgColor;
+  const color = settings.extensionEnabled ? settings.bgColor : '';
   if (!color) {
     if (lastAppliedBg) {
       clearBgInline();
@@ -519,21 +523,17 @@ function applyBgInline() {
     }
     return;
   }
-  for (const sel of BG_TARGETS) {
-    try {
-      document.querySelectorAll(sel).forEach(el => {
-        el.style.setProperty('background-color', color, 'important');
-      });
-    } catch {}
-  }
-  for (const sel of FEEDBACK_TARGETS) {
-    try {
-      document.querySelectorAll(sel).forEach(el => {
-        el.style.setProperty('background-image', 'none', 'important');
-        el.style.setProperty('background-color', color, 'important');
-      });
-    } catch {}
-  }
+  try {
+    document.querySelectorAll(BG_SELECTOR).forEach(el => {
+      el.style.setProperty('background-color', color, 'important');
+    });
+  } catch {}
+  try {
+    document.querySelectorAll(FEEDBACK_SELECTOR).forEach(el => {
+      el.style.setProperty('background-image', 'none', 'important');
+      el.style.setProperty('background-color', color, 'important');
+    });
+  } catch {}
   lastAppliedBg = color;
 }
 
@@ -546,9 +546,11 @@ const CC_DATA_ATTRS = [
   'ccBgColor', 'ccBgImage', 'ccTextColor', 'ccFont',
   'ccSidebarBg', 'ccSidebarText', 'ccSidebarActive', 'ccSidebarActiveText',
   'ccDashboardView', 'ccDarkMode',
-  'ccHideScrollbars',
+  'ccHideScrollbars', 'ccMinimalScrollbars',
   'ccPlannerItemBg', 'ccPlannerItemText',
   'ccPlannerDayBg', 'ccPlannerDayText',
+  'ccPlannerLayout', 'ccPlannerDoneStyle',
+  'ccPlannerEmphasizeToday', 'ccPlannerHideEmptyDays', 'ccPlannerHideActivity',
   'ccActivityItemBg',
 ];
 const CC_CSS_VARS = [
@@ -573,6 +575,7 @@ function tearDownOverrides() {
   syncGlobalNavToggleControls(false);
   const w = document.getElementById(WIDGET_ID);
   if (w) w.remove();
+  removeGradesWidgetHost(true);
   restoreNativeRecentFeedback();
 }
 
@@ -587,6 +590,18 @@ function applySettings(s) {
   }
 
   const set = (k, v) => root.style.setProperty(k, v);
+  // For optional color settings: when the user supplied a value, set the CSS
+  // var and mark the data attr 'on'; otherwise clear the var and mark 'off'
+  // (CSS rules fall back to Canvas defaults).
+  const setOptionalVar = (cssVar, dataKey, value) => {
+    if (value) {
+      set(cssVar, value);
+      root.dataset[dataKey] = 'on';
+    } else {
+      root.style.removeProperty(cssVar);
+      root.dataset[dataKey] = 'off';
+    }
+  };
 
   set('--cc-card-radius', s.cardRadius + 'px');
   set('--cc-card-image-opacity', String(s.cardImageOpacity));
@@ -622,20 +637,8 @@ function applySettings(s) {
   root.dataset.ccCardShadow = s.cardShadow;
   root.dataset.ccCardImage = s.cardShowImage ? 'shown' : 'hidden';
 
-  if (s.cardBgColor) {
-    set('--cc-card-bg', s.cardBgColor);
-    root.dataset.ccCardBg = 'on';
-  } else {
-    root.style.removeProperty('--cc-card-bg');
-    root.dataset.ccCardBg = 'off';
-  }
-  if (s.cardTextColor) {
-    set('--cc-card-text', s.cardTextColor);
-    root.dataset.ccCardText = 'on';
-  } else {
-    root.style.removeProperty('--cc-card-text');
-    root.dataset.ccCardText = 'off';
-  }
+  setOptionalVar('--cc-card-bg', 'ccCardBg', s.cardBgColor);
+  setOptionalVar('--cc-card-text', 'ccCardText', s.cardTextColor);
   root.dataset.ccSidebarRestyle = s.sidebarRestyle ? 'on' : 'off';
   root.dataset.ccSidebarLabels = s.sidebarShowLabels ? 'on' : 'off';
   root.dataset.ccDensity = s.density;
@@ -653,44 +656,24 @@ function applySettings(s) {
   set('--cc-planner-item-spacing', s.plannerItemSpacing + 'px');
   set('--cc-planner-done-opacity', (s.plannerDoneOpacity / 100).toFixed(2));
 
-  if (s.plannerItemBg) {
-    set('--cc-planner-item-bg', s.plannerItemBg);
-    root.dataset.ccPlannerItemBg = 'on';
-  } else {
-    root.style.removeProperty('--cc-planner-item-bg');
-    root.dataset.ccPlannerItemBg = 'off';
-  }
-  if (s.plannerItemTextColor) {
-    set('--cc-planner-item-text', s.plannerItemTextColor);
-    root.dataset.ccPlannerItemText = 'on';
-  } else {
-    root.style.removeProperty('--cc-planner-item-text');
-    root.dataset.ccPlannerItemText = 'off';
-  }
-  if (s.plannerDayBg) {
-    set('--cc-planner-day-bg', s.plannerDayBg);
-    root.dataset.ccPlannerDayBg = 'on';
-  } else {
-    root.style.removeProperty('--cc-planner-day-bg');
-    root.dataset.ccPlannerDayBg = 'off';
-  }
-  if (s.plannerDayTextColor) {
-    set('--cc-planner-day-text', s.plannerDayTextColor);
-    root.dataset.ccPlannerDayText = 'on';
-  } else {
-    root.style.removeProperty('--cc-planner-day-text');
-    root.dataset.ccPlannerDayText = 'off';
-  }
-  if (s.activityItemBg) {
-    set('--cc-activity-item-bg', s.activityItemBg);
-    root.dataset.ccActivityItemBg = 'on';
-  } else {
-    root.style.removeProperty('--cc-activity-item-bg');
-    root.dataset.ccActivityItemBg = 'off';
-  }
+  setOptionalVar('--cc-planner-item-bg', 'ccPlannerItemBg', s.plannerItemBg);
+  setOptionalVar('--cc-planner-item-text', 'ccPlannerItemText', s.plannerItemTextColor);
+  setOptionalVar('--cc-planner-day-bg', 'ccPlannerDayBg', s.plannerDayBg);
+  setOptionalVar('--cc-planner-day-text', 'ccPlannerDayText', s.plannerDayTextColor);
+  setOptionalVar('--cc-activity-item-bg', 'ccActivityItemBg', s.activityItemBg);
+
+  // Planner behavior — enum + toggles gate CSS rules via data attributes
+  root.dataset.ccPlannerLayout = ['cards', 'rows', 'compact', 'grouped'].includes(s.plannerLayout)
+    ? s.plannerLayout : 'cards';
+  root.dataset.ccPlannerDoneStyle = ['fade', 'strikethrough', 'hide'].includes(s.plannerDoneStyle)
+    ? s.plannerDoneStyle : 'fade';
+  root.dataset.ccPlannerEmphasizeToday = s.plannerEmphasizeToday ? 'on' : 'off';
+  root.dataset.ccPlannerHideEmptyDays = s.plannerHideEmptyDays ? 'on' : 'off';
+  root.dataset.ccPlannerHideActivity = s.plannerHideActivity ? 'on' : 'off';
 
   root.dataset.ccDarkMode = s.darkMode ? 'on' : 'off';
   root.dataset.ccHideScrollbars = s.hideScrollBars ? 'on' : 'off';
+  root.dataset.ccMinimalScrollbars = s.minimalScrollbars ? 'on' : 'off';
   root.dataset.ccSidebarLabelPos = ['bottom', 'right'].includes(s.sidebarLabelPosition)
     ? s.sidebarLabelPosition
     : (s.sidebarLabelPosition === 'left' ? 'right' : 'bottom');
@@ -924,6 +907,12 @@ function normalize(items, s = settings) {
     .filter(it => !(s.widgetHideDiscussions && it.plannable_type === 'discussion_topic'))
     .map(it => {
       seedPreviewCacheFromPlannerItem(it);
+      // contextCode pairs context_type with whichever ID is populated. Canvas
+      // planner items sometimes ship only course_id, sometimes only context_id
+      // (when context_type === 'Course').
+      let contextCode = '';
+      if (it.context_type && it.course_id) contextCode = `course_${it.course_id}`;
+      else if (it.context_type === 'Course' && it.context_id) contextCode = `course_${it.context_id}`;
       return {
         id: `${it.plannable_type}-${it.plannable_id}`,
         plannableId: it.plannable_id,
@@ -932,7 +921,7 @@ function normalize(items, s = settings) {
         dueAt: it.plannable?.due_at || it.plannable?.todo_date || it.plannable_date,
         url: it.html_url || '#',
         contextName: it.context_name || '',
-        contextCode: it.context_type && it.course_id ? `course_${it.course_id}` : (it.context_type === 'Course' && it.context_id ? `course_${it.context_id}` : ''),
+        contextCode,
         complete: isComplete(it),
         type: it.plannable_type,
       };
@@ -947,8 +936,6 @@ function normalize(items, s = settings) {
       case 'type':
         return (a.type || '').localeCompare(b.type || '');
       case 'status':
-        if (a.complete !== b.complete) return a.complete ? 1 : -1;
-        return new Date(a.dueAt || 0) - new Date(b.dueAt || 0);
       case 'dueDate':
       default:
         if (a.complete !== b.complete) return a.complete ? 1 : -1;
@@ -1002,9 +989,9 @@ function taskUrgency(task, now = Date.now()) {
 
 function defaultWidgetSectionState() {
   return {
-    overdue: true,
-    due_soon: true,
-    due_week: true,
+    overdue: false,
+    due_soon: false,
+    due_week: false,
     all: false,
   };
 }
@@ -1049,7 +1036,7 @@ function widgetSections(tasks, colors = {}) {
   const defaults = defaultWidgetSectionState();
   return sections.map(section => ({
     ...section,
-    open: widgetSectionState[section.key] ?? defaults[section.key] ?? true,
+    open: widgetSectionState[section.key] ?? defaults[section.key] ?? false,
   }));
 }
 
@@ -1063,7 +1050,7 @@ function widgetSectionsByCourse(tasks, colors = {}) {
       empty: 'No tasks for this course.',
       tasks: group.tasks,
       color: courseColorFor({ contextCode: group.contextCode }, colors, i),
-      open: widgetSectionState[key] ?? true,
+      open: widgetSectionState[key] ?? false,
     };
   });
 }
@@ -1133,9 +1120,10 @@ function activityRingsSvg(groups, colors) {
     const offset = c * (1 - pct);
     const color = courseColorFor({ contextCode: g.contextCode }, colors, i);
     const trackStroke = hexToRgba(color, 0.18);
+    const delay = (i * 120).toFixed(0);
     return `
       <circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${trackStroke}" stroke-width="${strokeW}"/>
-      <circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${c.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})" class="cc-progress-arc" style="--arc-c:${c.toFixed(2)};--arc-offset:${offset.toFixed(2)};animation-delay:${delay}ms"/>
     `;
   }).join('');
 
@@ -1175,7 +1163,7 @@ function activityRingsMarkup(groups, colors, totalPct, done, total, showFraction
 }
 
 function circleProgressMarkup(pct, done, total, showFraction) {
-  const barColor = settings.widgetProgressColor || '#8eaec4';
+  const barColor = settings.widgetProgressColor || '#6366f1';
   const trackColor = hexToRgba(barColor, 0.18);
   const size = 120;
   const strokeW = 10;
@@ -1189,7 +1177,7 @@ function circleProgressMarkup(pct, done, total, showFraction) {
       <div class="cc-progress-circle-svg" style="width:${size}px;height:${size}px;">
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
           <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="${strokeW}"/>
-          <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${barColor}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cx})"/>
+          <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${barColor}" stroke-width="${strokeW}" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${c.toFixed(2)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cx})" class="cc-progress-arc" style="--arc-c:${c.toFixed(2)};--arc-offset:${offset.toFixed(2)}"/>
         </svg>
         <div class="cc-progress-circle-center">
           <div class="cc-progress-circle-pct">${pct}%</div>
@@ -1207,7 +1195,7 @@ function progressMarkup(style, done, total, pct, tasks, colors, showFraction) {
   }
   if (style === 'circle') return circleProgressMarkup(pct, done, total, showFraction);
 
-  const barColor = settings.widgetProgressColor || '#8eaec4';
+  const barColor = settings.widgetProgressColor || '#6366f1';
   if (style === 'segments') {
     const n = total || 1;
     const segs = Array.from({ length: n }, (_, i) => `<div class="cc-progress-seg${i < done ? ' done' : ''}"${i < done ? ` style="background:${barColor}"` : ''}></div>`).join('');
@@ -1308,7 +1296,13 @@ function renderWidget(container, tasks, colors) {
   const sections = widgetSections(tasks, colors);
 
   const showFraction = !!settings.widgetShowFraction;
-  const sectionsHtml = sections.map(section => widgetSectionMarkup(section, now)).join('');
+  // In course grouping, keep every course card visible; in priority grouping,
+  // hide sections with zero tasks so the widget only shows actionable buckets.
+  const byCourse = settings.widgetGroupBy === 'course';
+  const visibleSections = byCourse ? sections : sections.filter(s => s.tasks.length > 0);
+  const sectionsHtml = visibleSections.length > 0
+    ? visibleSections.map(section => widgetSectionMarkup(section, now)).join('')
+    : `<div class="cc-all-empty">No tasks due this week.</div>`;
 
   // Header count is redundant when a fraction is already displayed near the progress element
   const hideHeaderCount = style === 'ring' || style === 'bar' || style === 'circle';
@@ -1331,26 +1325,56 @@ async function injectWidget() {
   if (!settings.extensionEnabled) return;
   if (!settings.widgetEnabled) return;
   const sidebar = document.querySelector(SIDEBAR_SELECTOR);
-  if (!sidebar) return;
-  if (sidebar.querySelector(`#${WIDGET_ID}`)) return;
+  if (!sidebar) {
+    document.getElementById(WIDGET_ID)?.remove();
+    removeGradesWidgetHost(true);
+    return;
+  }
+
+  const onCourseGradesPage = isCourseGradesPage();
+  const native = sidebar.querySelector(NATIVE_SELECTOR);
+  const gradesContent = sidebar.querySelector('#student-grades-right-content');
+  const existing = document.getElementById(WIDGET_ID);
+
+  if (existing) {
+    if (onCourseGradesPage) {
+      const host = ensureGradesWidgetHost(sidebar);
+      if (host && existing.parentElement !== host) host.append(existing);
+    } else {
+      if (existing.parentElement !== sidebar) {
+        if (native) native.replaceWith(existing);
+        else sidebar.append(existing);
+      }
+      // Canvas can re-render #student-grades-right-content after our widget was
+      // appended, pushing grades content to the bottom. Re-anchor on every tick.
+      if (gradesContent && (existing.compareDocumentPosition(gradesContent) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+        gradesContent.after(existing);
+      }
+      removeGradesWidgetHost();
+    }
+    return;
+  }
 
   const container = document.createElement('div');
   container.id = WIDGET_ID;
-  container.innerHTML = `<div class="cc-widget"><div class="cc-header"><h2 class="cc-title">This Week</h2></div><div class="cc-loading">Loading tasks…</div></div>`;
+  container.innerHTML = `<div class="cc-widget"><div class="cc-header"><h2 class="cc-title">This Week</h2></div><div class="cc-skeleton-loader" aria-hidden="true"><div class="cc-sk-bar cc-sk-bar--wide"></div><div class="cc-sk-bar cc-sk-bar--medium"></div><div class="cc-sk-bar cc-sk-bar--narrow"></div></div></div>`;
   container.addEventListener('click', (e) => {
     const toggle = e.target.closest('.cc-section-toggle');
     if (!toggle) return;
     const sectionKey = toggle.dataset.section;
     if (!sectionKey) return;
     const defaults = defaultWidgetSectionState();
-    const nextOpen = !(widgetSectionState[sectionKey] ?? defaults[sectionKey] ?? true);
+    const nextOpen = !(widgetSectionState[sectionKey] ?? defaults[sectionKey] ?? false);
     widgetSectionState[sectionKey] = nextOpen;
     setWidgetSectionExpanded(toggle.closest('.cc-section-card'), nextOpen);
   });
 
-  const native = sidebar.querySelector(NATIVE_SELECTOR);
-  if (native) native.replaceWith(container);
-  else sidebar.prepend(container);
+  if (onCourseGradesPage) {
+    const host = ensureGradesWidgetHost(sidebar);
+    (host || sidebar).append(container);
+  } else if (native) native.replaceWith(container);
+  else if (gradesContent) gradesContent.after(container);
+  else sidebar.append(container);
 
   if (inFlight) return;
   inFlight = true;
@@ -1674,7 +1698,7 @@ let tooltipsAttached = false;
 function attachTooltipListeners() {
   if (tooltipsAttached) return;
   tooltipsAttached = true;
-  document.addEventListener('mouseover', async (e) => {
+  document.addEventListener('mouseover', (e) => {
     if (!settings.assignmentPreviewsEnabled) { hideTooltip(); return; }
     const taskEl = e.target.closest?.('#cc-weekly-tasks .cc-task');
     if (taskEl === currentHoverTask) return;
@@ -2311,6 +2335,7 @@ function tabGeneral() {
         row('Command Palette', toggleControl('commandPaletteEnabled'), 'Press Ctrl+K (or ⌘K) to search active courses and assignments from this week through the next 8 weeks.'),
       ]},
       { title: 'Scroll Bars', rows: [
+        row('Minimal Scroll Bars', toggleControl('minimalScrollbars'), 'Replaces all scroll bars with a slim rounded thumb — no arrows, no background track. Applies to the whole page.'),
         row('Hide Scroll Bars', toggleControl('hideScrollBars'), 'Hides nested vertical and horizontal scroll bars while keeping the main page scroll bar visible.'),
       ]},
       { title: 'Background', rows: [
@@ -2411,18 +2436,25 @@ function previewListView() {
   const assignSvg = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor"><path d="M1807 1920H113C50.9 1920 0 1869.1 0 1807V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1694c0 62.1-50.9 113-113 113zm-56.5-169.5v-1581H169.5v1581h1581zM338 1468.5h1244v169.5H338v-169.5zm0-338h1244v169.5H338V1130zm0-338h1244v169.5H338V792zm0-338h1244v169.5H338V454z"/></svg>`;
   const discSvg   = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor"><path d="M1920 1468.5c0 62-50.9 112.9-113 112.9h-338v225.8c0 62.1-50.9 113-113 113-30 0-58.6-11.9-79.7-33L831.6 1581.4H113C50.9 1581.4 0 1530.5 0 1468.5V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1355.5z"/></svg>`;
 
+  const layout     = settings.plannerLayout || 'cards';
+  const doneStyle  = settings.plannerDoneStyle || 'fade';
+  const emphToday  = !!settings.plannerEmphasizeToday;
+  const hideActivity = !!settings.plannerHideActivity;
+
   const days = [
     {
-      label: 'YESTERDAY', date: 'Monday, July 30',
+      label: 'YESTERDAY', date: 'Monday, July 30', today: false,
       items: [
-        { badge: 'INTRO TO PSYCH',  color: '#c0392b', typeLabel: 'INTRODUCTION TO PSYCHOLOGY ASSIGNMENT', title: 'Paper #2: Brains and Behavior',  icon: assignSvg, status: 'MISSING', due: 'DUE: 9:59 PM',  done: false },
-        { badge: 'MUSIC THEORY',    color: '#2980b9', typeLabel: 'MUSIC THEORY DISCUSSION',               title: 'Pitch yourself!',                icon: discSvg,   status: 'MISSING', due: 'DUE: 9:59 PM',  done: false },
+        { badge: 'INTRO TO PSYCH',  color: '#c0392b', typeLabel: 'INTRODUCTION TO PSYCHOLOGY ASSIGNMENT', title: 'Paper #2: Brains and Behavior',   icon: assignSvg, status: 'MISSING', due: 'DUE: 9:59 PM',  done: false, points: '' },
+        { badge: 'ACCOUNTING',      color: '#8e63ad', typeLabel: 'ACCOUNTING ASSIGNMENT',                 title: 'Homework Ch 14 [myBusinessCourse]', icon: assignSvg, status: 'GRADED', auxTags: ['Feedback'], due: 'DUE: 11:59 PM', done: false, points: '8 pts' },
       ],
     },
     {
-      label: 'TODAY', date: 'Tuesday, July 31',
+      label: 'TODAY', date: 'Tuesday, July 31', today: true,
       items: [
-        { badge: 'AMERICAN HISTORY',color: '#27ae60', typeLabel: 'AMERICAN HISTORY ASSIGNMENT',           title: 'Position Paper',                 icon: assignSvg, status: '',        due: 'DUE: 11:00 PM', done: false },
+        { badge: 'INTRO TO PSYCH',  color: '#c0392b', typeLabel: 'INTRODUCTION TO PSYCHOLOGY READING',    title: 'Chapter 3: Memory',              icon: assignSvg, status: '',        due: 'DUE: 11:59 PM', done: false },
+        { badge: 'HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026', color: '#1f6fb2', typeLabel: 'HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026 ASSIGNMENT', title: 'Induction Lab',   icon: assignSvg, status: '',          due: 'DUE: 11:59 PM', done: false, points: '' },
+        { badge: 'HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026', color: '#1f6fb2', typeLabel: 'HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026 ASSIGNMENT', title: 'Proofs Reading', icon: assignSvg, status: 'SUBMITTED', due: 'DUE: 11:59 PM', done: false, points: '' },
         { badge: 'CHEMISTRY',       color: '#1a5276', typeLabel: 'CHEMISTRY PAGE',                        title: 'Day 13 skills review',           icon: assignSvg, status: '',        due: 'DUE: 11:59 PM', done: true  },
       ],
     },
@@ -2430,43 +2462,229 @@ function previewListView() {
 
   const chk = (done) => `<div class="cc-preview-lv-chk${done ? ' cc-preview-lv-chk--done' : ''}"></div>`;
 
-  return `
-    <div class="cc-preview-listview">
-      ${days.map(day => `
-        <div class="cc-preview-lv-day">
-          <div class="cc-preview-lv-day-hdr">
-            <span class="cc-preview-lv-day-name">${day.label}</span>
-            <span class="cc-preview-lv-day-date">${day.date}</span>
-          </div>
-          ${day.items.map(it => `
-            <div class="cc-preview-lv-row${it.done ? ' cc-preview-lv-row--done' : ''}" style="border-left-color:${it.color};">
+  const renderDay = (day) => {
+    const items = day.items
+      .filter(it => !(it.done && doneStyle === 'hide'))
+      .map(it => {
+        const classes = [
+          'cc-preview-lv-row',
+          it.done ? 'cc-preview-lv-row--done' : '',
+          it.done && doneStyle === 'strikethrough' ? 'cc-preview-lv-row--strike' : '',
+        ].filter(Boolean).join(' ');
+        // Compact layout collapses type-label + status into the title row.
+        if (layout === 'compact') {
+          return `
+            <div class="${classes}" style="border-left-color:${it.color};">
               <div class="cc-preview-lv-dot" style="background:${it.color};"></div>
-              <div class="cc-preview-lv-badge" style="background:${it.color};">${it.badge}</div>
               ${chk(it.done)}
               <span class="cc-preview-lv-type-icon" style="color:${it.color};">${it.icon}</span>
-              <div class="cc-preview-lv-text">
-                <div class="cc-preview-lv-type-lbl">${it.typeLabel}</div>
-                <div class="cc-preview-lv-title">${it.title}</div>
+              <div class="cc-preview-lv-title cc-preview-lv-title--compact">${it.title}</div>
+              ${it.status ? `<span class="cc-preview-lv-status">${it.status}</span>` : ''}
+              <span class="cc-preview-lv-due cc-preview-lv-due--compact">${it.due.replace(/^DUE:\s*/, '')}</span>
+            </div>
+          `;
+        }
+        return `
+          <div class="${classes}" style="border-left-color:${it.color};">
+            <div class="cc-preview-lv-dot" style="background:${it.color};"></div>
+            <div class="cc-preview-lv-badge" style="background:${it.color};">${it.badge}</div>
+            ${chk(it.done)}
+            <span class="cc-preview-lv-type-icon" style="color:${it.color};">${it.icon}</span>
+            <div class="cc-preview-lv-text">
+              <div class="cc-preview-lv-type-lbl">${it.typeLabel}</div>
+              <div class="cc-preview-lv-title">${it.title}</div>
+            </div>
+            <div class="cc-preview-lv-right">
+              ${it.status ? `<span class="cc-preview-lv-status">${it.status}</span>` : ''}
+              <span class="cc-preview-lv-due">${it.due}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    const hdrClass = [
+      'cc-preview-lv-day-hdr',
+      day.today && emphToday ? 'cc-preview-lv-day-hdr--today' : '',
+    ].filter(Boolean).join(' ');
+
+    return `
+      <div class="cc-preview-lv-day">
+        <div class="${hdrClass}">
+          <span class="cc-preview-lv-day-name">${day.label}</span>
+          <span class="cc-preview-lv-day-date">${day.date}</span>
+        </div>
+        ${items}
+      </div>
+    `;
+  };
+
+  const activity = hideActivity ? '' : `
+    <div class="cc-preview-lv-activity">
+      <div class="cc-preview-lv-activity-hdr">Recent Activity</div>
+      <div class="cc-preview-lv-activity-item">
+        <span class="cc-preview-lv-activity-dot" style="background:#9c27b0;"></span>
+        <span class="cc-preview-lv-activity-text">New announcement in <strong>Database Design</strong></span>
+      </div>
+      <div class="cc-preview-lv-activity-item">
+        <span class="cc-preview-lv-activity-dot" style="background:#16a085;"></span>
+        <span class="cc-preview-lv-activity-text">Grade posted for <strong>Discrete Math HW 5</strong></span>
+      </div>
+    </div>
+  `;
+
+  if (layout === 'grouped') {
+    const SMALL_WORDS = new Set(['to', 'of', 'and', 'the', 'in', 'on', 'a', 'an', 'for']);
+    const titleCase = s => s.toLowerCase().split(' ').map((w, i) =>
+      i > 0 && SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    ).join(' ');
+    const formatCourseName = s => s.includes(':')
+      ? s.split(':').map((part, i) => i === 0 ? part.trim().toUpperCase() : titleCase(part.trim())).join(': ')
+      : titleCase(s);
+    const prettyDay = s => s.charAt(0) + s.slice(1).toLowerCase();
+
+    const allItems = days.flatMap(d => d.items.map(it => ({ ...it, day: d })));
+    const byCourse = new Map();
+    for (const it of allItems) {
+      if (it.done && doneStyle === 'hide') continue;
+      if (!byCourse.has(it.badge)) byCourse.set(it.badge, { color: it.color, name: formatCourseName(it.badge), items: [] });
+      byCourse.get(it.badge).items.push(it);
+    }
+    const collapsedCounts = new Map([
+      ['HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026', 2],
+      ['CHEMISTRY', 1],
+    ]);
+
+    const groups = Array.from(byCourse.entries(), ([rawName, g]) => {
+      const minis = g.items.map(it => {
+        const classes = [
+          'cc-preview-lv-mini',
+          it.done ? 'cc-preview-lv-mini--done' : '',
+          it.done && doneStyle === 'strikethrough' ? 'cc-preview-lv-mini--strike' : '',
+        ].filter(Boolean).join(' ');
+        const tags = [];
+        if (it.status) tags.push({ label: it.status, tone: it.status === 'MISSING' ? 'danger' : 'neutral' });
+        (it.auxTags || []).forEach(tag => tags.push({ label: tag, tone: 'neutral' }));
+        return `
+          <div class="${classes}">
+            ${chk(it.done)}
+            <div class="cc-preview-lv-mini-main">
+              <div class="cc-preview-lv-mini-eyebrow">
+                <span class="cc-preview-lv-mini-icon">${it.icon}</span>
+                <span class="cc-preview-lv-mini-day">${prettyDay(it.day.label)}</span>
+                <span class="cc-preview-lv-mini-sep">&middot;</span>
+                <span class="cc-preview-lv-mini-type" title="${it.typeLabel}">${it.typeLabel}</span>
               </div>
-              <div class="cc-preview-lv-right">
-                ${it.status ? `<span class="cc-preview-lv-status">${it.status}</span>` : ''}
-                <span class="cc-preview-lv-due">${it.due}</span>
+              <div class="cc-preview-lv-mini-title">${it.title}</div>
+            </div>
+            <div class="cc-preview-lv-mini-side">
+              ${tags.length ? `
+                <div class="cc-preview-lv-mini-tags">
+                  ${tags.map(tag => `<span class="cc-preview-lv-pill cc-preview-lv-pill--${tag.tone}">${tag.label}</span>`).join('')}
+                </div>
+              ` : '<div class="cc-preview-lv-mini-tags"></div>'}
+              ${it.points ? `<div class="cc-preview-lv-mini-points">${it.points}</div>` : '<div class="cc-preview-lv-mini-points cc-preview-lv-mini-points--empty"></div>'}
+              <div class="cc-preview-lv-mini-due">${it.due.replace(/^DUE:\s*/i, '')}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      const collapsedCount = collapsedCounts.get(rawName) || 0;
+      const moreRow = collapsedCount && doneStyle !== 'hide' ? `
+        <button class="cc-preview-lv-mini-more" type="button">
+          <span class="cc-preview-lv-mini-more-chevron">&rsaquo;</span>
+          <span>Show ${collapsedCount} completed item${collapsedCount === 1 ? '' : 's'}</span>
+        </button>
+      ` : '';
+
+      return `
+        <div class="cc-preview-lv-group" style="--cc-group-color:${g.color};">
+          <div class="cc-preview-lv-group-hdr">
+            <span class="cc-preview-lv-group-accent"></span>
+            <span class="cc-preview-lv-group-name" title="${g.name}">${g.name}</span>
+            <span class="cc-preview-lv-group-count">${g.items.length}</span>
+          </div>
+          <div class="cc-preview-lv-group-body">
+            ${minis}
+            ${moreRow}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="cc-preview-listview" data-layout="grouped">
+        ${groups}
+        ${activity}
+      </div>
+    `;
+  }
+
+  // Grouped layout: regroup items by course and render one clean card per
+  // class with a vertical stack of mini-cards for each assignment.
+  if (layout === '__grouped_legacy__') {
+    // Normalize "INTRO TO PSYCH" → "Intro to Psych" (small words stay lower).
+    const SMALL_WORDS = new Set(['to', 'of', 'and', 'the', 'in', 'on', 'a', 'an', 'for']);
+    const titleCase = s => s.toLowerCase().split(' ').map((w, i) =>
+      i > 0 && SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    ).join(' ');
+    const prettyDay = s => s.charAt(0) + s.slice(1).toLowerCase();
+
+    const allItems = days.flatMap(d => d.items.map(it => ({ ...it, day: d })));
+    const byCourse = new Map();
+    for (const it of allItems) {
+      if (it.done && doneStyle === 'hide') continue;
+      if (!byCourse.has(it.badge)) byCourse.set(it.badge, { color: it.color, name: titleCase(it.badge), items: [] });
+      byCourse.get(it.badge).items.push(it);
+    }
+
+    const groups = Array.from(byCourse.values(), g => {
+      const minis = g.items.map(it => {
+        const classes = [
+          'cc-preview-lv-mini',
+          it.done ? 'cc-preview-lv-mini--done' : '',
+          it.done && doneStyle === 'strikethrough' ? 'cc-preview-lv-mini--strike' : '',
+        ].filter(Boolean).join(' ');
+        return `
+          <div class="${classes}">
+            ${chk(it.done)}
+            <div class="cc-preview-lv-mini-body">
+              <div class="cc-preview-lv-mini-title">${it.title}</div>
+              <div class="cc-preview-lv-mini-meta">
+                <span class="cc-preview-lv-mini-icon">${it.icon}</span>
+                <span class="cc-preview-lv-mini-day">${prettyDay(it.day.label)}</span>
+                <span class="cc-preview-lv-mini-sep">·</span>
+                <span class="cc-preview-lv-mini-due">${it.due.replace(/^DUE:\s*/i, '')}</span>
+                ${it.status ? `<span class="cc-preview-lv-status cc-preview-lv-status--inline">${it.status}</span>` : ''}
               </div>
             </div>
-          `).join('')}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="cc-preview-lv-group" style="--cc-group-color:${g.color};">
+          <div class="cc-preview-lv-group-hdr">
+            <span class="cc-preview-lv-group-accent"></span>
+            <span class="cc-preview-lv-group-name">${g.name}</span>
+            <span class="cc-preview-lv-group-count">${g.items.length}</span>
+          </div>
+          <div class="cc-preview-lv-group-body">${minis}</div>
         </div>
-      `).join('')}
-      <div class="cc-preview-lv-activity">
-        <div class="cc-preview-lv-activity-hdr">Recent Activity</div>
-        <div class="cc-preview-lv-activity-item">
-          <span class="cc-preview-lv-activity-dot" style="background:#9c27b0;"></span>
-          <span class="cc-preview-lv-activity-text">New announcement in <strong>Database Design</strong></span>
-        </div>
-        <div class="cc-preview-lv-activity-item">
-          <span class="cc-preview-lv-activity-dot" style="background:#16a085;"></span>
-          <span class="cc-preview-lv-activity-text">Grade posted for <strong>Discrete Math HW 5</strong></span>
-        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="cc-preview-listview" data-layout="grouped">
+        ${groups}
+        ${activity}
       </div>
+    `;
+  }
+
+  return `
+    <div class="cc-preview-listview" data-layout="${layout}">
+      ${days.map(renderDay).join('')}
+      ${activity}
     </div>
   `;
 }
@@ -2477,20 +2695,36 @@ function tabListView() {
     desc: 'Customize the Planner (List View) and Recent Activity dashboard views.',
     preview: previewListView(),
     groups: [
-      { title: 'Item Style', rows: [
-        row('Background', colorControl('plannerItemBg', '#ffffff'), 'Background of each planner item row. Leave unset to use Canvas\'s default.'),
-        row('Text Color', colorControl('plannerItemTextColor', '#2d3b45'), 'Title and meta text on each item.'),
+      { title: 'Layout', rows: [
+        row('Style', selectControl('plannerLayout', [
+          { value: 'cards',   label: 'Cards' },
+          { value: 'rows',    label: 'Rows' },
+          { value: 'compact', label: 'Compact' },
+          { value: 'grouped', label: 'Grouped' },
+        ]), 'Cards: default boxy look. Rows: flat inbox-style. Compact: dense single-line. Grouped: one big card per class with mini-cards inside for each assignment (in the live Canvas view, groups are by day since that\'s how Canvas organizes the planner).'),
         row('Accent Bar Width', rangeControl('plannerBarWidth', 0, 12, 1, 'px'), 'Width of the colored left stripe showing the course color.'),
-        row('Item Spacing', rangeControl('plannerItemSpacing', 4, 24, 2, 'px'), 'Gap between items in the list.'),
+        row('Item Spacing', rangeControl('plannerItemSpacing', 0, 24, 2, 'px'), 'Gap between items in the list.'),
       ]},
       { title: 'Day Headers', rows: [
+        row('Emphasize Today', toggleControl('plannerEmphasizeToday'), 'Make today\'s day header larger and accent-colored so it stands out.'),
+        row('Hide Empty Days', toggleControl('plannerHideEmptyDays'), 'Skip day headers that have no items, so the list only shows days with work.'),
         row('Background', colorControl('plannerDayBg', '#f5f5f5'), 'Background of each day\'s header strip.'),
         row('Text Color', colorControl('plannerDayTextColor', '#2d3b45'), 'Color of the date label in each day header.'),
       ]},
+      { title: 'Item Style', rows: [
+        row('Background', colorControl('plannerItemBg', '#ffffff'), 'Background of each planner item row. Leave unset to use Canvas\'s default.'),
+        row('Text Color', colorControl('plannerItemTextColor', '#2d3b45'), 'Title and meta text on each item.'),
+      ]},
       { title: 'Completed Items', rows: [
-        row('Opacity', rangeControl('plannerDoneOpacity', 20, 100, 5, '%'), 'How faded completed items appear. Lower = more muted.'),
+        row('Style', selectControl('plannerDoneStyle', [
+          { value: 'fade',          label: 'Fade' },
+          { value: 'strikethrough', label: 'Strikethrough' },
+          { value: 'hide',          label: 'Hide' },
+        ]), 'Fade: dim the whole row. Strikethrough: line through the title. Hide: remove from the list entirely.'),
+        row('Fade Opacity', rangeControl('plannerDoneOpacity', 20, 100, 5, '%'), 'Only applies when Style is Fade. Lower = more muted.'),
       ]},
       { title: 'Recent Activity', rows: [
+        row('Hide Activity Feed', toggleControl('plannerHideActivity'), 'Remove the Recent Activity feed from the List view so only planner items are shown.'),
         row('Item Background', colorControl('activityItemBg', '#ffffff'), 'Background of each activity feed item.'),
       ]},
     ],
@@ -2635,12 +2869,12 @@ function previewWidget() {
   } else if (style === 'circle') {
     progress = circleProgressMarkup(pct, done, total, !!settings.widgetShowFraction);
   } else if (style === 'segments') {
-    const previewBarColor = settings.widgetProgressColor || '#8eaec4';
+    const previewBarColor = settings.widgetProgressColor || '#6366f1';
     const n = Math.max(total, 1);
     const segs = Array.from({ length: n }, (_, i) => `<div class="cc-preview-widget-seg${i < done ? ' done' : ''}"${i < done ? ` style="background:${previewBarColor}"` : ''}></div>`).join('');
     progress = `<div class="cc-preview-widget-segments">${segs}</div>`;
   } else {
-    const previewBarColor = settings.widgetProgressColor || '#8eaec4';
+    const previewBarColor = settings.widgetProgressColor || '#6366f1';
     progress = `<div class="cc-preview-widget-bar"><div class="cc-preview-widget-fill" style="width:${pct}%;background:${previewBarColor}"></div></div>`;
   }
 
@@ -2712,7 +2946,7 @@ function tabWidget() {
           { value: 'circle',     label: 'Circle' },
           { value: 'ring',       label: 'Ring' },
         ])),
-        ...(settings.widgetProgressStyle !== 'ring' ? [row('Color', colorControl('widgetProgressColor', '#8eaec4'))] : []),
+        ...(settings.widgetProgressStyle !== 'ring' ? [row('Color', colorControl('widgetProgressColor', '#6366f1'))] : []),
         row('Show Fraction', toggleControl('widgetShowFraction'), 'Display "done / total tasks" below the progress indicator.'),
       ]},
       { title: 'Sort', rows: [
@@ -2943,6 +3177,7 @@ function renderTabPane() {
         else {
           const w = document.getElementById(WIDGET_ID);
           if (w) w.remove();
+          removeGradesWidgetHost(true);
         }
       }
 
@@ -2996,6 +3231,8 @@ const PREVIEW_REACTIVE_KEYS = new Set([
   'widgetShowCompleted', 'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
   'recentFeedbackShowDetails',
+  'plannerLayout', 'plannerDoneStyle',
+  'plannerEmphasizeToday', 'plannerHideActivity',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
@@ -3041,6 +3278,10 @@ function isDashboard() {
   return p === '/' || p === '' || p === '/dashboard' || p.startsWith('/?');
 }
 
+function isCourseGradesPage() {
+  return /^\/courses\/\d+\/grades\b/.test(location.pathname);
+}
+
 // Detect which of the three dashboard views is currently visible.
 // Returns 'card' | 'activity' | 'list' | null (null = not on dashboard / no match).
 function detectDashboardView() {
@@ -3064,9 +3305,293 @@ function applyDashboardView() {
   document.documentElement.dataset.ccDashboardView = view ?? 'none';
 }
 
+function ensureGradesWidgetHost(sidebar) {
+  const wrapper = sidebar.closest('#right-side-wrapper') || sidebar.parentElement;
+  if (!wrapper) return null;
+  let host = document.getElementById(GRADES_WIDGET_HOST_ID);
+  if (!host) {
+    host = document.createElement('div');
+    host.id = GRADES_WIDGET_HOST_ID;
+  }
+  if (host.parentElement !== wrapper || host.previousElementSibling !== sidebar) {
+    sidebar.after(host);
+  }
+  return host;
+}
+
+function removeGradesWidgetHost(force = false) {
+  const host = document.getElementById(GRADES_WIDGET_HOST_ID);
+  if (!host) return;
+  if (force || !host.querySelector(`#${WIDGET_ID}`)) host.remove();
+}
+
+function completedToggleLabel(count, hidden) {
+  return `${hidden ? 'Show' : 'Hide'} ${count} Completed Item${count === 1 ? '' : 's'}`;
+}
+
+function extractCompletedToggleCount(text) {
+  const normalized = (text || '')
+    .replace(/[\u203a\u25b8\u25b6\u25ba\u276f>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const match = normalized.match(/\b(?:show|hide)\s+(\d+)\s+completed\s+items?\b/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function syncCompletedToggleButton(button, count, hidden) {
+  if (!button) return;
+
+  button.classList.add('cc-completed-toggle-btn');
+  button.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+  if (!button.hasAttribute('type')) button.setAttribute('type', 'button');
+
+  let chevron = button.querySelector('.cc-completed-toggle-chevron');
+  let label = button.querySelector('.cc-completed-toggle-label');
+  if (!chevron || !label) {
+    chevron = document.createElement('span');
+    chevron.className = 'cc-completed-toggle-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.innerHTML = '<svg viewBox="0 0 20 20" focusable="false" aria-hidden="true"><path d="M7 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    label = document.createElement('span');
+    label.className = 'cc-completed-toggle-label';
+
+    button.replaceChildren(chevron, label);
+  }
+
+  label.textContent = completedToggleLabel(count, hidden);
+}
+
+function skinPlannerGroupings() {
+  if (!isDashboard() || lastView !== 'list') return;
+
+  document.querySelectorAll('[class*="Grouping-styles__root"]').forEach(group => {
+    group.style.setProperty('border', 'none', 'important');
+    group.style.setProperty('border-top', 'none', 'important');
+    group.style.setProperty('overflow', 'hidden', 'important');
+    group.style.setProperty('border-radius', '8px', 'important');
+    group.style.setProperty('margin-bottom', '10px', 'important');
+    group.style.setProperty('box-shadow', '0 1px 3px rgba(0, 0, 0, 0.1)', 'important');
+
+    const title = group.querySelector('[class*="Grouping-styles__title"]');
+    if (title) {
+      title.style.setProperty('white-space', 'nowrap', 'important');
+      title.style.setProperty('overflow', 'hidden', 'important');
+      title.style.setProperty('text-overflow', 'ellipsis', 'important');
+      title.style.setProperty('word-wrap', 'normal', 'important');
+      title.style.setProperty('overflow-wrap', 'normal', 'important');
+      title.style.setProperty('hyphens', 'none', 'important');
+      title.style.setProperty('max-height', 'none', 'important');
+    }
+
+    const hero = group.querySelector('[class*="Grouping-styles__hero"]');
+    if (hero) {
+      hero.style.setProperty('overflow', 'hidden', 'important');
+    }
+
+    group.querySelectorAll('[class*="Grouping-styles__overlay"]').forEach(overlay => {
+      overlay.style.setProperty('height', '100%', 'important');
+    });
+
+    const items = group.querySelector('[class*="Grouping-styles__items"]');
+    const wrappers = items
+      ? Array.from(items.children).filter(child => !child.matches('.cc-completed-toggle-row'))
+      : [];
+    if (items) {
+      items.style.setProperty('border-top', 'none', 'important');
+      items.style.setProperty('background', '#f2f3f5', 'important');
+      items.style.setProperty('padding', '8px', 'important');
+      items.style.setProperty('display', 'block', 'important');
+      items.style.setProperty('min-height', '0', 'important');
+      items.style.setProperty('height', 'auto', 'important');
+
+      Array.from(items.children).forEach((child, index) => {
+        if (child.matches('.cc-completed-toggle-row')) return;
+        child.style.setProperty('display', 'block', 'important');
+        child.style.setProperty('margin-top', index === 0 ? '0' : '6px', 'important');
+        child.style.setProperty('margin-bottom', '0', 'important');
+      });
+    }
+
+    const nativeCompletedToggle = group.querySelector('[data-testid="completed-items-toggle"]');
+    if (nativeCompletedToggle) {
+      const rawLabel = nativeCompletedToggle.innerText || nativeCompletedToggle.textContent || '';
+      const count = extractCompletedToggleCount(rawLabel);
+      const hidden = nativeCompletedToggle.getAttribute('aria-expanded') === 'false';
+      if (count > 0) syncCompletedToggleButton(nativeCompletedToggle, count, hidden);
+      const matchedLabel = rawLabel.match(/(?:Show|Hide)\s+\d+\s+completed\s+items?/i);
+      const cleanLabel = matchedLabel
+        ? matchedLabel[0].replace(/\s+/g, ' ').trim()
+        : rawLabel.replace(/^\s*[>›▸]+\s*/, '').split('\n')[0].trim();
+
+      if (cleanLabel) {
+        if (!nativeCompletedToggle.querySelector('.cc-completed-toggle-label')) {
+          nativeCompletedToggle.textContent = cleanLabel;
+        }
+      }
+
+      nativeCompletedToggle.style.setProperty('display', 'inline-flex', 'important');
+      nativeCompletedToggle.style.setProperty('align-items', 'center', 'important');
+      nativeCompletedToggle.style.setProperty('justify-content', 'flex-start', 'important');
+      nativeCompletedToggle.style.setProperty('gap', '6px', 'important');
+      nativeCompletedToggle.style.setProperty('width', 'auto', 'important');
+      nativeCompletedToggle.style.setProperty('padding', '9px 10px', 'important');
+      nativeCompletedToggle.style.setProperty('border', '1px solid rgba(45, 59, 69, 0.16)', 'important');
+      nativeCompletedToggle.style.setProperty('border-radius', '999px', 'important');
+      nativeCompletedToggle.style.setProperty('background', '#ffffff', 'important');
+      nativeCompletedToggle.style.setProperty('color', '#2a6fbe', 'important');
+      nativeCompletedToggle.style.setProperty('font-size', '12px', 'important');
+      nativeCompletedToggle.style.setProperty('font-weight', '600', 'important');
+      nativeCompletedToggle.style.setProperty('line-height', '1.2', 'important');
+      nativeCompletedToggle.style.setProperty('box-shadow', 'none', 'important');
+      nativeCompletedToggle.style.setProperty('margin', '0', 'important');
+      nativeCompletedToggle.style.setProperty('white-space', 'nowrap', 'important');
+      nativeCompletedToggle.style.setProperty('text-indent', '0', 'important');
+
+      const nativeRow = nativeCompletedToggle.closest('li');
+      if (nativeRow) {
+        const isOnlyItem = wrappers.length === 1 && wrappers[0] === nativeRow;
+        nativeRow.style.setProperty('display', 'block', 'important');
+        nativeRow.style.setProperty('list-style', 'none', 'important');
+        nativeRow.style.setProperty('margin', '0', 'important');
+        nativeRow.style.setProperty('margin-top', isOnlyItem ? '0' : '6px', 'important');
+        nativeRow.style.setProperty('margin-bottom', '0', 'important');
+        nativeRow.style.setProperty('margin-left', '0', 'important');
+        nativeRow.style.setProperty('border', 'none', 'important');
+        nativeRow.style.setProperty('border-bottom', 'none', 'important');
+        nativeRow.style.setProperty('background', 'transparent', 'important');
+        nativeRow.style.setProperty('padding', '0', 'important');
+        nativeRow.style.setProperty('padding-left', '0', 'important');
+      }
+
+      const nativeFacade = nativeCompletedToggle.closest('.planner-completed-items, [class*="CompletedItemsFacade-styles__root"]');
+      if (nativeFacade) {
+        nativeFacade.style.setProperty('display', 'flex', 'important');
+        nativeFacade.style.setProperty('align-items', 'center', 'important');
+        nativeFacade.style.setProperty('justify-content', 'flex-start', 'important');
+        nativeFacade.style.setProperty('gap', '0', 'important');
+        nativeFacade.style.setProperty('padding', '0', 'important');
+        nativeFacade.style.setProperty('padding-left', '0', 'important');
+        nativeFacade.style.setProperty('padding-right', '0', 'important');
+        nativeFacade.style.setProperty('margin', '0', 'important');
+        nativeFacade.style.setProperty('border', 'none', 'important');
+        nativeFacade.style.setProperty('border-bottom', 'none', 'important');
+        nativeFacade.style.setProperty('background', 'transparent', 'important');
+        nativeFacade.style.setProperty('box-shadow', 'none', 'important');
+      }
+
+      const activityIndicator = nativeFacade?.querySelector('[class*="CompletedItemsFacade-styles__activityIndicator"]');
+      if (activityIndicator) {
+        activityIndicator.style.setProperty('display', 'none', 'important');
+        activityIndicator.style.setProperty('width', '0', 'important');
+        activityIndicator.style.setProperty('margin', '0', 'important');
+        activityIndicator.style.setProperty('padding', '0', 'important');
+      }
+
+      const badgeSpacer = nativeFacade?.querySelector('[class*="NotificationBadge-styles__activityIndicator"]');
+      if (badgeSpacer) {
+        badgeSpacer.style.setProperty('display', 'none', 'important');
+        badgeSpacer.style.setProperty('width', '0', 'important');
+        badgeSpacer.style.setProperty('min-width', '0', 'important');
+        badgeSpacer.style.setProperty('margin', '0', 'important');
+        badgeSpacer.style.setProperty('padding', '0', 'important');
+      }
+
+      const contentPrimary = nativeFacade?.querySelector('[class*="CompletedItemsFacade-styles__contentPrimary"]');
+      if (contentPrimary) {
+        contentPrimary.style.setProperty('margin', '0', 'important');
+        contentPrimary.style.setProperty('margin-left', '0', 'important');
+        contentPrimary.style.setProperty('margin-inline-start', '0', 'important');
+        contentPrimary.style.setProperty('padding', '0', 'important');
+        contentPrimary.style.setProperty('flex', '0 0 auto', 'important');
+      }
+
+      const secondary = nativeFacade?.querySelector('[class*="CompletedItemsFacade-styles__contentSecondary"]');
+      if (secondary) {
+        secondary.style.setProperty('display', 'none', 'important');
+      }
+    }
+
+    group.querySelectorAll('[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"]').forEach(row => {
+      row.style.setProperty('background', '#ffffff', 'important');
+      row.style.setProperty('border-radius', '10px', 'important');
+      row.style.setProperty('box-shadow', '0 1px 4px rgba(0, 0, 0, 0.09)', 'important');
+      row.style.setProperty('border', 'none', 'important');
+    });
+  });
+}
+
+function isCompletedPlannerWrapper(child) {
+  const text = (child.innerText || child.textContent || '').trim();
+  return /is marked as done\./i.test(text) || /complete(?:d)?/i.test(child.getAttribute('aria-label') || '');
+}
+
+function syncPlannerCompletedCollapseControls() {
+  if (!isDashboard() || lastView !== 'list') return;
+
+  document.querySelectorAll('[class*="Grouping-styles__root"]').forEach(group => {
+    const items = group.querySelector('[class*="Grouping-styles__items"]');
+    if (!items) return;
+
+    const nativeFacade = items.querySelector('[data-testid="completed-items-toggle"]');
+    const wrappers = Array.from(items.children).filter(child => !child.matches('.cc-completed-toggle-row'));
+    const completedWrappers = nativeFacade ? [] : wrappers.filter(isCompletedPlannerWrapper);
+    const expandedCount = completedWrappers.length;
+
+    const existingToggleRow = items.querySelector('.cc-completed-toggle-row');
+
+    if (nativeFacade || !expandedCount || !completedWrappers.length) {
+      existingToggleRow?.remove();
+      delete group.dataset.ccCompletedCollapsed;
+      wrappers.forEach(child => child.style.removeProperty('display'));
+      return;
+    }
+
+    let toggleRow = existingToggleRow;
+    if (!toggleRow) {
+      toggleRow = document.createElement('li');
+      toggleRow.className = 'cc-completed-toggle-row';
+      toggleRow.innerHTML = '<button type="button" class="cc-completed-toggle-btn"></button>';
+      items.append(toggleRow);
+      toggleRow.querySelector('button')?.addEventListener('click', () => {
+        const nextHidden = group.dataset.ccCompletedCollapsed !== 'true';
+        group.dataset.ccCompletedCollapsed = nextHidden ? 'true' : 'false';
+        syncPlannerCompletedCollapseControls();
+      });
+    } else if (toggleRow.parentElement !== items) {
+      items.append(toggleRow);
+    }
+
+    const hidden = group.dataset.ccCompletedCollapsed === 'true';
+    completedWrappers.forEach(child => {
+      if (hidden) child.style.setProperty('display', 'none', 'important');
+      else child.style.removeProperty('display');
+    });
+
+    const button = toggleRow.querySelector('.cc-completed-toggle-btn');
+    if (button) {
+      syncCompletedToggleButton(button, expandedCount, hidden);
+    }
+  });
+}
+
+// Mark the course-grades page so CSS can make page-local placement tweaks
+// without repeatedly matching the URL in selectors.
+let lastPage = null;
+function applyPageType() {
+  const p = location.pathname;
+  let page = null;
+  if (isCourseGradesPage()) page = 'course-grades';
+  if (page === lastPage) return;
+  lastPage = page;
+  if (page) document.documentElement.dataset.ccPage = page;
+  else delete document.documentElement.dataset.ccPage;
+}
+
 function tick() {
   if (!settings.extensionEnabled) return;
   applyDashboardView();
+  applyPageType();
   if (!settings.sidebarBgColor || !settings.sidebarTextColor || !settings.sidebarActiveColor || !settings.sidebarActiveTextColor) {
     applySettings(settings);
   } else {
@@ -3074,8 +3599,35 @@ function tick() {
   }
   injectWidget();
   if (isDashboard() && lastView === 'card') injectCardGrades();
+  skinPlannerGroupings();
+  syncPlannerCompletedCollapseControls();
   syncRecentFeedbackWidget();
   if (settings.bgColor) applyBgInline();
+}
+
+let hydrationPassesScheduled = false;
+function scheduleHydrationPasses() {
+  if (hydrationPassesScheduled) return;
+  hydrationPassesScheduled = true;
+  const delays = [0, 50, 150, 300, 600, 1000, 1500, 2500, 4000];
+  delays.forEach(delay => {
+    setTimeout(tick, delay);
+  });
+  setTimeout(() => { hydrationPassesScheduled = false; }, Math.max(...delays) + 50);
+}
+
+let plannerSkinWatchId = null;
+function ensurePlannerSkinWatch() {
+  if (plannerSkinWatchId !== null) return;
+  let attempts = 0;
+  plannerSkinWatchId = window.setInterval(() => {
+    attempts += 1;
+    tick();
+    if (attempts >= 60) {
+      window.clearInterval(plannerSkinWatchId);
+      plannerSkinWatchId = null;
+    }
+  }, 250);
 }
 
 let scheduled = false;
@@ -3140,6 +3692,16 @@ function domInit() {
   if (settings.extensionEnabled) applyBgInline();
   observer.observe(document.documentElement, { childList: true, subtree: true });
   tick();
+  scheduleHydrationPasses();
+  ensurePlannerSkinWatch();
+
+  window.addEventListener('load', scheduleHydrationPasses, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      scheduleHydrationPasses();
+      ensurePlannerSkinWatch();
+    }
+  });
 
   // Tooltip listeners — delegated on document, attached once
   attachTooltipListeners();
