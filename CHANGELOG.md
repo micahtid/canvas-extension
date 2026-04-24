@@ -6,7 +6,285 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-24 (8)
+
+### List View — Tag polish: smaller pills, wider gap, centered with title row
+- **Where:** `src/content.css` (variant-fingerprinted meta block); `src/content.js` (`skinPlannerGroupings()` variant-handling block, innerLayout inline override)
+- **What:**
+  - **Smaller pills:** applied `zoom: 0.85` to `PlannerItem-styles__badges` so Graded/Feedback pills scale proportionally (border, padding, text). Unlike `transform: scale`, zoom also shrinks the layout box, so flex gap measures correctly afterward.
+  - **Wider tag-to-metrics gap:** bumped the meta rail's `gap` from `8px` to `14px` so Graded/Feedback no longer crowd the "8 pts / Due: 11:59 PM" text.
+  - **Vertically center tags with the title row:** overrode `innerLayout`'s inline `align-items: flex-start` (set by the blanket row-skinning block earlier in the tick) to `center` for variant-matched rows. For standard cards this centers tags with the title. For with-feedback cards this also centers tags with the title, because `innerLayout` contains only the title+meta row — the feedback note is a sibling of innerLayout, not a child, so centering inside innerLayout means "centered with the top part" and the note is untouched.
+- **Why:** User feedback after the prior alignment pass: Graded/Feedback pills felt oversized and crowded 8 pts/Due; tags visually floated off the title line.
+
+## 2026-04-24 (7)
+
+### List View — Card-center alignment applied to with-feedback variant too
+- **Where:** `src/content.js` (`skinPlannerGroupings()` variant-handling block)
+- **What:** Removed the variant split from 2026-04-24 (6). Both `standard` and `with-feedback` rows now use `align-items: center` inline on the root, with checkbox/icon margins zeroed out. Deleted the runtime title-measurement path since it's no longer needed.
+- **Why:** Title-line alignment for with-feedback rows was geometrically correct (checkbox center == title center, verified via diagnostic) but visually read as "too high" next to the standard cards which are card-centered. User preference is consistent card-centering across variants, even though this places the checkbox near the title/note divider on with-feedback cards.
+
+## 2026-04-24 (6)
+
+### List View — Alignment split: card-center for standard, title-center for with-feedback
+- **Where:** `src/content.js` (`skinPlannerGroupings()` variant-handling block)
+- **What:**
+  - **Standard variant:** switched root back to `align-items: center` inline (browser flexbox), and zeroed checkbox/icon margins. Because the card's content is just the title row (no stacked note), card-center == content-center, producing a symmetric look responsive to any future font/padding change for free.
+  - **With-feedback variant:** kept the runtime title-measurement path — root at `flex-start`, checkbox/icon margin-top computed from `titleRect.y + titleRect.h/2 - elementHeight/2`. Card-centering would land checkbox in the comment area below the divider, so title-line alignment is semantically correct here.
+  - Neither branch uses hardcoded pixel offsets; both respond to viewport resize and font changes on the next `tick()`.
+- **Why:** User preference for standard cards to read as symmetrically centered; with-feedback cards must keep checkbox attached to the task line rather than drifting into the note.
+
+## 2026-04-24 (5)
+
+### List View — Checkbox/icon now align to title center, not column center
+- **Where:** `src/content.js` (`skinPlannerGroupings()` variant-handling block); `src/content.css` (removed now-obsolete variant align-items/margin rules)
+- **What:** The prior pass used `align-items: center` on the root, which geometrically centers checkbox+icon to the details column. Diagnostic showed center=33.5px for both checkbox and column — perfectly centered — but the column contains [type label, title] stacked, so column-center sits between them rather than on the title line. Replaced with per-row measurement:
+  - Set root `align-items: flex-start` inline.
+  - Measure the title element (last non-STYLE child of the primary/details column) via `getBoundingClientRect()`, compute its vertical center relative to the row's content-box.
+  - Apply `margin-top: (titleCenter - element.height / 2)` inline on checkbox and icon so their geometric centers land on the title's vertical center.
+  - Works identically for both standard and with-feedback variants since the title sits at the top of the layout column in each.
+- **Why:** CSS `align-items: center` cannot target "the title line" because title position depends on font metrics, wrapping, and the presence of the type label — all of which vary. Measure-then-apply is the correct shape for this alignment.
+
+## 2026-04-24 (4)
+
+### List View — Feedback avatar shrink + tighter PFP-to-comment gap
+- **Where:** `src/content.css` (variant-fingerprinted block, scoped under `[data-cc-planner-row-variant="with-feedback"] [data-cc-planner-role="note"]`)
+- **What:**
+  - Overrode Canvas's `PlannerItem-styles__feedbackAvatar` from `40x40` / `margin-right: 24px` to `24x24` / `margin-right: 10px` (plus `flex: 0 0 auto` to keep it from stretching in the flex-row note container).
+  - Shrank the inner circular avatar span (`PlannerItem-styles__feedbackAvatar > span`, e.g. `css-*-avatar`) to `24x24` with `font-size: 11px; line-height: 24px` so any initials fallback still renders centered in the smaller circle.
+- **Why:** At 40x40 with a 24px right-margin, the PFP read as a distinct visual block detached from the comment text. Shrinking it to match the 12px note typography (~24px circle) and halving the gap produces a single compact note line under the task-row divider.
+
+## 2026-04-24 (3)
+
+### List View — Checkbox/icon centering: move overrides from CSS to JS inline
+- **Where:** `src/content.js` (`skinPlannerGroupings()` variant-handling block)
+- **What:** The 2026-04-24 (2) CSS-only attempt didn't take effect because the earlier row-skinning code sets `align-items: flex-start` and `margin-top: 4px` on the root/completed/icon as **inline `!important` styles**, and inline `!important` outranks stylesheet `!important` regardless of selector specificity. Moved the variant-specific alignment overrides into the JS so they run after the blanket inline styles, inside the `if (rowVariant) { ... }` branch:
+  - **Standard:** `row.align-items = center`, `completed.margin = 0`, `icon.margin-top = 0`.
+  - **With-feedback:** `row.align-items = flex-start`, `completed.margin = 12px 0 0`, `icon.margin-top = 12px`.
+  - **Unmatched rows:** restored to the stable defaults (`flex-start` + `4px` nudges) in the `else` branch so self-healing still works if the fingerprint stops matching.
+- **Why:** Without this, the prior CSS changes were silently overridden and the user reported no visible change.
+
+## 2026-04-24 (2)
+
+### List View — Checkbox + icon vertical centering per variant (CSS attempt, superseded)
+- **Where:** `src/content.css` (variant-fingerprinted block, scoped under `[data-cc-planner-row-variant]`)
+- **What:** Added CSS rules to center checkbox/icon via `align-items: center` (standard) and `margin-top: 12px` (with-feedback). **(REVERTED in effect — see 2026-04-24 (3).)** CSS rules retained as documentation of intent; actual behavior is driven by inline JS overrides.
+- **Why:** Inline `!important` in the JS row-skinning block beats stylesheet `!important`, so CSS alone couldn't reach these properties.
+
+## 2026-04-24
+
+### List View — Meta rail tags/metrics spacing fix
+- **Where:** `src/content.css` (List View variant-fingerprinted block, scoped under `[data-cc-planner-row-variant]` `[data-cc-planner-role="meta"]`)
+- **What:**
+  - Added `gap: 8px` on the meta rail container.
+  - Overrode Canvas's `PlannerItem-styles__badges { flex: 1 1 0% }` → `flex: 0 0 auto` so badges shrink-wrap their pills instead of growing to fill the rail.
+  - Overrode Canvas's `PlannerItem-styles__metrics { flex: 0 0 160px; padding-left: 6px }` → `flex: 0 0 auto; width: auto; padding-left: 0` so metrics shrink-wrap to the due/points text width.
+  - Net effect: Graded/Feedback pills sit flush against the points + due text with a consistent 8px gap, both hugging the right edge via Canvas's existing `justify-content: flex-end` on `PlannerItem-styles__secondary`.
+- **Why:** DOM inspection showed Canvas's default metrics block was 160px wide containing ~90px of text, leaving ~70px of unconditional white space between the tags and the due/points text regardless of actual content width.
+
+## 2026-04-23 (6)
+
+### List View — Task row redesign via strict variant fingerprinting
+- **Where:** `src/content.js` (`skinPlannerGroupings()` row loop, appended after the type-label simplifier); `src/content.css` (new block immediately after the stable `PlannerItem-styles__title` rule in the List View section)
+- **What:**
+  - **Variant fingerprinting in JS.** For each task row, inspect direct children of `PlannerItem-styles__layout` and `PlannerItem-styles__innerLayout` (filtering out `<style>` nodes). Only two exact shapes are tagged:
+    - **Standard**: `layoutChildren = [innerLayout]`, `innerChildren = [details, secondary]` → row gets `data-cc-planner-row-variant="standard"`, details → `data-cc-planner-role="primary"`, secondary → `data-cc-planner-role="meta"`.
+    - **With-feedback**: `layoutChildren = [innerLayout, feedback]`, same innerChildren pair → row gets `data-cc-planner-row-variant="with-feedback"`, feedback → `data-cc-planner-role="note"`, others same as above.
+    Rows that don't match have any prior `data-cc-planner-row-variant` / `data-cc-planner-role` attributes cleared so stale decoration self-heals between ticks if Canvas mutates the row.
+  - **Scoped CSS redesign.** New rules gated entirely on `[data-cc-planner-row-variant]` + `[data-cc-planner-role="..."]`:
+    - `innerLayout` in matched rows: `gap: 12px` for clean column spacing (flex-direction inherited from Canvas default).
+    - `[data-cc-planner-role="primary"]`: `flex: 1 1 auto; min-width: 0;` so title/type shrink first.
+    - `[data-cc-planner-role="meta"]`: `flex: 0 0 auto; margin-left: auto; text-align: right; font-size: 12px; color: #64748b; margin-top: 0;` — turns secondary into a clean right rail for Graded/Feedback tags, points, and due time.
+    - `[data-cc-planner-role="note"]` (with-feedback only): `margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(45,59,69,0.1); font-size: 12px; color: #475569;` — divider-separated secondary content.
+  - **No text inspection, no reparenting, no global descendant targeting.** Unmatched rows keep today's stable shell only.
+- **Why:** Prior redesign passes tried to infer meta/note layout from generic descendants or text content and kept breaking rows whose DOM didn't match. Strict fingerprint gating guarantees the redesign only applies where structure is verified from live DOM inspection, and self-heals if Canvas mutates the row later.
+
+## 2026-04-23 (5)
+
+### List View — Task Card height stabilization + alignment fix
+- **Where:** `src/content.css` (scoped `[class*="Grouping-styles__items"] [class*="PlannerItem-styles__..."]` rules)
+- **What:**
+  - **Aggressive height collapse.** Added `height: auto !important` and `min-height: 0 !important` to `PlannerItem-styles__root`, `layout`, and `innerLayout`. Set `align-items: flex-start !important` on the root card and layout wrappers.
+  - **Removed all auto-margins.** Canvas uses `margin-top: auto` on metrics to push them to the bottom of tall columns; neutralized this on all children of `.secondary`.
+  - **Fixed grouping borders.** Added `border-top: none !important` and `border: none !important` to `Grouping-styles__root` to kill the colored top line seen in the screenshot.
+  - **Refined toggle position.** Moved the "Show completed" toggle to align exactly with the checkbox column (`margin-left: -2px`) and added a hover state + larger arrow glyph.
+- **Why:** The previous update left cards with a ~150px empty vertical gap because Canvas's `flex: 1` and `margin-top: auto` rules were still active. Top-aligning everything ensures a compact, predictable card shape regardless of content (like feedback or badges).
+
+## 2026-04-23 (4)
+
+### List View — Daily Class Card border cleanup, Task Card grid layout, toggle alignment
+- **Where:** `src/content.css` (`[class*="Grouping-styles__..."]` and scoped `[class*="Grouping-styles__items"] [class*="PlannerItem-styles__..."]` rules)
+- **What:**
+  - **Removed all colored/gray border lines.** `Grouping-styles__root` gets `border: none !important` (removes Canvas's course-color top border that spans the full card). `Grouping-styles__items` gets `border-top: none !important` (removes the thin colored divider between the hero sidebar and the items tray). Task card borders (`border-top/right/bottom`) removed; shadow (`0 1px 4px rgba(0,0,0,0.09)`) alone defines the card edge.
+  - **Task card layout: two-column grid.** `PlannerItem-styles__innerLayout` now uses `grid-template-columns: 1fr auto`. Left column: type label (muted 10px) + title (bold 13.5px). Right column: due + score side-by-side (top), then badges below — all right-aligned. Rationale: F-pattern reading — title and due are the first-shelf scan; badges are confirmation. Matches Todoist/Linear/Notion task card convention.
+  - **"Show/Hide N completed items" button left-aligned.** `ToggleDetails` wrapper set to `text-align: left`. Button set to `display: inline-flex; padding: 4px 0 4px 2px; width: auto` so the `>` arrow sits flush under the task checkboxes. Arrow (`toggleDetails__icon`) rotates 90° via CSS transition when `aria-expanded="true"`, signaling the section can be collapsed.
+- **Why:** Screenshot showed colored top borders on every Daily Class Card, no-border task cards whose hard `#e9eaec` edges looked like extra dividers, a centered toggle button misaligned with the checkbox column, and a secondary row where badges/score/due were in a flat left-right layout with no clear grouping.
+
+## 2026-04-23 (2)
+
+### List View — Daily Class Cards + Task Card redesign
+- **Where:** `src/content.css` (new `[class*="Grouping-styles__..."]` and scoped `[class*="Grouping-styles__items"] [class*="PlannerItem-styles__..."]` rules, inserted before the Recent Activity section)
+- **What:**
+  - **Course name truncation.** `.Grouping-styles__title` (course name in the colored hero sidebar) now renders as a single line with `text-overflow: ellipsis`. Canvas's default gradient-fade `::after` overlay is removed.
+  - **Daily Class Card rounding.** `.Grouping-styles__root` gets `overflow: hidden; border-radius: 8px` so the colored hero sidebar clips cleanly at the card corners.
+  - **Gray items tray.** `.Grouping-styles__items` gets `background: #f2f3f5; padding: 8px; display: flex; flex-direction: column; gap: 6px` so Task Cards visually float above a subtle gray surface with even spacing.
+  - **Task Cards: white, rounded, inset.** Scoped override on `[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"]`: `background: #fff; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); neutral border on top/right/bottom` (left border retains the course color stripe).
+  - **Information hierarchy.** Type/course label → 10px muted gray uppercase, max 28ch with ellipsis. Task title → 13.5px bold `#1a1f2b`. Secondary row → badges left / metrics right via `justify-content: space-between`. Score + due → 11px compact row. Badge pills → 10px. Feedback → separated by a 1px `#f0f0f0` rule, 11px italic muted text.
+- **Why:** The Canvas Planner groups items by course within each day (`.Grouping-styles__root`). These needed a clear "card-within-card" hierarchy: a colored course header card containing white, rounded task items with legible, structured metadata.
+
+## 2026-04-23
+
+### List View — Grouped refinement: subtle gray group surface, white task tiles, stronger preview parity
+- **Where:** `src/content.js` (`previewListView` grouped branch mock data + grouped renderer); `src/content.css` (`[data-cc-planner-layout="grouped"] ...`, `.cc-preview-listview[data-layout="grouped"] ...`, dark-mode grouped overrides)
+- **What:**
+  - **Preview rebuilt around the actual requested hierarchy.** Group cards now render as a soft gray outer surface with white rounded assignment tiles inside instead of flat divider rows. The preview's grouped branch now carries a right-hand metadata rail for tags, points, and due time so pills stop drifting visually.
+  - **Long-label preview data added.** Mock data now includes a long Honors course label (`HNRS: SOFTWARE DEVEL RAIK184H SEC 150 SPRING 2026`) plus an Accounting item with `Graded` / `Feedback` and `8 pts`, so the preview visibly exercises ellipsis and metadata placement.
+  - **Preview completed-items affordance normalized.** Added a same-height `Show N completed items` row in grouped preview, styled like the task tiles instead of a smaller footer/control row.
+  - **Live grouped cards now match that direction more closely.** Day groups use `background: var(--cc-planner-item-bg, #f5f7fa)`, `border-radius: 14px`, and tighter inset padding. Individual planner items are back to white rounded tiles with neutral borders, `min-height: 72px`, and `8px` inter-card spacing.
+  - **Metadata rail tightened.** Grouped-mode `[class*="PlannerItem-styles__details"|"metrics"|"secondary"]` now stacks and right-aligns metadata with a fixed minimum width, while status/badge pills align to the far right consistently instead of wandering inside a loose wrap row.
+  - **Completed-items row made card-shaped.** Grouped-mode `CompletedItemsFacade` / `CompletedItems-styles` / matching button selectors now use the same `72px` minimum height, white background, border, radius, and top spacing as the task tiles so "Show N completed items" no longer collapses into a shorter odd-shaped control.
+- **Dark mode grouped overrides added.** Group surface falls back to a translucent dark page tint and inner task/completed rows use `var(--cc-dark-surface-raised)` with `var(--cc-dark-border)` so the new light-mode card structure does not break dark mode.
+- **Why:** The previous grouped pass was technically cleaner than the first attempt, but it still didn't satisfy the actual UI goal visible in the screenshot: stronger separation between the day/course container and each assignment, predictable placement for `Graded` / `Feedback` / points / due time, and a completed-items row that occupies the same visual rhythm as a task. This pass shifts from "flatten everything" to "use very restrained task cards inside a calmer group surface," which better matches the extension's existing widget vocabulary and the user's stated preference.
+
+## 2026-04-22
+
+### List View — Grouped: match extension's card style + clamp long labels + normalize "Show N completed" row + consistent tag placement
+- **Where:** `src/content.css` (`.cc-preview-lv-group`, `[data-cc-planner-layout="grouped"] [class*="Day-styles..."|"PlannerItem-styles..."|"CompletedItemsFacade"|"CompletedItems-styles"]`)
+- **What:**
+  - **Card style matches the rest of the extension.** Outer grouped cards used `box-shadow: 0 1px 3px + 0 1px 2px` with no border — inconsistent with `#cc-weekly-tasks .cc-widget` / `.cc-section-card`, which both use `border: 1px solid #e8eaec; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04)`. Both the preview card (`.cc-preview-lv-group`) and the Canvas-side day card now use those exact tokens.
+  - **Long title / type label truncation.** Canvas course+type labels like `"HNRS: SOFTWARE DEVEL RAIK184H SEC 150 Spring 2026 ASSIGNMENT"` were wrapping to multiple lines and breaking row-height rhythm. Added `white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%` to `[class*="PlannerItem-styles__type"]` and `[class*="PlannerItem-styles__title"]` in grouped + compact modes. Type label additionally capped at `max-width: 60ch` in grouped mode. Ancestor `min-width: 0` set on item root + its direct children so flex children are actually allowed to shrink below content size (required for ellipsis to work in a flex row).
+  - **"Show N completed items" row matches item rows.** Canvas renders a `CompletedItemsFacade` affordance below completed items; it was landing inside the day card with different padding / background / border-radius than the list rows above it, creating a visual bump. Now forced to `background: transparent; box-shadow: none; border-top: 1px solid rgba(15,23,42,0.06); border-radius: 0; padding: 12px 8px; text-align: left; font-size: 13px` — same vertical rhythm as a list row. Defensive selectors cover `CompletedItemsFacade`, `CompletedItems-styles`, and `button[class*="complete"][class*="Facade"]`.
+  - **Consistent tag placement in the meta row.** Canvas's detail row (points / Graded / Feedback / Missing / due time) varies in layout across item types, putting status chips at different x-positions. Now forced to `display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px` on `[class*="PlannerItem-styles__details"|"metrics"|"secondary"]`, plus `margin-left: auto` on `[class*="PlannerItem-styles__status"|"badge"|"statusPill"]` so Graded/Feedback/Missing pills always flush right regardless of what's to their left.
+- **Why:** User feedback after seeing grouped layout against real Canvas data: (1) outer card's shadow didn't match the extension's existing widgets, (2) long course codes wrapped and broke row heights, (3) "Show 2 completed items" button sat at a different height than the list rows, (4) tag placement (Graded, Feedback, points, due time) drifted across items in the same card. All four issues traced to visual consistency — fixed with one token-matched card style, aggressive ellipsis on overflowing labels, unified row styling for the completed-items affordance, and flex-normalized meta row with status pills pinned right.
+
+### List View — Grouped layout: drop inner cards, use hairline-divided list rows (research-driven rework)
+- **Where:** `src/content.css` (`.cc-preview-lv-group*`, `.cc-preview-lv-mini*`, `[data-cc-planner-layout="grouped"] [class*="Day-styles..."|"PlannerItem-styles..."]`)
+- **What:**
+  - **Removed the "mini-card" visual treatment from inner rows.** The previous design used `background: #f6f8fa; border-radius: 8px; padding: 10px 12px` on each inner assignment — effectively nesting cards inside a card. Replaced with flat list rows: `background: transparent; border-radius: 0; border-bottom: 1px solid rgba(15,23,42,0.06)` with `padding: 12px 0`. Last row drops the divider.
+  - **Applied the same flattening to the Canvas side.** `[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]` now renders as transparent list rows with a hairline bottom divider instead of tinted mini-cards. Course-color left stripe retained since Canvas-side day-cards mix courses.
+  - **Bumped title size to 14px** (up from 12.5px). Meta row to 12px (up from 10.5px). These are the NN/G readability thresholds — "if you need <14px, the card has too much."
+  - **Sizes aligned to strict 8pt grid.** Outer card padding is now `16px`; header gap `12px`; row padding `12px 0`; header→body gap `8px + 12px divider`; card-to-card gap `16px`. No more stray 10/11/13 values.
+  - **One shadow instead of shadow+ring.** Outer card was `0 1px 2px + 0 0 0 1px` (soft shadow + crisp outline ring, effectively a double boundary). Now `0 1px 3px + 0 1px 2px` — a single layered drop shadow.
+  - **Course name typography.** Bumped to 15px / 700 with `letter-spacing: -0.1px` and `line-height: 1.3` for the condensed-but-readable feel Linear uses on its issue group headers.
+  - **Count pill.** 11px / 600 on `rgba(15,23,42,0.05)` with `border-radius: 999px` and `padding: 3px 8px`.
+  - **Checkbox: square → circular.** 18px circle with 1.5px `#cbd5e1` border; fills with `var(--cc-accent)` when done. Matches the convention in Things / Apple Reminders / Todoist for list-style tasks (square checkboxes read as "form input", circular reads as "tappable task").
+  - **Meta row** now renders as `icon · day · time     STATUS` on a single line with the status chip flushed right via `margin-left: auto`. Icon sized to 12×12 SVG, colored `var(--cc-group-color)` at 0.9 opacity.
+  - **Group header accent** pinned to a fixed 3px bar (decoupled from `--cc-planner-bar-width` since that slider would have made a 12px-wide header bar look heavy). Bar-width slider now only drives the per-item left stripe in other layouts, which is the sensible scope.
+- **Why:** Previous design nested cards inside a card for a simple list of homogeneous items — assignments within a course. NN/G's canonical card-design article is explicit: *"Don't apply cards as a modern replacement for simple lists of similar items. Reserve them for situations where content variety justifies their larger footprint."* Linear, Things, Todoist, and Apple Reminders all implement the same pattern: one outer container for the group, flat rows inside. This rework follows suit — the course group remains a card (genuinely one "concept"), but the assignments within are a scannable list. Secondary research principles applied: 14px title floor for readable task text, 8pt grid for consistent spacing rhythm, one boundary (single shadow) instead of overlapping shadow/border layers.
+
+### List View — Grouped layout aesthetic rework (cleaner, calmer, easier to scan)
+- **Where:** `src/content.js` (`previewListView` grouped branch); `src/content.css` (`.cc-preview-lv-group*`, `.cc-preview-lv-mini*`, `[data-cc-planner-layout="grouped"] [class*="Day-styles..."|"PlannerItem-styles..."]`)
+- **What:**
+  - **Single-accent header.** Removed the redundant colored dot and the course-colored name text. The group header now shows one slim vertical accent bar (width = `var(--cc-planner-bar-width)` so the existing slider drives it), followed by the course name in the default text color, and a subtle gray count pill. One use of color instead of three.
+  - **Title-cased class names.** `"INTRO TO PSYCH"` renders as `"Intro to Psych"` via a small in-file title-case helper that keeps words like `to`/`of`/`and` lowercase. No more shouty caps in the header.
+  - **Vertical stack, not a grid.** Replaced `grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))` with `display: flex; flex-direction: column; gap: 6px`. Mini-cards are now full-width rows — titles render on a single line without ellipsis-clamp, meta stays readable.
+  - **Flat mini-cards with checkbox on the left.** Each mini-card is `10px × 12px` padding, `#f6f8fa` background, `8px` radius. Layout: square checkbox on the left → body column with title on top and a single soft meta line below (`icon • day · time`). Status chip like `MISSING` pushed to the far right via `margin-left: auto`.
+  - **Removed dashed divider under the group header.** Replaced with pure whitespace (`10px` margin-bottom on the header).
+  - **One shadow, no border.** Outer card uses `0 1px 2px rgba(16,24,40,0.04), 0 0 0 1px rgba(16,24,40,0.05)` (soft shadow + crisp 1px shadow-ring) instead of `1px solid border + shadow + colored left border`. Canvas-side rules updated to match.
+  - **Canvas-side mini-card cleanup.** `[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]` now zeros `border-top/right/bottom` but preserves the course-color `border-left` (since Canvas groups by day, items in the same card can be from different classes and still need their color identity). Background softened to `#f6f8fa`, radius `8px`, padding `10px 12px`.
+  - **Day-pretty in meta.** Meta line normalizes `"TODAY"` → `"Today"` and `"YESTERDAY"` → `"Yesterday"` for quieter scanning.
+- **Why:** Previous grouped design read as busy — three uses of course color competing in the header, cramped grid of mini-cards clamping titles to 2 lines with ellipses, dashed divider adding visual weight, border+shadow doubling up. Drew from Linear / Things / Todoist / Apple Reminders conventions: restrained single-accent group header, vertical stack, calm single meta line, soft shadow only.
+
+### List View — add "Grouped" layout (card of cards, one per class)
+- **Where:** `src/content.js` (`applySettings` layout-validator, `tabListView` select options, `previewListView` rendering + mock data); `src/content.css` (`.cc-preview-lv-group*`, `.cc-preview-lv-mini*`, `[data-cc-planner-layout="grouped"] [class*="Day-styles__root"|"PlannerItem-styles__root"]`)
+- **What:**
+  - New `grouped` value added to the `plannerLayout` select (fourth option after Cards / Rows / Compact).
+  - **Preview**: when `grouped` is selected, the mock items are regrouped by course (not day). Each course becomes an outer card with a colored left accent, a uppercase course name header, and an item count pill. Inside, assignments render as a grid of mini-cards (`grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))`) showing the type icon, the originating day label, the title (clamped to 2 lines), and a footer with status + due time. This is where the full "card containing smaller cards" concept is shown.
+  - **Canvas side**: `[class*="Day-styles__root"]` / `[class*="Day-styles__day"]` receive outer-card styling (white bg, 1px soft border, shadow, rounded, `padding: 10px 12px`, margin-bottom from `--cc-planner-item-spacing`). `[class*="PlannerItem-styles__root"]` inside become mini-cards (`rgba(0,0,0,0.025)` tint, smaller radius, tighter padding, no shadow, no extra borders). In Canvas the outer card represents a day (not a class) because Canvas's Planner DOM groups items by day — note is included in the Style dropdown description.
+  - **Mock data**: added two items to the TODAY day so grouping shows multiple assignments per course (Intro to Psych: Paper #2 + Chapter 3 reading; American History: Position Paper + Reading response).
+  - **Compound specificity override extended**: `[data-cc-planner-item-bg="on"][data-cc-planner-layout="grouped"] [class*="Day-styles..."]` paints the outer day card with the user's chosen item background; mini-cards keep their translucent tint to preserve nested-card contrast.
+- **Why:** User wanted a nested-card aesthetic — "one whole card next to the class, with smaller cards representing the assignments." The preview demonstrates the full class-grouped vision (since we control that DOM); the Canvas implementation applies the same aesthetic to Canvas's native day-grouped Planner DOM without fragile JS rebuilding.
+
+### List View — major revamp: add layout selector, completion styles, section hiding, reactive preview
+- **Where:** `src/content.js` (`DEFAULTS`, `CC_DATA_ATTRS`, `applySettings`, `tabListView`, `previewListView`, `PREVIEW_REACTIVE_KEYS`); `src/content.css` (List View block, preview block)
+- **What:**
+  - **Five new settings** on the List tab: `plannerLayout` (`cards`|`rows`|`compact`), `plannerDoneStyle` (`fade`|`strikethrough`|`hide`), `plannerEmphasizeToday`, `plannerHideEmptyDays`, `plannerHideActivity`. Persisted via `chrome.storage.sync`; projected onto `<html>` as `data-cc-planner-layout`, `data-cc-planner-done-style`, `data-cc-planner-emphasize-today`, `data-cc-planner-hide-empty-days`, `data-cc-planner-hide-activity` in `applySettings()` and torn down via `CC_DATA_ATTRS`.
+  - **Tab reorganized** into five groups: Layout → Day Headers → Item Style → Completed Items → Recent Activity (was: Item Style → Day Headers → Completed Items → Recent Activity with no behavioral controls).
+  - **CSS for Rows layout** on `[class*="PlannerItem-styles__root"]`: transparent bg, no shadow, no top/right borders, 1px bottom divider, `border-radius: 0`, tightened vertical padding. Course-color left bar preserved via the existing `border-left-width` rule.
+  - **CSS for Compact layout**: same flat treatment as Rows plus `padding: 4px 8px`, `min-height: 0`, and `display: none` on `[class*="PlannerItem-styles__type"]` / `[class*="PlannerItem-styles__secondary"]` to collapse rows toward a single visual line.
+  - **CSS for completion styles**: original opacity-fade rule now gated behind `[data-cc-planner-done-style="fade"]`. `strikethrough` variant sets `opacity: 1` + `text-decoration: line-through` on completed items. `hide` variant sets `display: none`.
+  - **CSS for Emphasize Today**: boosts `font-size: 1.15em`, `font-weight: 800`, and `color: var(--cc-accent)` on the first child of `[class*="Day-styles__root"][aria-label^="Today"]` (and `Day-styles__day` / `.Day` variants).
+  - **CSS for Hide Empty Days**: uses `:not(:has([class*="PlannerItem-styles__root"]))` on all three Day-container variants to skip day headers with zero items.
+  - **CSS for Hide Activity Feed**: `display: none` on `#dashboard-activity`, `.ic-Dashboard-Activity`, `.recent_activity`.
+  - **Compound specificity override**: `[data-cc-planner-item-bg="on"][data-cc-planner-layout="rows"|"compact"]` restores the user's custom item background when both a flat layout and a background color are set (same-specificity conflict with the layout rules).
+  - **Preview rewritten** to be fully reactive: renders differently for each `plannerLayout`, drops the type-label row in compact mode, applies line-through per row in strikethrough mode, filters out completed items in hide mode, promotes the "TODAY" header with accent color when `plannerEmphasizeToday` is on, and omits the Recent Activity block when `plannerHideActivity` is on. Added `.cc-preview-lv-row--strike`, `.cc-preview-lv-title--compact`, `.cc-preview-lv-due--compact`, `.cc-preview-lv-day-hdr--today` CSS classes.
+  - **`PREVIEW_REACTIVE_KEYS`** now includes `plannerLayout`, `plannerDoneStyle`, `plannerEmphasizeToday`, `plannerHideActivity` so the in-modal preview re-renders when any of those change.
+- **Why:** The List tab was the weakest in the extension — seven cosmetic color/size knobs and zero behavior controls. Students face real density problems (too few items visible, empty-day clutter, "Today" visually identical to every other day, Recent Activity often unwanted) that color pickers can't solve. Layout is the single highest-impact choice and now drives the dominant look. Preview was static; now it actually shows your selections.
+
+### Sidebar widgets — typography + breathing-room pass to match BetterCanvas vibe
+- **Where:** `src/content.css`
+  - To Do: `#cc-weekly-tasks .cc-section-card`, `.cc-section-label`, `.cc-section-count`, `.cc-section-list`, `.cc-task-link`, `.cc-task-title`, `.cc-task-meta`
+  - Feedback: `#cc-recent-feedback .cc-feedback-count`, `.cc-feedback-list`, `.cc-feedback-item`, `.cc-feedback-item-title`, `.cc-feedback-item-detail`, `.cc-feedback-empty`
+- **What:**
+  - To Do: task titles `12.5px → 13px` (line-height `1.3 → 1.35`, title margin-bottom `2px → 3px`); meta row `11px → 12px` (gap `3px → 4px`); section count pills `9px → 11px` with height `18 → 20px` and padding `0 6 → 0 7`; section label `13 → 13.5px`; section-list gap `5 → 8px`; section-card padding `4×10 → 6×12`; task-link padding `8×8 → 10×10`.
+  - Feedback (kept in sync as a typographic pair): count pill `9 → 11px` / height `18 → 20px` / padding `0 6 → 0 7`; list gap `8 → 10px`; item padding `10×11 → 12×12`; item title `13 → 13.5px`; detail `11 → 12px`; empty-state `13 → 13.5px`.
+- **Why:** BetterCanvas's to-do items use 14px bold titles on 12px base text with ~14px between rows — their "calmer" feel came from larger text, not from less padding. Our widgets were 12.5/11/9px which read as cramped. This pass bumps every text tier ~0.5–1px and adds a bit of vertical breathing room while keeping the pastel-card architecture that differentiates us from BetterCanvas's flat rows.
+
+## 2026-04-21
+
+### Course grades page — keep Tasks under grade summary and mask table bleed-through in the secondary column
+- **Where:** `src/content.js` (`ensureGradesWidgetHost()`); `src/content.css` (`html[data-cc-page="course-grades"] #right-side-wrapper`, `.ic-app-main-content__secondary`, `#cc-grades-widget-host`)
+- **What:**
+  - `ensureGradesWidgetHost()` now mounts `#cc-grades-widget-host` back inside `#right-side-wrapper`, directly after `#right-side`, so grade information stays above Tasks in the right column.
+  - On the grades page, both `#right-side-wrapper` and `.ic-app-main-content__secondary` now get an explicit white background. `#cc-grades-widget-host` also gets its own white background, `padding-top`, and a top border to separate it from the grade summary block.
+  - The host no longer uses the earlier left-content / margin-right hack; the widget returns to the 240px right-column width (`max-width: 240px`) that matches Canvas's `#right-side`.
+- **Why:** Live layout diagnostics showed the real issue was table bleed-through, not host placement: `#grade-summary-content` was only `536px` wide while `#grades_summary` rendered at `916px`, so the grades table and row dividers were painting underneath the entire secondary column. The right-column host therefore needs an opaque background to mask the overflowing table.
+
+### Course grades page — reserve sidebar gutter so table no longer collides with Tasks widget (REVERTED)
+- **Where:** `src/content.js` (new `applyPageType()`, called from `tick()`); `src/content.css` (new `html[data-cc-page="course-grades"]` rules targeting `#content`, `.ic-Layout-contentMain`, `#not_right_side`, `#grades_summary_wrapper`, `#grades_summary`)
+- **What:**
+  - `applyPageType()` detects the `/courses/:id/grades` URL (regex `^/courses/\d+/grades\b`) and sets `document.documentElement.dataset.ccPage = 'course-grades'`; cleared on other pages. Called from `tick()` alongside `applyDashboardView()`.
+  - CSS scoped to `html[data-cc-page="course-grades"]` adds `padding-right: 300px; box-sizing: border-box` on `#content`, `#main .ic-Layout-contentMain`, and `#not_right_side` to reserve space for the floated `#right-side` sidebar. `#grades_summary_wrapper` / `#grades_summary` / `#student-grades-table` get `max-width: 100%` so they wrap inside the narrower column; `#grades_summary_wrapper` gets `overflow-x: auto` as a fallback.
+- **Why:** Diagnostic confirmed Canvas's grades-page main content doesn't reserve sidebar width — the `#grades_summary` table was extending under `#right-side` (measured 240×448 px overlap with our widget at x=932–1172), so the Tasks widget visually covered table cells. Constraining the main content leaves the sidebar column clear.
+
+### Course grades page — revert padding-right approach
+- **Where:** `src/content.css` (removed the `html[data-cc-page="course-grades"]` CSS block)
+- **What:** Removed the `padding-right: 300px` override on `#content` / `.ic-Layout-contentMain` / `#not_right_side` and the `max-width` / `overflow-x` overrides on the grades table wrappers. `applyPageType()` in `content.js` and its `tick()` call remain (they still set `data-cc-page` on `<html>`), but no CSS currently reads that attribute — the page is back to Canvas's default grades layout.
+- **Why:** The padding override broke the grades page layout more severely than the original overlap. Need a different approach — likely one that doesn't mutate Canvas's own content width.
+
+### Tasks widget — stable ordering and visual separation on grades page
+- **Where:** `src/content.js` (`injectWidget`); `src/content.css` (`#cc-weekly-tasks`)
+- **What:**
+  - **Stable ordering:** Canvas's React re-renders `#student-grades-right-content` after our widget is injected, which was flipping the order back (tasks above grades). `injectWidget()` now detects `#student-grades-right-content` on every tick and re-anchors the widget after it if Canvas moved it. Initial injection also inserts via `gradesContent.after()` rather than a plain `append`.
+  - **Visual separation:** Added `margin-top: 20px` to `#cc-weekly-tasks` so the Tasks widget has clear breathing room from the grade info above it (previously only ~6px gap).
+
+### Tasks widget — sections collapsed by default
+- **Where:** `src/content.js` (`defaultWidgetSectionState`, `widgetSections`, `widgetSectionsByCourse`, toggle click handler)
+- **What:** All section buckets (Overdue, Due Soon, Due This Week, All, and per-course sections) now start collapsed. Previously Overdue, Due Soon, and Due This Week were open by default. Changed all `?? true` open-state fallbacks to `?? false` and set the explicit defaults in `defaultWidgetSectionState` to `false`.
+
+---
+
+## 2026-04-16
+
+### Tasks widget — hide empty priority buckets, fix ring/circle center text, refresh default color
+- **Where:** `src/content.js` (`DEFAULTS.widgetProgressColor`, `circleProgressMarkup`, `progressMarkup`, `renderWidget`, preview bar/ring rendering); `src/content.css` (`.cc-progress-rings-center`, `.cc-fraction--ring`, `.cc-progress-circle-center`, `.cc-fraction--circle`, `.cc-progress-bar`, `.cc-progress-seg.done`, `.cc-preview-widget-fill`, `.cc-sk-bar`, new `.cc-all-empty`)
+- **What:**
+  - **Empty sections**: `renderWidget()` now filters out priority sections (Overdue / Due Soon / This Week / All) that have zero tasks, so the empty placeholder that used to sit below each heading is gone — it was reading as a lingering skeleton bar. Course grouping still shows every course card. If every bucket is empty, a single `.cc-all-empty` ("No tasks due this week.") message is shown instead.
+  - **Ring + circle center text**: Swapped `justify-content: flex-start` + `padding-top: 21px` on `.cc-progress-rings-center` for `justify-content: center` with a `translate(-50%, calc(-50% + 4px))` optical nudge. `.cc-progress-circle-center` gets the same treatment (`+3px`). Fraction line-height tightened (`.cc-fraction--ring` font bumped 7→9px with `margin-top: -1px`; `.cc-fraction--circle` `margin-top` 2→0 and `line-height: 1`) so the two lines sit closer together and read as centered inside the ring.
+  - **Default progress color**: `widgetProgressColor` default and every `|| '#8eaec4'` fallback changed to `#6366f1` (indigo-500). Skeleton shimmer bars repainted from neutral gray (`#eef1f3`/`#f6f8fa`) to indigo-tinted (`#e5e7fb`/`#f0f1ff`) to match. Static `background: #8eaec4` CSS (bar fill, segments "done" state, settings preview) follows.
+- **Why:** Reported issues: empty priority sections showed placeholder bars that looked like skeletons; the % and fraction text in the ring/circle floated too high and felt loose; the stock grayish-blue loader color looked flat.
+
+---
+
 ## 2026-04-15
+
+### Widget — animated arc progress + skeleton loader
+- **Where:** `src/content.js` (`activityRingsSvg`, `circleProgressMarkup`, `injectWidget`); `src/content.css` (new `.cc-progress-arc`, `@keyframes cc-arc-fill`, `.cc-skeleton-loader`, `.cc-sk-bar`)
+- **What:**
+  - **SVG arc animation**: Both the circle progress and activity rings progress arcs now animate in via `stroke-dashoffset` (`@keyframes cc-arc-fill`, 0.85 s ease-out). Each arc element gets CSS custom props `--arc-c` (circumference) and `--arc-offset` (target dashoffset), starts at full circumference (invisible), and CSS drives it to the target. Activity rings use staggered `animation-delay` (0, 120 ms, 240 ms per ring).
+  - **Skeleton loader**: `injectWidget()` no longer injects `<div class="cc-loading">Loading tasks…</div>`. Instead it renders `.cc-skeleton-loader` with three shimmer bars (85 %, 60 %, 40 % wide), driven by `@keyframes cc-shimmer` with per-bar `animation-delay` offsets.
+
+### General settings — Button roundedness slider (REVERTED)
+- **Where:** `src/content.js` (`tabGeneral`); `src/content.css` (already wired via `--cc-radius`)
+- **What:** New "Buttons" group in the General tab with a `rangeControl('borderRadius', 0, 20, 1, 'px')` row. The `borderRadius` default of 8 px and the `--cc-radius` wiring in `applySettings()` were already in place; this change exposes the control in the UI.
+- **Why:** Canvas defaults to sharp edges; the extension's 8 px default is slightly rounded. Slider lets the user tune from sharp (0) to pill-shaped (20).
+
+### General settings — remove Button Roundedness UI
+- **Where:** `src/content.js` (`tabGeneral`)
+- **What:** Removed the "Buttons" group from the General tab. The underlying `borderRadius` setting, `applySettings()` wiring (`--cc-radius`), and CSS rule on `button, .Button, input, select, textarea` remain — they are used by other parts of the extension — but the control is no longer exposed in the UI.
+
+### General settings — Minimal Scroll Bars
+- **Where:** `src/content.js` (`DEFAULTS`, `CC_DATA_ATTRS`, `applySettings`, `tabGeneral`); `src/content.css` (`[data-cc-minimal-scrollbars="on"]`)
+- **What:** New `minimalScrollbars: true` default. `applySettings()` sets `data-cc-minimal-scrollbars` on `<html>`. CSS block targets `*::-webkit-scrollbar` (16 px, transparent), `*::-webkit-scrollbar-track/-track-piece/-corner` (transparent, no border), `*::-webkit-scrollbar-thumb` (rounded solid `#4b5563` darker gray with `min-height: 24px`, hover `#374151`), `*::-webkit-scrollbar-button:start/:end` (hidden, 0×0), and Firefox `scrollbar-width: auto` + `scrollbar-color: #4b5563 transparent`. Every declaration uses `!important` and the selectors also include `html`, `body`, and the bare `[data-cc-minimal-scrollbars="on"]` root (not just descendants) so Canvas's own high-specificity scrollbar styles are fully overridden. Thumb uses solid gray (not alpha) so it renders the same darker-gray color in both light and dark mode. Toggle added to the "Scroll Bars" group in General settings above the existing "Hide Scroll Bars" row. On by default.
 
 ### Integrations tab — remove icon, align card to section formatting
 - **Where:** `src/content.js` (`tabIntegrations`, `refreshIntegrationsStatus`); `src/content.css` (`.cc-integ-card`, `.cc-integ-card-foot`; removed `.cc-integ-card-head`, `.cc-integ-icon`, `.cc-integ-meta`, `.cc-integ-name*`, `.cc-integ-badge*`, `.cc-integ-desc`)

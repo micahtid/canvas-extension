@@ -1163,32 +1163,6 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
    NN/G guidance that cards-in-cards is an anti-pattern for lists of
    similar items). Outer card matches the extension's own widget style:
    1px neutral border + very subtle shadow. */
-[data-cc-planner-layout="grouped"] [class*="Day-styles__root"],
-[data-cc-planner-layout="grouped"] [class*="Day-styles__day"] {
-  background: var(--cc-planner-item-bg, #ffffff) !important;
-  border: 1px solid #e8eaec !important;
-  border-radius: 12px !important;
-  padding: 16px !important;
-  margin-bottom: 16px !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] {
-  background: transparent !important;
-  box-shadow: none !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
-  border-radius: 0 !important;
-  padding: 12px 8px !important;
-  margin-top: 0 !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] + [class*="PlannerItem-styles__root"] {
-  margin-top: 0 !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]:last-child {
-  border-bottom: none !important;
-}
-
 /* ---- Long-text truncation (applies to grouped + compact) ----
    Canvas course+type labels can run very long ("HNRS: SOFTWARE DEVEL
    RAIK184H SEC 150 Spring 2026 ASSIGNMENT"). Clamp them to a single line
@@ -1222,44 +1196,13 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
 /* ---- "Show N completed items" row (Canvas's CompletedItemsFacade) ----
    Make it look like another list row inside the day card so the eye
    isn't jarred by differently-shaped affordance at the bottom. */
-[data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
-[data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
-[data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
-  display: block !important;
-  width: 100% !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-  border-top: 1px solid rgba(15, 23, 42, 0.06) !important;
-  border-radius: 0 !important;
-  padding: 12px 8px !important;
-  margin: 0 !important;
-  text-align: left !important;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
-}
-
 /* ---- Consistent meta row: points / Graded / Feedback / due alignment ----
    Canvas's detail row places these in a row but spacing / order varies
    across item types. Force a flex row with a fixed gap so Graded /
    Feedback chips always sit in the same spot and the row has a
    predictable rhythm. `margin-left: auto` on tag-like elements pushes
    them to the right side consistently. */
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  align-items: center !important;
-  gap: 6px 10px !important;
-  min-width: 0;
-}
 /* Status-like chips (Graded / Feedback / Missing / Submitted) — flush right. */
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__status"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__badge"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__statusPill"] {
-  margin-left: auto !important;
-}
 
 /* Grouped refinement: softer gray course/day surface, white rounded task
    cards, and a more consistent metadata rail. Kept scoped to grouped mode so
@@ -1269,68 +1212,6 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   background: var(--cc-planner-item-bg, #f5f7fa) !important;
   border-radius: 14px !important;
   padding: 14px !important;
-}
-
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] {
-  background: #ffffff !important;
-  border-top: 1px solid #e8eaec !important;
-  border-right: 1px solid #e8eaec !important;
-  border-bottom: 1px solid #e8eaec !important;
-  border-radius: 12px !important;
-  padding: 12px 12px 12px 10px !important;
-  margin-top: 0 !important;
-  min-height: 72px !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"] + [class*="PlannerItem-styles__root"] {
-  margin-top: 8px !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"]:last-child {
-  border-bottom: 1px solid #e8eaec !important;
-}
-
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__type"] {
-  max-width: 46ch !important;
-  font-size: 10px !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__title"] {
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  line-height: 1.35 !important;
-}
-
-[data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
-[data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
-[data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
-  min-height: 72px !important;
-  background: #ffffff !important;
-  border: 1px solid #e8eaec !important;
-  border-radius: 12px !important;
-  padding: 12px !important;
-  margin-top: 8px !important;
-  text-align: left !important;
-}
-
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  min-width: 108px !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__details"] > *,
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__metrics"] > *,
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__secondary"] > * {
-  margin: 0 !important;
-  white-space: nowrap !important;
-}
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__status"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__badge"],
-[data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__statusPill"] {
-  margin-left: 0 !important;
-  align-self: flex-end !important;
 }
 
 /* Emphasize Today — Canvas marks the active day with aria-label "Today".
@@ -1553,19 +1434,134 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   margin-top: 0 !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09) !important;
   border: none !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 14px 16px !important;
+  min-height: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"] > * {
+  min-width: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__completed"] {
+  flex: 0 0 auto !important;
+  margin: 4px 0 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__icon"] {
+  flex: 0 0 auto !important;
+  margin-top: 4px !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__layout"] {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__innerLayout"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__innerLayout"] > * {
+  min-width: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__type"] {
+  display: block !important;
+  max-width: 100% !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.24px !important;
+  text-transform: uppercase !important;
+  color: #64748b !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__title"] {
+  display: block !important;
+  max-width: 100% !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
-/* ── Task card: two-column layout ───────────────────────────────────────
-   Left  col: type label (muted, small) + title (bold, primary).
-   Right col: badges (top), then due + score below — all right-aligned.
+/* ─── List View: Task-row redesign (strict variant fingerprinting) ───
+   Applies only to rows tagged by skinPlannerGroupings() after exact
+   direct-child structure matching. Unmatched rows inherit nothing here,
+   so unknown task types keep the stable shell-only appearance. */
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [class*="PlannerItem-styles__innerLayout"] {
+  gap: 12px !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [data-cc-planner-role="primary"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [data-cc-planner-role="meta"] {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  margin-top: 0 !important;
+  text-align: right !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: #64748b !important;
+  gap: 14px !important;
+}
+/* Badges (Graded/Feedback pills) and metrics (points + due) both shrink-wrap
+   and sit flush against the meta rail's right edge. Canvas defaults to
+   badges flex:1 1 0% and metrics flex:0 0 160px, which creates ~70px of
+   empty white space between the pills and the due/points text. The zoom
+   scales the whole pill (border, padding, text) proportionally and also
+   shrinks the layout box so flex gap still measures correctly. */
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [data-cc-planner-role="meta"] [class*="PlannerItem-styles__badges"] {
+  flex: 0 0 auto !important;
+  zoom: 0.85;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [data-cc-planner-role="meta"] [class*="PlannerItem-styles__metrics"] {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant="with-feedback"] [data-cc-planner-role="note"] {
+  margin-top: 10px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(45, 59, 69, 0.1) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: #475569 !important;
+}
+/* Feedback avatar: Canvas defaults to a 40x40 PFP with 24px margin-right.
+   Shrink the outer wrapper, the inner circular span (css-*-avatar), and
+   any initials text so the avatar and comment read as a single compact
+   note line rather than two visually distinct blocks. */
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant="with-feedback"] [data-cc-planner-role="note"] [class*="PlannerItem-styles__feedbackAvatar"] {
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 10px !important;
+  flex: 0 0 auto !important;
+}
+[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant="with-feedback"] [data-cc-planner-role="note"] [class*="PlannerItem-styles__feedbackAvatar"] > span {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 11px !important;
+  line-height: 24px !important;
+}
 
-   Defensive overrides (important):
-   - Kill all flex-grow and min-heights that force vertical expansion.
-   - align-self: flex-start locks both columns to the top.
-   - Kill all auto-margins (Canvas's vertical spacer trick). */
-
-/* Stop the outer layout wrappers from inflating vertically. */
-
+/* Checkbox + icon vertical alignment is driven by skinPlannerGroupings()
+   at runtime: it measures the title element's y-center per row and sets
+   inline margin-top on completed/icon so their centers match. CSS can't
+   do this precisely because the title center depends on font metrics and
+   wrapping, which vary by card width. */
 
 /* Recent Activity stream items — radius + optional background. */
 .recent_activity li,

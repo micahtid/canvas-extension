@@ -3338,6 +3338,30 @@ function extractCompletedToggleCount(text) {
   return match ? Number(match[1]) : 0;
 }
 
+function simplifyPlannerTypeLabel(text) {
+  const normalized = (text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+
+  const replacements = [
+    [/discussion\s+topic$/i, 'Discussion'],
+    [/planner\s+note$/i, 'Note'],
+    [/wiki\s+page$/i, 'Page'],
+    [/calendar\s+event$/i, 'Event'],
+    [/assignment$/i, 'Assignment'],
+    [/announcement$/i, 'Announcement'],
+    [/reading$/i, 'Reading'],
+    [/quiz$/i, 'Quiz'],
+    [/page$/i, 'Page'],
+    [/event$/i, 'Event'],
+  ];
+
+  for (const [pattern, label] of replacements) {
+    if (pattern.test(normalized)) return label;
+  }
+
+  return normalized;
+}
+
 function syncCompletedToggleButton(button, count, hidden) {
   if (!button) return;
 
@@ -3544,6 +3568,120 @@ function skinPlannerGroupings() {
       row.style.setProperty('border-radius', '10px', 'important');
       row.style.setProperty('box-shadow', '0 1px 4px rgba(0, 0, 0, 0.09)', 'important');
       row.style.setProperty('border', 'none', 'important');
+      row.style.setProperty('display', 'flex', 'important');
+      row.style.setProperty('align-items', 'flex-start', 'important');
+      row.style.setProperty('gap', '12px', 'important');
+      row.style.setProperty('padding', '14px 16px', 'important');
+      row.style.setProperty('min-height', '0', 'important');
+
+      const completed = row.querySelector('[class*="PlannerItem-styles__completed"]');
+      if (completed) {
+        completed.style.setProperty('flex', '0 0 auto', 'important');
+        completed.style.setProperty('margin', '4px 0 0', 'important');
+      }
+
+      const icon = row.querySelector('[class*="PlannerItem-styles__icon"]');
+      if (icon) {
+        icon.style.setProperty('flex', '0 0 auto', 'important');
+        icon.style.setProperty('margin-top', '4px', 'important');
+      }
+
+      const layout = row.querySelector('[class*="PlannerItem-styles__layout"]');
+      if (layout) {
+        layout.style.setProperty('display', 'flex', 'important');
+        layout.style.setProperty('flex', '1 1 auto', 'important');
+        layout.style.setProperty('flex-direction', 'column', 'important');
+        layout.style.setProperty('align-items', 'stretch', 'important');
+        layout.style.setProperty('justify-content', 'flex-start', 'important');
+        layout.style.setProperty('min-width', '0', 'important');
+        layout.style.setProperty('min-height', '0', 'important');
+      }
+
+      const innerLayout = row.querySelector('[class*="PlannerItem-styles__innerLayout"]');
+      if (innerLayout) {
+        innerLayout.style.setProperty('display', 'flex', 'important');
+        innerLayout.style.setProperty('align-items', 'flex-start', 'important');
+        innerLayout.style.setProperty('justify-content', 'flex-start', 'important');
+        innerLayout.style.setProperty('min-width', '0', 'important');
+        innerLayout.style.setProperty('min-height', '0', 'important');
+        innerLayout.style.setProperty('height', 'auto', 'important');
+      }
+
+      const type = row.querySelector('[class*="PlannerItem-styles__type"]');
+      if (type) {
+        const label = simplifyPlannerTypeLabel(type.textContent);
+        if (label) type.textContent = label;
+      }
+
+      // Strict variant fingerprinting — additive, opt-in, self-healing.
+      // Only two exact direct-child shapes (ignoring <style> nodes) are
+      // tagged; anything else clears prior tags and is left untouched.
+      const layoutEl = row.querySelector('[class*="PlannerItem-styles__layout"]');
+      const innerLayoutEl = layoutEl?.querySelector('[class*="PlannerItem-styles__innerLayout"]');
+      let rowVariant = null;
+      let primaryEl = null;
+      let metaEl = null;
+      let noteEl = null;
+      if (layoutEl && innerLayoutEl) {
+        const layoutChildren = Array.from(layoutEl.children).filter(c => c.tagName !== 'STYLE');
+        const innerChildren = Array.from(innerLayoutEl.children).filter(c => c.tagName !== 'STYLE');
+        const hasCls = (el, token) => typeof el?.className === 'string' && el.className.includes(token);
+        const okInner = innerChildren.length === 2
+          && hasCls(innerChildren[0], 'PlannerItem-styles__details')
+          && hasCls(innerChildren[1], 'PlannerItem-styles__secondary');
+        if (okInner && layoutChildren.length === 1 && layoutChildren[0] === innerLayoutEl) {
+          rowVariant = 'standard';
+          primaryEl = innerChildren[0];
+          metaEl = innerChildren[1];
+        } else if (
+          okInner &&
+          layoutChildren.length === 2 &&
+          layoutChildren[0] === innerLayoutEl &&
+          hasCls(layoutChildren[1], 'PlannerItem-styles__feedback')
+        ) {
+          rowVariant = 'with-feedback';
+          primaryEl = innerChildren[0];
+          metaEl = innerChildren[1];
+          noteEl = layoutChildren[1];
+        }
+      }
+
+      if (rowVariant) {
+        row.dataset.ccPlannerRowVariant = rowVariant;
+        if (primaryEl) primaryEl.dataset.ccPlannerRole = 'primary';
+        if (metaEl) metaEl.dataset.ccPlannerRole = 'meta';
+        if (noteEl) {
+          noteEl.dataset.ccPlannerRole = 'note';
+        } else {
+          row.querySelectorAll('[data-cc-planner-role="note"]').forEach(el => {
+            delete el.dataset.ccPlannerRole;
+          });
+        }
+        // Card-center via browser flexbox for both variants. For
+        // with-feedback cards this places the checkbox/icon near the
+        // divider between the title row and the note; user preference
+        // is visual consistency across variants over semantic coupling
+        // to the title line.
+        row.style.setProperty('align-items', 'center', 'important');
+        if (completed) completed.style.setProperty('margin', '0', 'important');
+        if (icon) icon.style.setProperty('margin-top', '0', 'important');
+        // Center the secondary (meta) rail vertically with the title row
+        // inside innerLayout. For with-feedback variants this means the
+        // tags/metrics align with the top part (title), not the whole
+        // card, since the feedback note is a sibling of innerLayout.
+        if (innerLayout) {
+          innerLayout.style.setProperty('align-items', 'center', 'important');
+        }
+      } else {
+        delete row.dataset.ccPlannerRowVariant;
+        row.querySelectorAll('[data-cc-planner-role]').forEach(el => {
+          delete el.dataset.ccPlannerRole;
+        });
+        // Restore the stable-shell defaults for unmatched rows.
+        row.style.setProperty('align-items', 'flex-start', 'important');
+        if (completed) completed.style.setProperty('margin', '4px 0 0', 'important');
+        if (icon) icon.style.setProperty('margin-top', '4px', 'important');
+      }
     });
   });
 }
