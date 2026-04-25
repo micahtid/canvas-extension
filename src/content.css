@@ -1336,11 +1336,15 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
    Remove the colored top border Canvas injects between the hero and items. */
 [class*="Grouping-styles__items"] {
   border-top: none !important;
-  background: #f2f3f5 !important;
+  background: #f8f9fa !important;
   padding: 8px !important;
   display: block !important;
   min-height: 0 !important;
   height: auto !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
 }
 /* Neutralize margins on any direct li wrappers; gap handles spacing. */
 [class*="Grouping-styles__items"] > * {
@@ -1365,17 +1369,19 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   justify-content: flex-start;
   gap: 6px;
   width: auto;
-  padding: 9px 10px;
-  border: 1px solid rgba(45, 59, 69, 0.16);
-  border-radius: 999px;
-  background: #ffffff;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: #2a6fbe;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  box-shadow: none;
+  text-decoration: none;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
 }
 
 .cc-completed-toggle-chevron {
@@ -1406,8 +1412,10 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
 
 .cc-completed-toggle-btn:hover,
 .cc-completed-toggle-btn:focus-visible {
-  background: #f6faff;
-  border-color: rgba(42, 111, 190, 0.3);
+  background: transparent;
+  border: none;
+  color: #1f5b9e;
+  text-decoration: underline;
   outline: none;
 }
 
@@ -3880,6 +3888,318 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   font-size: 10px;
   color: #2d3b45;
   line-height: 1.35;
+}
+
+/* ---------- List View preview — redesigned Daily Course Cards ---------- */
+.cc-preview-listview--daily-cards {
+  max-width: 540px;
+  gap: 18px;
+  padding: 0;
+}
+
+.cc-preview-lv-day-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cc-preview-lv-day-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #2d3b45;
+  line-height: 1.25;
+}
+
+.cc-preview-lv-day-title--today {
+  color: var(--cc-accent, #008ee2);
+}
+
+.cc-preview-lv-day-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cc-preview-lv-day-empty {
+  padding: 14px 16px;
+  border: 1px dashed #d7dee5;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a98a6;
+  background: #fbfcfd;
+}
+
+.cc-preview-lv-course-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 0;
+}
+
+.cc-preview-lv-course-alert {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d40000;
+  transform: translateY(-50%);
+}
+
+.cc-preview-lv-course-hero {
+  overflow: hidden;
+  border-radius: 8px 0 0 8px;
+  border: 1px solid rgba(36, 43, 48, 0.08);
+  border-right: none;
+  background: var(--cc-preview-course, #8f3e97);
+}
+
+.cc-preview-lv-course-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #e10600;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.16px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.cc-preview-lv-course-art {
+  min-height: 118px;
+}
+
+.cc-preview-lv-course-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid rgba(36, 43, 48, 0.08);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.cc-preview-lv-task {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09);
+}
+
+.cc-preview-lv-task--done {
+  opacity: var(--cc-preview-done-opacity, 0.5);
+}
+
+.cc-preview-lv-task--strike {
+  opacity: 1;
+}
+
+.cc-preview-lv-task--strike .cc-preview-lv-task-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.cc-preview-lv-task-leading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.cc-preview-lv-task-check {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #8b63ad;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cc-preview-lv-task-check--done {
+  background: var(--cc-accent, #008ee2);
+  border-color: var(--cc-accent, #008ee2);
+}
+
+.cc-preview-lv-task-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cc-preview-course, #8f3e97);
+  opacity: 0.92;
+}
+
+.cc-preview-lv-task-layout {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cc-preview-lv-task-mainline {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.cc-preview-lv-task-layout--structured .cc-preview-lv-task-mainline {
+  align-items: center;
+}
+
+.cc-preview-lv-task-primary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cc-preview-lv-task-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24px;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
+.cc-preview-lv-task-title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #ef1f14;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-preview-lv-task-meta {
+  flex: 0 0 auto;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.cc-preview-lv-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cc-preview-lv-task-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid #96a6b3;
+  background: #ffffff;
+  color: #52606d;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cc-preview-lv-task-points,
+.cc-preview-lv-task-due {
+  font-size: 11px;
+  font-weight: 600;
+  color: #52606d;
+  white-space: nowrap;
+}
+
+.cc-preview-lv-task-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(45, 59, 69, 0.1);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.cc-preview-lv-task-note--inline {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.cc-preview-lv-task-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f6d365, #fda085);
+  flex-shrink: 0;
+}
+
+.cc-preview-lv-completed-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 0;
+  border: none;
+  background: transparent;
+  color: #2a6fbe;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cc-preview-lv-completed-link--animated .cc-preview-lv-completed-chevron {
+  transition: transform 0.18s ease;
+}
+
+.cc-preview-lv-completed-chevron {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cc-preview-lv-activity-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.cc-preview-lv-activity-head {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #6b7780;
+}
+
+.cc-preview-lv-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #2d3b45;
+}
+
+.cc-preview-lv-activity-bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* ---------- Global Dark Mode — Universal Paint-Through Strategy ----------

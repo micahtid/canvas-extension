@@ -71,6 +71,7 @@ const DEFAULTS = {
   plannerEmphasizeToday: true,   // accent the "Today" day header
   plannerHideEmptyDays: false,   // skip day headers with no items
   plannerHideActivity: false,    // remove Recent Activity feed from List view
+  plannerTaskRowRedesignEnabled: true, // align task metadata + compact note rows
   plannerItemBg: '',          // empty = Canvas default
   plannerItemTextColor: '',   // empty = Canvas default
   plannerBarWidth: 5,         // px — colored left stripe per item
@@ -116,6 +117,7 @@ async function loadSettings() {
     const stored = await chrome.storage.sync.get(DEFAULTS);
     settings = { ...DEFAULTS, ...stored };
     if (settings.sidebarLabelPosition === 'left') settings.sidebarLabelPosition = 'right';
+    settings.plannerHideEmptyDays = false;
   } catch (e) {
     settings = { ...DEFAULTS };
   }
@@ -668,7 +670,7 @@ function applySettings(s) {
   root.dataset.ccPlannerDoneStyle = ['fade', 'strikethrough', 'hide'].includes(s.plannerDoneStyle)
     ? s.plannerDoneStyle : 'fade';
   root.dataset.ccPlannerEmphasizeToday = s.plannerEmphasizeToday ? 'on' : 'off';
-  root.dataset.ccPlannerHideEmptyDays = s.plannerHideEmptyDays ? 'on' : 'off';
+  root.dataset.ccPlannerHideEmptyDays = 'off';
   root.dataset.ccPlannerHideActivity = s.plannerHideActivity ? 'on' : 'off';
 
   root.dataset.ccDarkMode = s.darkMode ? 'on' : 'off';
@@ -2731,6 +2733,202 @@ function tabListView() {
   };
 }
 
+function previewListViewV2() {
+  const assignSvg = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M1807 1920H113C50.9 1920 0 1869.1 0 1807V113C0 50.9 50.9 0 113 0h1694c62.1 0 113 50.9 113 113v1694c0 62.1-50.9 113-113 113zm-56.5-169.5v-1581H169.5v1581h1581zM338 1468.5h1244v169.5H338v-169.5zm0-338h1244v169.5H338V1130zm0-338h1244v169.5H338V792zm0-338h1244v169.5H338V454z"/></svg>`;
+  const speakerSvg = `<svg viewBox="0 0 1920 1920" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M1117 0v1920l-597-480H0V480h520L1117 0zm360 960c0-186-73-361-205-493l120-120c164 164 255 382 255 613 0 232-91 449-255 614l-120-120c132-132 205-307 205-494zm-240 0c0-122-48-236-134-322l120-120c118 118 184 275 184 442 0 168-66 324-184 443l-120-120c86-86 134-200 134-323z"/></svg>`;
+  const doneStyle = settings.plannerDoneStyle || 'fade';
+  const doneOpacity = Math.max(0.2, (settings.plannerDoneOpacity || 50) / 100);
+  const emphToday = !!settings.plannerEmphasizeToday;
+  const hideActivity = !!settings.plannerHideActivity;
+  const hideEmptyDays = false;
+  const structuredRows = settings.plannerTaskRowRedesignEnabled !== false;
+  const animateCompleted = false;
+
+  const taskCheck = (done) => `<span class="cc-preview-lv-task-check${done ? ' cc-preview-lv-task-check--done' : ''}"></span>`;
+  const taskStateClass = (done) => [
+    'cc-preview-lv-task',
+    done ? 'cc-preview-lv-task--done' : '',
+    done && doneStyle === 'strikethrough' ? 'cc-preview-lv-task--strike' : '',
+  ].filter(Boolean).join(' ');
+
+  const renderTask = (task) => {
+    if (task.done && doneStyle === 'hide') return '';
+    const note = task.note && structuredRows ? `
+      <div class="cc-preview-lv-task-note">
+        <span class="cc-preview-lv-task-avatar"></span>
+        <span>${task.note}</span>
+      </div>
+    ` : (task.note ? `<div class="cc-preview-lv-task-note cc-preview-lv-task-note--inline">${task.note}</div>` : '');
+
+    return `
+      <div class="${taskStateClass(task.done)}" ${task.done && doneStyle === 'fade' ? `style="--cc-preview-done-opacity:${doneOpacity};"` : ''}>
+        <div class="cc-preview-lv-task-leading">
+          ${taskCheck(task.done)}
+          <span class="cc-preview-lv-task-icon">${task.icon}</span>
+        </div>
+        <div class="cc-preview-lv-task-layout${structuredRows ? ' cc-preview-lv-task-layout--structured' : ''}">
+          <div class="cc-preview-lv-task-mainline">
+            <div class="cc-preview-lv-task-primary">
+              <div class="cc-preview-lv-task-type">${task.type}</div>
+              <div class="cc-preview-lv-task-title">${task.title}</div>
+            </div>
+            <div class="cc-preview-lv-task-meta">
+              ${task.tags?.length ? `<div class="cc-preview-lv-task-tags">${task.tags.map(tag => `<span class="cc-preview-lv-task-pill">${tag}</span>`).join('')}</div>` : ''}
+              ${task.points ? `<div class="cc-preview-lv-task-points">${task.points}</div>` : ''}
+              <div class="cc-preview-lv-task-due">${task.due}</div>
+            </div>
+          </div>
+          ${note}
+        </div>
+      </div>
+    `;
+  };
+
+  const renderCourseCard = (course) => `
+    <div class="cc-preview-lv-course-card" style="--cc-preview-course:${course.color};">
+      ${course.alert ? '<span class="cc-preview-lv-course-alert"></span>' : ''}
+      <div class="cc-preview-lv-course-hero">
+        <div class="cc-preview-lv-course-label">${course.label}</div>
+        <div class="cc-preview-lv-course-art" style="${course.heroStyle}"></div>
+      </div>
+      <div class="cc-preview-lv-course-tray">
+        ${course.tasks.map(renderTask).filter(Boolean).join('')}
+        ${course.completedCount && doneStyle !== 'hide' ? `
+          <button class="cc-preview-lv-completed-link${animateCompleted ? ' cc-preview-lv-completed-link--animated' : ''}" type="button">
+            <span class="cc-preview-lv-completed-chevron">&rsaquo;</span>
+            <span>Show ${course.completedCount} Completed Item${course.completedCount === 1 ? '' : 's'}</span>
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  const days = [
+    {
+      label: 'Tomorrow, April 24',
+      today: true,
+      cards: [
+        {
+          label: 'Accounting',
+          color: '#8f3e97',
+          alert: true,
+          heroStyle: 'background: linear-gradient(180deg, rgba(143, 62, 151, 0.72), rgba(143, 62, 151, 0.82)), linear-gradient(135deg, #cab4de, #8f63ad);',
+          tasks: [
+            {
+              icon: assignSvg,
+              type: 'Assignment',
+              title: 'Homework Ch 14 [myBusinessCourse]',
+              tags: ['Graded', 'Feedback'],
+              points: '8 pts',
+              due: 'Due: 11:59 PM',
+              note: 'This assignment was attempted and submitted.',
+            },
+          ],
+          completedCount: 0,
+        },
+        {
+          label: 'HNRS: Software Devel R...',
+          color: '#2478b5',
+          alert: false,
+          heroStyle: 'background: linear-gradient(180deg, rgba(36, 120, 181, 0.78), rgba(36, 120, 181, 0.86));',
+          tasks: [
+            { icon: assignSvg, type: 'Assignment', title: 'Induction Lab', due: 'Due: 11:59 PM' },
+            { icon: assignSvg, type: 'Assignment', title: 'Proofs Reading', due: 'Due: 11:59 PM' },
+            { icon: assignSvg, type: 'Assignment', title: 'Module Reflection', due: 'Due: 11:59 PM', done: true },
+          ],
+          completedCount: 2,
+        },
+      ],
+    },
+    {
+      label: 'Sunday, April 26',
+      today: false,
+      cards: [],
+    },
+    {
+      label: 'Monday, April 27',
+      today: false,
+      cards: [
+        {
+          label: 'Leadership',
+          color: '#d14d3f',
+          alert: false,
+          heroStyle: 'background: linear-gradient(180deg, rgba(209, 77, 63, 0.72), rgba(209, 77, 63, 0.82));',
+          tasks: [
+            {
+              icon: speakerSvg,
+              type: 'Announcement',
+              title: 'TA Hours Today',
+              due: 'Posted 8:42 AM',
+              note: 'Bring your draft if you want line-by-line feedback.',
+            },
+          ],
+          completedCount: 0,
+        },
+      ],
+    },
+  ];
+
+  const renderedDays = days
+    .filter(day => !hideEmptyDays || day.cards.length)
+    .map(day => `
+      <section class="cc-preview-lv-day-card">
+        <div class="cc-preview-lv-day-title${day.today && emphToday ? ' cc-preview-lv-day-title--today' : ''}">${day.label}</div>
+        ${day.cards.length
+          ? `<div class="cc-preview-lv-day-stack">${day.cards.map(renderCourseCard).join('')}</div>`
+          : '<div class="cc-preview-lv-day-empty">No planner items for this day.</div>'}
+      </section>
+    `).join('');
+
+  const activity = hideActivity ? '' : `
+    <section class="cc-preview-lv-activity-block">
+      <div class="cc-preview-lv-activity-head">Recent Activity</div>
+      <div class="cc-preview-lv-activity-row">
+        <span class="cc-preview-lv-activity-bullet" style="background:#9c27b0;"></span>
+        <span>Feedback posted for <strong>Case Analysis 4</strong></span>
+      </div>
+      <div class="cc-preview-lv-activity-row">
+        <span class="cc-preview-lv-activity-bullet" style="background:#16a085;"></span>
+        <span>New announcement in <strong>Database Design</strong></span>
+      </div>
+    </section>
+  `;
+
+  return `
+    <div class="cc-preview-listview cc-preview-listview--daily-cards">
+      ${renderedDays}
+      ${activity}
+    </div>
+  `;
+}
+
+function tabListViewV2() {
+  return {
+    title: 'List View',
+    desc: 'Controls for the redesigned Daily Course Cards and Recent Activity in Dashboard List view.',
+    preview: previewListViewV2(),
+    groups: [
+      { title: 'Daily Course Cards', rows: [
+        row('Enhanced Task Rows', toggleControl('plannerTaskRowRedesignEnabled'), 'Align metadata into a consistent right rail and show feedback as a compact note row inside each Daily Course Card.'),
+      ]},
+      { title: 'Day Headers', rows: [
+        row('Emphasize Today', toggleControl('plannerEmphasizeToday'), 'Make today\'s day header larger and accent-colored so it stands out.'),
+      ]},
+      { title: 'Completed Items', rows: [
+        row('Completed Style', selectControl('plannerDoneStyle', [
+          { value: 'fade',          label: 'Fade' },
+          { value: 'strikethrough', label: 'Strikethrough' },
+          { value: 'hide',          label: 'Hide' },
+        ]), 'Choose how finished work appears inside each Daily Course Card.'),
+        row('Fade Opacity', rangeControl('plannerDoneOpacity', 20, 100, 5, '%'), 'Used when Completed Style is Fade. Lower = more muted.'),
+      ]},
+      { title: 'Recent Activity', rows: [
+        row('Hide Activity Feed', toggleControl('plannerHideActivity'), 'Remove the Recent Activity feed so the List view focuses only on planner items.'),
+      ]},
+    ],
+  };
+}
+
 function previewSidebar() {
   const items = [
     { label: 'Account', avatar: true },
@@ -3045,7 +3243,7 @@ function tabIntegrations() {
 const TAB_RENDERERS = {
   general:      tabGeneral,
   cards:        tabCards,
-  listview:     tabListView,
+  listview:     tabListViewV2,
   sidebar:      tabSidebar,
   widget:       tabWidget,
   recentfeedback: tabRecentFeedback,
@@ -3143,6 +3341,7 @@ function renderTabPane() {
           await saveSettings({ [key]: value });
           applySettings(settings);
           syncControlAvailability(root);
+          if (PLANNER_RERENDER_KEYS.has(key)) tick();
           if (PREVIEW_REACTIVE_KEYS.has(key)) refreshPreview();
           if (WIDGET_RERENDER_KEYS.has(key)) rerenderWidget();
           if (RECENT_FEEDBACK_RERENDER_KEYS.has(key)) rerenderRecentFeedback();
@@ -3170,6 +3369,7 @@ function renderTabPane() {
       await saveSettings({ [key]: value });
       applySettings(settings);
       syncControlAvailability(root);
+      if (PLANNER_RERENDER_KEYS.has(key)) tick();
 
       // Special: if widget toggle changed, inject or remove
       if (key === 'widgetEnabled') {
@@ -3231,8 +3431,13 @@ const PREVIEW_REACTIVE_KEYS = new Set([
   'widgetShowCompleted', 'widgetHideAnnouncements', 'widgetHideDiscussions',
   'widgetShowFraction',
   'recentFeedbackShowDetails',
-  'plannerLayout', 'plannerDoneStyle',
+  'plannerLayout', 'plannerDoneStyle', 'plannerDoneOpacity',
   'plannerEmphasizeToday', 'plannerHideActivity',
+  'plannerTaskRowRedesignEnabled',
+]);
+
+const PLANNER_RERENDER_KEYS = new Set([
+  'plannerTaskRowRedesignEnabled',
 ]);
 
 const WIDGET_RERENDER_KEYS = new Set([
@@ -3450,11 +3655,15 @@ function skinPlannerGroupings() {
       : [];
     if (items) {
       items.style.setProperty('border-top', 'none', 'important');
-      items.style.setProperty('background', '#f2f3f5', 'important');
+      items.style.setProperty('background', '#f8f9fa', 'important');
       items.style.setProperty('padding', '8px', 'important');
       items.style.setProperty('display', 'block', 'important');
       items.style.setProperty('min-height', '0', 'important');
       items.style.setProperty('height', 'auto', 'important');
+      items.style.setProperty('border-top-right-radius', '8px', 'important');
+      items.style.setProperty('border-bottom-right-radius', '8px', 'important');
+      items.style.setProperty('border-top-left-radius', '0', 'important');
+      items.style.setProperty('border-bottom-left-radius', '0', 'important');
 
       Array.from(items.children).forEach((child, index) => {
         if (child.matches('.cc-completed-toggle-row')) return;
@@ -3486,10 +3695,10 @@ function skinPlannerGroupings() {
       nativeCompletedToggle.style.setProperty('justify-content', 'flex-start', 'important');
       nativeCompletedToggle.style.setProperty('gap', '6px', 'important');
       nativeCompletedToggle.style.setProperty('width', 'auto', 'important');
-      nativeCompletedToggle.style.setProperty('padding', '9px 10px', 'important');
-      nativeCompletedToggle.style.setProperty('border', '1px solid rgba(45, 59, 69, 0.16)', 'important');
-      nativeCompletedToggle.style.setProperty('border-radius', '999px', 'important');
-      nativeCompletedToggle.style.setProperty('background', '#ffffff', 'important');
+      nativeCompletedToggle.style.setProperty('padding', '0', 'important');
+      nativeCompletedToggle.style.setProperty('border', 'none', 'important');
+      nativeCompletedToggle.style.setProperty('border-radius', '0', 'important');
+      nativeCompletedToggle.style.setProperty('background', 'transparent', 'important');
       nativeCompletedToggle.style.setProperty('color', '#2a6fbe', 'important');
       nativeCompletedToggle.style.setProperty('font-size', '12px', 'important');
       nativeCompletedToggle.style.setProperty('font-weight', '600', 'important');
@@ -3498,6 +3707,7 @@ function skinPlannerGroupings() {
       nativeCompletedToggle.style.setProperty('margin', '0', 'important');
       nativeCompletedToggle.style.setProperty('white-space', 'nowrap', 'important');
       nativeCompletedToggle.style.setProperty('text-indent', '0', 'important');
+      nativeCompletedToggle.style.setProperty('text-decoration', 'none', 'important');
 
       const nativeRow = nativeCompletedToggle.closest('li');
       if (nativeRow) {
@@ -3513,6 +3723,11 @@ function skinPlannerGroupings() {
         nativeRow.style.setProperty('background', 'transparent', 'important');
         nativeRow.style.setProperty('padding', '0', 'important');
         nativeRow.style.setProperty('padding-left', '0', 'important');
+        if (items) {
+          items.style.setProperty('display', isOnlyItem ? 'flex' : 'block', 'important');
+          items.style.setProperty('flex-direction', isOnlyItem ? 'column' : 'initial', 'important');
+          items.style.setProperty('justify-content', isOnlyItem ? 'center' : 'initial', 'important');
+        }
       }
 
       const nativeFacade = nativeCompletedToggle.closest('.planner-completed-items, [class*="CompletedItemsFacade-styles__root"]');
@@ -3622,7 +3837,7 @@ function skinPlannerGroupings() {
       let primaryEl = null;
       let metaEl = null;
       let noteEl = null;
-      if (layoutEl && innerLayoutEl) {
+      if (settings.plannerTaskRowRedesignEnabled !== false && layoutEl && innerLayoutEl) {
         const layoutChildren = Array.from(layoutEl.children).filter(c => c.tagName !== 'STYLE');
         const innerChildren = Array.from(innerLayoutEl.children).filter(c => c.tagName !== 'STYLE');
         const hasCls = (el, token) => typeof el?.className === 'string' && el.className.includes(token);
@@ -3708,6 +3923,7 @@ function syncPlannerCompletedCollapseControls() {
     if (nativeFacade || !expandedCount || !completedWrappers.length) {
       existingToggleRow?.remove();
       delete group.dataset.ccCompletedCollapsed;
+      delete group.dataset.ccCompletedOnlyToggle;
       wrappers.forEach(child => child.style.removeProperty('display'));
       return;
     }
@@ -3732,6 +3948,14 @@ function syncPlannerCompletedCollapseControls() {
       if (hidden) child.style.setProperty('display', 'none', 'important');
       else child.style.removeProperty('display');
     });
+
+    const visibleTaskCount = completedWrappers.filter(child => child.style.getPropertyValue('display') !== 'none').length;
+    group.dataset.ccCompletedOnlyToggle = visibleTaskCount === 0 ? 'true' : 'false';
+    items.style.setProperty('display', visibleTaskCount === 0 ? 'flex' : 'block', 'important');
+    items.style.setProperty('flex-direction', visibleTaskCount === 0 ? 'column' : 'initial', 'important');
+    items.style.setProperty('justify-content', visibleTaskCount === 0 ? 'center' : 'initial', 'important');
+    toggleRow.style.setProperty('margin-top', visibleTaskCount === 0 ? '0' : '6px', 'important');
+    toggleRow.style.setProperty('margin-bottom', '0', 'important');
 
     const button = toggleRow.querySelector('.cc-completed-toggle-btn');
     if (button) {
