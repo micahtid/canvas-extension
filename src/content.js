@@ -3653,7 +3653,7 @@ function skinPlannerGroupings() {
       : [];
     if (items) {
       items.style.setProperty('border-top', 'none', 'important');
-      items.style.setProperty('background', 'var(--cc-planner-group-shell-bg, #f8f9fa)', 'important');
+      items.style.setProperty('background', 'var(--cc-planner-group-items-bg, #ffffff)', 'important');
       items.style.setProperty('padding', '8px', 'important');
       items.style.setProperty('display', 'block', 'important');
       items.style.setProperty('min-height', '0', 'important');
@@ -3698,16 +3698,17 @@ function skinPlannerGroupings() {
         }
       }
 
+      // Layout-only inline styles. Visual chrome (padding, border, border-radius,
+      // color, background) is owned by the stylesheet rules on
+      // `button[data-testid="completed-items-toggle"]` and `.cc-completed-toggle-btn`
+      // — writing those inline here would clobber the CSS every tick (inline
+      // !important beats stylesheet !important), which is why the pill chrome
+      // wasn't appearing despite the CSS rule existing.
       nativeCompletedToggle.style.setProperty('display', 'inline-flex', 'important');
       nativeCompletedToggle.style.setProperty('align-items', 'center', 'important');
       nativeCompletedToggle.style.setProperty('justify-content', 'flex-start', 'important');
       nativeCompletedToggle.style.setProperty('gap', '6px', 'important');
       nativeCompletedToggle.style.setProperty('width', 'auto', 'important');
-      nativeCompletedToggle.style.setProperty('padding', '0', 'important');
-      nativeCompletedToggle.style.setProperty('border', 'none', 'important');
-      nativeCompletedToggle.style.setProperty('border-radius', '0', 'important');
-      nativeCompletedToggle.style.setProperty('background', 'transparent', 'important');
-      nativeCompletedToggle.style.setProperty('color', 'var(--cc-dark-link, #d9d9d9)', 'important');
       nativeCompletedToggle.style.setProperty('font-size', '12px', 'important');
       nativeCompletedToggle.style.setProperty('font-weight', '600', 'important');
       nativeCompletedToggle.style.setProperty('line-height', '1.2', 'important');
@@ -3715,7 +3716,14 @@ function skinPlannerGroupings() {
       nativeCompletedToggle.style.setProperty('margin', '0', 'important');
       nativeCompletedToggle.style.setProperty('white-space', 'nowrap', 'important');
       nativeCompletedToggle.style.setProperty('text-indent', '0', 'important');
-      nativeCompletedToggle.style.setProperty('text-decoration', 'none', 'important');
+      // Clear any leftover overrides from previous builds that conflict with
+      // the stylesheet — needed for users upgrading from the no-pill version.
+      nativeCompletedToggle.style.removeProperty('padding');
+      nativeCompletedToggle.style.removeProperty('border');
+      nativeCompletedToggle.style.removeProperty('border-radius');
+      nativeCompletedToggle.style.removeProperty('background');
+      nativeCompletedToggle.style.removeProperty('color');
+      nativeCompletedToggle.style.removeProperty('text-decoration');
 
       const nativeRow = nativeCompletedToggle.closest('li');
       if (nativeRow) {
@@ -3829,15 +3837,19 @@ function skinPlannerGroupings() {
     }
 
     group.querySelectorAll('[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"]').forEach(row => {
-      row.style.setProperty('background', 'var(--cc-planner-group-item-bg, #ffffff)', 'important');
-      row.style.setProperty('border-radius', '10px', 'important');
-      row.style.setProperty('box-shadow', 'var(--cc-planner-group-item-shadow, 0 1px 4px rgba(0, 0, 0, 0.09))', 'important');
+      // Layout-only inline styles — visual chrome (background, border-radius,
+      // box-shadow, padding) is owned by the stylesheet so the no-card
+      // treatment isn't clobbered every tick. removeProperty calls below
+      // clear any leftover values from prior builds.
       row.style.setProperty('border', 'none', 'important');
       row.style.setProperty('display', 'flex', 'important');
       row.style.setProperty('align-items', 'flex-start', 'important');
       row.style.setProperty('gap', '12px', 'important');
-      row.style.setProperty('padding', '14px 16px', 'important');
       row.style.setProperty('min-height', '0', 'important');
+      row.style.removeProperty('background');
+      row.style.removeProperty('border-radius');
+      row.style.removeProperty('box-shadow');
+      row.style.removeProperty('padding');
 
       const completed = row.querySelector('[class*="PlannerItem-styles__completed"]');
       if (completed) {
@@ -4173,8 +4185,39 @@ async function earlyInit() {
   }
 }
 
+// Canvas feature-detect — true when the page exposes Canvas's identifying
+// chrome. The extension may be granted on arbitrary domains via
+// `optional_host_permissions`, but should only modify pages that are actually
+// Canvas. Checked at DOMContentLoaded since `body.ic-app` isn't yet present
+// at document_start. Falls back to a `window.ENV` probe (Canvas exposes
+// `ENV.current_user_id`/`ENV.DOMAIN_ROOT_ACCOUNT_ID` globally) for cases
+// where the body class is missing but the JS context is Canvas's.
+function isCanvasPage() {
+  if (document.body?.classList?.contains('ic-app')) return true;
+  if (document.querySelector('.ic-app, #application.ic-app, body.ic-app')) return true;
+  try {
+    if (window.ENV && (window.ENV.current_user_id != null || window.ENV.DOMAIN_ROOT_ACCOUNT_ID != null)) {
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 // Phase 2 — runs once DOM is parsed. Observer, widget, inline bg sweep.
 function domInit() {
+  if (!isCanvasPage()) {
+    // Non-Canvas page (extension granted via optional host permission but the
+    // user navigated somewhere unrelated). Clear our html-level data attrs so
+    // CSS rules keyed on `[data-cc-dark-mode="on"]` etc. don't fire here.
+    const root = document.documentElement;
+    ['ccDarkMode', 'ccPlannerLayout', 'ccCardShadow', 'ccTextColor',
+     'ccPlannerItemBg', 'ccPlannerItemText', 'ccPlannerDayBg', 'ccPlannerDayText',
+     'ccPlannerDoneStyle', 'ccPlannerEmphasizeToday', 'ccPlannerHideEmptyDays',
+     'ccPlannerHideActivity', 'ccSidebarRestyle', 'ccSidebarLabelPos']
+       .forEach(k => { delete root.dataset[k]; });
+    markReady();
+    return;
+  }
   if (settings.extensionEnabled) applyBgInline();
   observer.observe(document.documentElement, { childList: true, subtree: true });
   tick();

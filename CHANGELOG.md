@@ -6,6 +6,95 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-29 (16)
+
+### Planner — Reverted "Show N Completed Items" pill back to plain text link (REVERTS 8 / 8.1)
+- **Where:** `src/content.css` — `.cc-completed-toggle-btn` block (~line 1375), associated `:hover/:focus-visible` rule, the standalone `button[data-testid="completed-items-toggle"]` pill rule, and the dark-mode overrides covering both selectors.
+- **What:** Stripped `padding: 4px 10px`, `border: 1px solid #d0d4d8`, `border-radius: 999px` from `.cc-completed-toggle-btn`; reverted hover from "subtle bg fill + darker border" back to underline-on-text. Deleted the standalone `button[data-testid="completed-items-toggle"]` pill rule entirely (Canvas's default Link styling now applies). Dark mode overrides reduced to color-only — no border / radius / padding — and hover restores `text-decoration: underline`. The earlier 2026-04-29 (8) and (8.1) pill changes are now `(REVERTED)` in spirit; the inline-style cleanup in `content.js` from (8.1) is kept (still good — those `removeProperty` calls clear any leftover values from past builds).
+- **Why:** User changed their mind on the pill design and prefers a plain text link.
+
+## 2026-04-29 (15)
+
+### Dark mode — Primary buttons (`.Button--primary`, `.btn-primary`) + submission comments
+- **Where:** `src/content.css` — three new rules appended after the existing `.Button--primary` paint (~line 1660). Targets: `.Button--primary` / `.btn-primary` (anchor + button variants), and `.submission-details-comments > div`, `.submission-details-comments .comments`, `.submission-details-frame`.
+- **What:**
+  - **Primary button bg restored in dark mode.** Added `[data-cc-dark-mode="on"] .ic-app .Button--primary { background-color: var(--cc-accent) !important; color: #ffffff !important; }` (plus `:hover/:focus` and the `.btn-primary` legacy variant). The existing `.Button--primary, button.Button--primary` rule was specificity (0,1,1) — Layer 0's `:where(...)` blanket resolves to (0,2,0), so with both `!important` Layer 0 wins on specificity and the button rendered outline-only. Prefixing with `[data-cc-dark-mode="on"] .ic-app` lifts the rule to (0,3,1) and the button gets its accent fill back.
+  - **Submission comments panel.** Painted `.submission-details-comments > div` and friends with `var(--cc-dark-page-bg)` + `var(--cc-dark-text)`. Canvas hardcodes `style="background-color: #fff"` on the inner wrapper of the right-rail comments column on assignment submission pages; Layer 0 explicitly exempts `[style*="background"]` to preserve dashboard course-card hero colors, so the literal `#fff` survived and rendered as a stark white slab against the dark page. Class-anchored `!important` rule overrides the inline value.
+- **Why:** User reported `Re-submit Assignment` and `Save` (comment) buttons rendering outline-only, plus the entire comments panel showing white inside the otherwise-dark assignment page.
+- **Pattern (P19):** Layer 0's `:where()` wrapper sets a (0,2,0) floor for every dark-mode bg-clear. Any class-anchored repaint rule in this codebase needs at least 2 classes + 1 element (or comparable specificity) AND `!important` to win — and it must live after Layer 0 in source order to break ties. Single-class repaints like `.Button--primary { ... !important }` quietly lose. When something paints "outline only" or "blanket-cleared" in dark mode, the first thing to check is the rule's specificity vs (0,2,0).
+
+## 2026-04-29 (14)
+
+### Portability — Extension no longer hardcoded to canvas.unl.edu
+- **Where:** `manifest.json` (host_permissions + content_scripts.matches + new `optional_host_permissions`); `src/content.js` (new `isCanvasPage()` feature-detect + early-return guard at the top of `domInit()`); `src/content.css` (DesignPLUS dark-mode block — dropped UNL-specific `[class*="kl_"]` selector).
+- **What:**
+  - **manifest.json:** `host_permissions` and `content_scripts.matches` now include `https://*.instructure.com/*` (covers every Canvas Cloud instance) alongside the existing `https://canvas.unl.edu/*`. Added `optional_host_permissions: ["https://*/*"]` so users on schools with custom Canvas domains (e.g. `canvas.byu.edu`, `learn.example.edu`) can grant the extension at runtime instead of editing the manifest. Added `"scripting"` to `permissions` so the background service worker can re-inject content scripts on newly-granted hosts (wiring left for a follow-up settings UI).
+  - **content.js:** Added `isCanvasPage()` — checks for `body.ic-app` / `.ic-app` / `#application.ic-app` / a Canvas-shaped `window.ENV` global. `domInit()` now early-returns on non-Canvas pages and clears all `data-cc-*` attrs from `<html>` so the stylesheet (which loads on every matched URL) can't paint anything when the extension is granted on an unrelated site.
+  - **content.css:** Removed `[class*="kl_"]` from the DesignPLUS transparent-content-block rule. UNL's `kl_*` was a school-specific DesignPLUS template prefix; other schools use `byu_*`, `usu_*`, etc. Relying on `[class*="dp-content-block"]` alone catches the same DOM in every school's template since DesignPLUS always emits that class as a sibling of the school-specific prefix.
+- **Why:** User asked whether the extension is reusable across schools. It was anchored to canvas.unl.edu in the manifest and to UNL's `kl_*` prefix in the CSS. Both are now generalized — the extension installs on Canvas Cloud out of the box, supports custom-domain schools via runtime permission grant, and the only school-specific selector is gone.
+
+## 2026-04-29 (13)
+
+### Dark mode — InstUI Badge ("4 opportunities" alert bell) red fill restored
+- **Where:** `src/content.css` — new rule appended after the dashboard-header badge rule (~line 4996), scoped to `[data-cc-dark-mode="on"] [data-cid="Badge"] > [class*="view--block-badge"]`.
+- **What:** Painted the InstUI Badge pill `background-color: #e0062f`, white text, plus a subtle border and ring matching the other red notification badges. Targets the visible `[class*="view--block-badge"]` *child* of the `[data-cid="Badge"]` wrapper — never the wrapper itself, since the wrapper contains the IconButton it labels and painting it red would bleed behind the icon.
+- **Why:** User reported the alert bell's "4 opportunities" pill was missing its red background. Root cause: every existing badge rule keyed on `__badge` (double-underscore BEM child suffix), but InstUI's actual class shape is `-badge` (single-dash) on the visible pill (`view--block-badge`) and `badge__` on the wrapper (`badge__wrapper`). The pill's class didn't contain `__badge` anywhere, so Layer 0's blanket cleared its bg in dark mode and nothing repainted it.
+- **Pattern (P18):** Substring-match selectors are sensitive to BEM separator conventions. `__name` won't match `-name` and vice-versa. When extending a notification-style rule to a new component, grep the actual class names rendered by that component first instead of assuming the BEM shape; InstUI mixes `__` (for true BEM children like `__wrapper`, `__icon`) with `--` (for view-modifier variants like `--block`, `--inlineBlock`) and `-` (for one-off names like `-badge`).
+
+## 2026-04-29 (12)
+
+### Immersive Reader button — Hide while modal / dialog / tray is open
+- **Where:** `src/content.css` — new rule appended after the existing `#immersive_reader_mount_point` dark-mode block (~line 4632).
+- **What:** Hides `#immersive_reader_mount_point` whenever the page contains an active jQuery UI dialog (`.ui-widget-overlay`), an InstUI Modal portal (`[class*="Modal__layout"]`, `[class*="modalDialog"]`), a native ARIA modal (`[role="dialog"][aria-modal="true"]`), or a populated InstUI Tray (`#nav-tray-portal > *`). Implemented via `:root:has(...) #immersive_reader_mount_point { display: none !important }` so the rule is purely declarative and reacts to DOM presence without any JS observer.
+- **Why:** User reported the Immersive Reader button stayed visible when a modal opened, overlapping modal content. The button sits in page-level chrome and isn't moved into the overlay stack, so its z-index can sit on top of the modal scrim. Hiding it while any overlay is open gets the user back to a clean modal interaction.
+
+## 2026-04-29 (11)
+
+### DesignPLUS — Wrapper + header transparent (was painting navy in dark mode)
+- **Where:** `src/content.css` — DesignPLUS dark-mode block (~line 4857). Selector list extended to include `.dp-wrapper`, `.dp-header`, `.dp-basic-bar`, `.dp-dark-mode`, `[class*="dp-wrapper"]`, `[class*="dp-header"]`. Added an explicit `background: transparent !important` (longhand) alongside the existing `background-color`/`background-image` clears.
+- **What:** The previous rule only neutralized inner content blocks (`.dp-content-block`, `.dp-callout`, etc.) — the outer `.dp-wrapper` and the `.dp-header` banner above it kept their DesignPLUS theme paint. When the user's pages had `class="dp-wrapper dp-basic-bar dp-dark-mode"` (DesignPLUS's own dark-mode skin), that inner skin's navy fill bled through ours since we hadn't touched the wrapper. Now wrapper, header, basic-bar variant, and DesignPLUS's own dark-mode class all get cleared, plus their `[class*=]` partials catch hashed/suffixed variants.
+- **Why:** User reported "lots of the backgrounds here, almost a navy blue" on a page using the DesignPLUS template with `dp-dark-mode` baked in. DesignPLUS's own dark theme was competing with ours and winning at the wrapper level.
+
+## 2026-04-29 (10.1)
+
+### Planner — Items tray restored to white (correction to 10)
+- **Where:** `src/content.css` (`[class*="Grouping-styles__items"]` block ~line 1344; new `--cc-planner-group-items-bg` token defined in the dark-mode `:root` block ~line 4297) and `src/content.js` (items inline-style writer ~line 3656).
+- **What:** The 10.0 change made the items column transparent to remove the "different background from what's behind it" issue — but it removed *the* surface the (now flat) task rows were meant to sit on. Restored the items column's bg, this time at the *tray* level rather than per-row: `background: var(--cc-planner-group-items-bg, #ffffff) !important`. The variable resolves to `#ffffff` in light mode and `#252525` (matches `--cc-dark-surface-raised`) in dark mode. JS writer also brought back, painting the same variable inline so the value survives observer ticks.
+- **Why:** User wanted the task rows themselves flat, but the column behind them to carry the white "card" surface that individual rows used to draw. This produces "one big card per Daily Course Card" instead of "stack of separate task cards on a gray panel" or "stack of bare rows on the page". Net visual: hero stripe on the left, single white panel on the right with a flat list of tasks.
+
+## 2026-04-29 (10)
+
+### Planner & Modules — Items tray + module headers transparent
+- **Where:** `src/content.js` (`skinPlannerGroupings()` items-container inline-style writer, ~line 3656); `src/content.css` (`[class*="Grouping-styles__items"]` block, ~line 1344; new `.ig-header.header` rule appended to the dark-blanket region, ~line 4395).
+- **What:**
+  - **Planner items tray:** removed the JS write `items.style.setProperty('background', 'var(--cc-planner-group-shell-bg, #f8f9fa)', 'important')` and changed the stylesheet rule from `background: #f8f9fa` to `background: transparent`. The items column inside each group now inherits the page bg instead of painting a separate light-gray panel.
+  - **Modules page collapsible header:** added a light-mode `background: transparent` rule on `.ig-header.header`, `.context_module .ig-header`, and `.context_module > .ig-header` so the module title row no longer renders a gray bar across the page.
+- **Why:** User reported the items column looked like a different surface from what was behind it — wanted the rows to sit directly on the page. Same complaint extended to the Modules page header, which Canvas paints a default gray.
+
+## 2026-04-29 (9)
+
+### Planner — Removed card chrome from task rows in grouped view
+- **Where:** `src/content.css` (light-mode `[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"]` block, ~line 1491; dark-mode grouped-layout planner-item block, ~line 5048) and `src/content.js` (`skinPlannerGroupings()` per-row inline-style writer, ~line 3839).
+- **What:** Stripped `background: #ffffff`, `border-radius: 10px`, `box-shadow: 0 1px 4px ...` from each task row so they sit directly inside the group's items container instead of looking like nested raised cards. Padding reduced from `14px 16px` to `8px 4px` since the rows no longer need internal card breathing room. Dark mode mirrored: `background: var(--cc-dark-surface-raised)` and `border-color: var(--cc-dark-border)` swapped to `transparent` so the rows inherit the group shell's tint. Removed the same chrome properties from the JS inline-style writer (kept layout-only `display/align-items/gap/border:none/min-height`) and added `removeProperty` calls for `background`, `border-radius`, `box-shadow`, `padding` to clear any leftover values written by prior builds.
+- **Why:** User asked for tasks to render directly in the container without a distinct card surface. The previous double-card look (group shell + inner item card) was visually noisy; flattening to single-surface rows reads more like a list.
+- **Pattern (P17 repeat):** Same inline-vs-stylesheet competition as 2026-04-29 (8.1). Stylesheet changes alone wouldn't have visible effect because `skinPlannerGroupings()` was writing the card chrome inline every observer tick — needed to delete the JS writes too, not just update the CSS.
+
+## 2026-04-29 (8.1) (REVERTED — see 2026-04-29 (16))
+
+### Planner — Pill chrome was being clobbered by inline styles every tick
+- **Where:** `src/content.js` (`skinPlannerGroupings()` native-toggle inline-style block, ~line 3700).
+- **What:** The 8.0 stylesheet change had no visual effect because `skinPlannerGroupings()` was already writing `padding: 0 !important; border: none !important; border-radius: 0 !important; background: transparent !important; color: var(--cc-dark-link, #d9d9d9) !important; text-decoration: none !important` directly onto the native button on every observer tick. Inline `!important` beats stylesheet `!important`, so the CSS pill chrome was being erased frame after frame. Removed those six properties from the inline-style writer (kept only the layout-related ones — display, gap, font-size, etc.) and added explicit `removeProperty` calls for each so users upgrading from a prior build get any leftover inline values cleared.
+- **Why (additional bug found):** The `color` line was hardcoded to `var(--cc-dark-link, #d9d9d9)` *unconditionally*. In light mode `--cc-dark-link` is undefined, so the fallback `#d9d9d9` painted the toggle text near-invisible light-grey on white. Letting the stylesheet own `color` instead gives `#2a6fbe` in light mode and `var(--cc-dark-link)` in dark.
+- **Pattern (P17):** When a stylesheet rule appears not to apply, suspect inline-style writers before suspecting selector specificity. Inline styles always outrank stylesheet rules at the same importance, so a JS path that writes the same property every tick is invisible competition. The diagnostic question is "what does `getComputedStyle()` show for this property, and what does the inspector's element panel show in the inline-style column?" — disagreement between the two is the smoking gun.
+
+## 2026-04-29 (8) (REVERTED — see 2026-04-29 (16))
+
+### Planner — "Show N completed items" toggle restyled as pill
+- **Where:** `src/content.css` — `.cc-completed-toggle-btn` base + `:hover/:focus-visible` rules; light-mode pill applied to Canvas's native `button[data-testid="completed-items-toggle"]` via the `!important`-everywhere rule; `[data-cc-dark-mode="on"]` overrides covering both selectors.
+- **What:** Gave the toggle a pill-shaped chip look — `border: 1px solid #d0d4d8`, `border-radius: 999px`, `padding: 4px 10px`. Hover/focus state changed from underline-on-text to subtle bg fill (`rgba(42,111,190,0.08)`) plus slightly darker border (`#a8b0b8`); underline removed since it reads odd inside a bordered chip. Dark mode mirrors the shape via `var(--cc-dark-border)`, `border-radius: 999px`, matching padding, and a translucent-white hover bg. Transition list expanded from `color, text-decoration-color` to `color, border-color, background-color`.
+- **Why:** User asked for a fully rounded border + thin gray border on the "> Show N Completed Items" affordance. The chip framing makes the row feel like a tappable control rather than a bare link, and pairs visually with InstUI's other pill-shaped affordances elsewhere in the planner.
+- **Pattern repeat (P16):** Initial pass styled only `.cc-completed-toggle-btn` (our injected row) — but the user's groups render Canvas's *native* `button[data-testid="completed-items-toggle"]` instead, so they saw no change. Same two-code-paths trap as 2026-04-29 (7); both selectors need to be styled in lockstep for any visual change to be visible across both layouts.
+
 ## 2026-04-29 (7)
 
 ### Planner — Centring fix was in the wrong function (native facade vs. injected row)

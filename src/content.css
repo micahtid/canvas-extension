@@ -1339,11 +1339,13 @@ html[data-cc-dark-mode="on"][data-cc-page="course-grades"] .ic-app-main-content_
   display: none !important;
 }
 
-/* Items tray: subtle gray so Task Cards float above it.
-   Remove the colored top border Canvas injects between the hero and items. */
+/* Items tray: white surface that the (now flat) task rows sit directly on,
+   so the whole items column reads as a single card panel rather than a row of
+   individually-bordered cards. Remove the colored top border Canvas injects
+   between the hero and items. Variable swaps to a dark surface in dark mode. */
 [class*="Grouping-styles__items"] {
   border-top: none !important;
-  background: #f8f9fa !important;
+  background: var(--cc-planner-group-items-bg, #ffffff) !important;
   padding: 8px !important;
   display: block !important;
   min-height: 0 !important;
@@ -1457,18 +1459,20 @@ html[data-cc-dark-mode="on"][data-cc-page="course-grades"] .ic-app-main-content_
   padding-left: 0 !important;
 }
 
-/* Task Cards: white, rounded; shadow defines the card — no hard border lines.
-   Top-align children to prevent vertical centering in tall cards. */
+/* Task rows: render directly in the group container — no card chrome.
+   Background, border-radius, and box-shadow stripped so each row inherits the
+   group's surface color. Padding reduced to in-container spacing.
+   Top-align children to prevent vertical centering in tall rows. */
 [class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"] {
-  background: #ffffff !important;
-  border-radius: 10px !important;
+  background: transparent !important;
+  border-radius: 0 !important;
   margin-top: 0 !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09) !important;
+  box-shadow: none !important;
   border: none !important;
   display: flex !important;
   align-items: flex-start !important;
   gap: 12px !important;
-  padding: 14px 16px !important;
+  padding: 8px 4px !important;
   min-height: 0 !important;
 }
 [class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"] > * {
@@ -1622,6 +1626,42 @@ a.Button--link, .Button--link, .ic-Login__link {
 .Button--primary, button.Button--primary {
   background-color: var(--cc-accent, #008ee2) !important;
   border-color: var(--cc-accent, #008ee2) !important;
+}
+
+/* Dark-mode primary buttons (`.Button--primary`, `.btn-primary`) need higher
+   specificity than Layer 0's `.ic-app *` blanket — the (0,1,1) class+element
+   rule above otherwise loses to Layer 0's (0,2,0) and the button paints
+   transparent (outline-only). Prefixing with `[data-cc-dark-mode="on"]
+   .ic-app` ties Layer 0 on class count and wins on source order. White text
+   forced for legibility against the saturated accent fill. */
+[data-cc-dark-mode="on"] .ic-app .Button--primary,
+[data-cc-dark-mode="on"] .ic-app a.Button--primary,
+[data-cc-dark-mode="on"] .ic-app button.Button--primary,
+[data-cc-dark-mode="on"] .ic-app .btn-primary,
+[data-cc-dark-mode="on"] .ic-app a.btn-primary,
+[data-cc-dark-mode="on"] .ic-app button.btn-primary {
+  background-color: var(--cc-accent, #008ee2) !important;
+  border-color: var(--cc-accent, #008ee2) !important;
+  color: #ffffff !important;
+}
+[data-cc-dark-mode="on"] .ic-app .Button--primary:hover,
+[data-cc-dark-mode="on"] .ic-app .Button--primary:focus,
+[data-cc-dark-mode="on"] .ic-app .btn-primary:hover,
+[data-cc-dark-mode="on"] .ic-app .btn-primary:focus {
+  filter: brightness(1.1);
+  color: #ffffff !important;
+}
+
+/* Submission-details right rail — Canvas writes a literal
+   `style="background-color: #fff"` on the inner wrapper, which Layer 0
+   exempts (it preserves inline `[style*="background"]` to keep course-card
+   hero colors intact). Override explicitly with !important so the comments
+   panel doesn't render as a stark white slab in dark mode. */
+[data-cc-dark-mode="on"] .submission-details-comments > div,
+[data-cc-dark-mode="on"] .submission-details-comments .comments,
+[data-cc-dark-mode="on"] .submission-details-frame {
+  background-color: var(--cc-dark-page-bg) !important;
+  color: var(--cc-dark-text) !important;
 }
 
 [data-cc-density="compact"] .ic-DashboardCard__action-container {
@@ -4261,6 +4301,7 @@ a.Button--link, .Button--link, .ic-Login__link {
   --cc-dark-icon: #d4d4d4;
   --cc-planner-group-shell-bg: #202020;
   --cc-planner-group-item-bg: #252525;
+  --cc-planner-group-items-bg: #252525;
   --cc-planner-group-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
   --cc-planner-group-item-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
@@ -4352,6 +4393,17 @@ html[data-cc-dark-mode="on"] body {
 [data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"], .course-menu, #section-tabs, #section-tabs .section, #wiki_page_show, #course_home_content, #course_show_secondary, .content-box, .item-group-container, .ig-header, .ig-list, .ig-row, .module-sequence-footer, .module-sequence-footer-content, .summary, .ic-item-row, .assignment-details, .student-assignment-overview, .header-bar-outer-container, .sticky-toolbar, .header-bar, .page-toolbar, .breadcrumbs, nav#breadcrumbs) {
   background-color: transparent !important;
   border-color: var(--cc-dark-border) !important;
+}
+
+/* Modules page — collapsible module title (.ig-header.header). Canvas paints
+   a gray bar across the top of each module by default; clear it so the title
+   row sits flush against the page bg in both light and dark modes. */
+.ig-header.header,
+.context_module .ig-header,
+.context_module > .ig-header {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 /* Raised surfaces that should "float" off the page — cards, planner items,
@@ -4587,6 +4639,21 @@ html[data-cc-dark-mode="on"] #nav-tray-portal [role="menuitem"]:focus {
   color: var(--cc-dark-text) !important;
 }
 
+/* Hide the Immersive Reader button while any modal / dialog / tray is open.
+   The button sits in page-level chrome and overlaps modal content because its
+   mount point isn't moved into the overlay stack. Detection covers:
+     - jQuery UI dialogs (`.ui-widget-overlay`)
+     - InstUI Modal portal (`[class*="Modal__layout"]`, `[class*="modalDialog"]`)
+     - Native ARIA modals (`[role="dialog"][aria-modal="true"]`)
+     - InstUI Tray (rendered into `#nav-tray-portal` when open) */
+:root:has(.ui-widget-overlay) #immersive_reader_mount_point,
+:root:has([role="dialog"][aria-modal="true"]) #immersive_reader_mount_point,
+:root:has([class*="Modal__layout"]) #immersive_reader_mount_point,
+:root:has([class*="modalDialog"]) #immersive_reader_mount_point,
+:root:has(#nav-tray-portal > *) #immersive_reader_mount_point {
+  display: none !important;
+}
+
 /* Buttons in main content / right-side / breadcrumbs get a "raised" pill so
    secondary actions (Edit / Manage / Settings) read correctly. Excludes:
      - Primary / danger buttons (keep their accent color)
@@ -4803,16 +4870,21 @@ html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg * {
 }
 
 /* ===== DesignPLUS content containers =====
-   Layer 0 exempts `[class*="dp-"]` so the UNL red `dp-header` banner survives
+   Layer 0 exempts `[class*="dp-"]` so the DesignPLUS header banner survives
    in dark mode — but the same exemption preserves every other dp-* content
    container's bg, including the tan/light backgrounds DesignPLUS gives to
    `dp-content-block`, `dp-callout`, `dp-card`, `dp-quote`. Those read as
    mismatched panels against `--cc-dark-page-bg`. Force them transparent so
    they sit flush against our dark surface, while leaving truly chrome-y
-   DesignPLUS regions (header banner, image hero strips) alone. The `kl_*`
-   patterns are UNL-institution custom classes that follow the same shape
-   as DesignPLUS content blocks. */
+   DesignPLUS regions (header banner, image hero strips) alone.
+   School-specific DesignPLUS template prefixes (e.g. `kl_*`, `byu_*`) used
+   to be enumerated here; dropped in favour of relying on `dp-content-block`
+   alone, which DesignPLUS always emits as a sibling of these custom prefixes. */
 [data-cc-dark-mode="on"] .ic-app :is(
+  .dp-wrapper,
+  .dp-header,
+  .dp-basic-bar,
+  .dp-dark-mode,
   .dp-content-block,
   .dp-content-text-block,
   .dp-content-list-block,
@@ -4824,9 +4896,11 @@ html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg * {
   .dp-quote,
   .dp-info-box,
   .dp-table-scroll,
-  [class*="dp-content-block"],
-  [class*="kl_"]
+  [class*="dp-wrapper"],
+  [class*="dp-header"],
+  [class*="dp-content-block"]
 ) {
+  background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
   border-color: var(--cc-dark-border) !important;
@@ -4927,6 +5001,21 @@ html[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-head
   box-shadow: 0 0 0 2px rgba(25, 25, 25, 0.76) !important;
 }
 
+/* InstUI <Badge> count pill (e.g. the "4 opportunities" pill on the alerts
+   bell). InstUI's class shape is `..-view--block-badge` for the visible pill
+   and `..-badge__wrapper` for the outer span — the existing rules above only
+   matched `__badge` (double underscore) not `-badge` (single dash), so this
+   particular pill slipped through and Layer 0's blanket left it transparent.
+   We target the pill child specifically (not the wrapper) to avoid painting
+   behind the IconButton the wrapper contains — same wrapper-bleed trap noted
+   at the top of the dashboard-header rule. */
+[data-cc-dark-mode="on"] [data-cid="Badge"] > [class*="view--block-badge"] {
+  background-color: #e0062f !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0 0 2px var(--cc-dark-page-bg) !important;
+}
+
 /* Activity feed stream-type icons — Canvas draws colored circles to indicate
    the notification type (announcement, assignment, etc.). The blanket cleared
    their background-color; repaint with a neutral tinted circle so the glyph
@@ -5016,12 +5105,16 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
   background: rgba(255, 255, 255, 0.035) !important;
   border-color: var(--cc-dark-border) !important;
 }
+/* Dark-mode planner items: transparent so they read as in-container rows
+   rather than raised cards (matches the light-mode no-card treatment).
+   CompletedItemsFacade keeps a transparent bg too — the toggle pill provides
+   its own border. */
 [data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="PlannerItem-styles__root"],
 [data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="CompletedItemsFacade"],
 [data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] [class*="CompletedItems-styles"],
 [data-cc-dark-mode="on"][data-cc-planner-layout="grouped"] button[class*="complete"][class*="Facade"] {
-  background: var(--cc-dark-surface-raised) !important;
-  border-color: var(--cc-dark-border) !important;
+  background: transparent !important;
+  border-color: transparent !important;
 }
 
 /* Form inputs. Skip native-rendered controls (color, range, checkbox, radio,
