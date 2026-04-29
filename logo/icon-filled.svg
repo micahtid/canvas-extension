@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Outer surface: dark-mode page bg (#191919). -->
+  <rect width="128" height="128" rx="22" fill="#191919"/>
+  <!-- Cubes 61-px (5 % smaller than the previous 64-px), 8-px stagger. -->
+  <rect x="30" y="38" width="61" height="61" rx="12" fill="#b53838"/>
+  <rect x="38" y="30" width="61" height="61" rx="12" fill="#fc5050"/>
+</svg>

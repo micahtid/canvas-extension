@@ -48,6 +48,13 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   background: #ffffff;
 }
 
+html[data-cc-dark-mode="on"][data-cc-page="course-grades"] #cc-grades-widget-host,
+html[data-cc-dark-mode="on"][data-cc-page="course-grades"] #right-side-wrapper,
+html[data-cc-dark-mode="on"][data-cc-page="course-grades"] .ic-app-main-content__secondary {
+  background: var(--cc-dark-page-bg) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+
 @media (max-width: 900px) {
   html[data-cc-page="course-grades"] #cc-grades-widget-host #cc-weekly-tasks {
     max-width: none;
@@ -1359,7 +1366,7 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
 
 .cc-completed-toggle-row {
   display: block;
-  margin-top: 6px;
+  margin-top: 14px;
   list-style: none;
 }
 
@@ -1393,7 +1400,10 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   flex-shrink: 0;
   transform: rotate(0deg);
   transform-origin: center center;
-  transition: transform 0.18s ease;
+  /* No transition — instant rotation on aria-expanded toggle. The previous
+     0.18s ease animation read as a "twitch" because the chevron is small
+     and the angle change (0→90deg) is a hard 90° pivot rather than a slow
+     organic motion. Snap-swap reads cleaner. */
 }
 
 .cc-completed-toggle-chevron svg {
@@ -1417,6 +1427,19 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   color: #1f5b9e;
   text-decoration: underline;
   outline: none;
+}
+
+[data-cc-dark-mode="on"] .cc-completed-toggle-btn,
+[data-cc-dark-mode="on"] button[data-testid="completed-items-toggle"] {
+  color: var(--cc-dark-link) !important;
+}
+
+[data-cc-dark-mode="on"] .cc-completed-toggle-btn:hover,
+[data-cc-dark-mode="on"] .cc-completed-toggle-btn:focus-visible,
+[data-cc-dark-mode="on"] button[data-testid="completed-items-toggle"]:hover,
+[data-cc-dark-mode="on"] button[data-testid="completed-items-toggle"]:focus-visible {
+  color: var(--cc-dark-link-hover) !important;
+  text-decoration: underline !important;
 }
 
 .planner-completed-items,
@@ -1565,6 +1588,15 @@ html[data-cc-page="course-grades"] .ic-app-main-content__secondary {
   line-height: 24px !important;
 }
 
+[data-cc-dark-mode="on"] [class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant] [data-cc-planner-role="meta"] {
+  color: #a1a1a1 !important;
+}
+
+[data-cc-dark-mode="on"] [class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"][data-cc-planner-row-variant="with-feedback"] [data-cc-planner-role="note"] {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  color: #b6bcc6 !important;
+}
+
 /* Checkbox + icon vertical alignment is driven by skinPlannerGroupings()
    at runtime: it measures the title element's y-center per row and sets
    inline margin-top on completed/icon so their centers match. CSS can't
@@ -1597,10 +1629,6 @@ a.Button--link, .Button--link, .ic-Login__link {
 }
 [data-cc-density="comfortable"] .ic-DashboardCard__action-container {
   padding: 16px 20px !important;
-}
-
-button, .Button, input[type="text"], input[type="search"], select, textarea {
-  border-radius: var(--cc-radius, 8px) !important;
 }
 
 /* ---------- Scroll bars ---------- */
@@ -2851,7 +2879,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   color: #fff;
   border: none;
   padding: 9px 18px;
-  border-radius: var(--cc-radius, 8px);
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -2866,7 +2894,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   color: #4a5568;
   border: 1px solid #cbd5e0;
   padding: 9px 18px;
-  border-radius: var(--cc-radius, 8px);
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -2882,7 +2910,7 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
 
 .cc-preview-input {
   border: 1px solid #cbd5e0;
-  border-radius: var(--cc-radius, 8px);
+  border-radius: 8px;
   padding: 9px 12px;
   font-size: 13px;
   background: #fff;
@@ -4231,6 +4259,28 @@ button, .Button, input[type="text"], input[type="search"], select, textarea {
   --cc-dark-link: #d9d9d9;
   --cc-dark-link-hover: #ffffff;
   --cc-dark-icon: #d4d4d4;
+  --cc-planner-group-shell-bg: #202020;
+  --cc-planner-group-item-bg: #252525;
+  --cc-planner-group-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+  --cc-planner-group-item-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Tell the browser this page is dark. This single declaration adapts:
+     - Native scrollbars (track + thumb) without our minimal-scrollbar override
+     - Native form controls: <select> menus, date / time / file pickers, <input type="range">
+     - <input> autofill background (no more bright yellow on dark forms)
+     - Text selection highlight (::selection) — uses dark system colors
+     - Caret color in inputs / textareas
+     - Inset / system-color values on default browser UI
+   Set on html (root) so it applies to the whole page including descendants and
+   any same-origin iframes that don't declare their own color-scheme. The "off"
+   side is set explicitly so Canvas can't inherit the user's OS dark preference
+   when our toggle says light. */
+html[data-cc-dark-mode="on"] {
+  color-scheme: dark;
+}
+html[data-cc-dark-mode="off"] {
+  color-scheme: light;
 }
 
 /* ===== Layer 0 — Blanket nuke: wipe every background-COLOR inside the
@@ -4317,8 +4367,16 @@ html[data-cc-dark-mode="on"] #application :is(.ic-DashboardCard, .ic-DashboardCa
 [data-cc-dark-mode="on"] .ic-Dashboard-header__layout,
 [data-cc-dark-mode="on"] [class*="Dashboard-header__layout"],
 [data-cc-dark-mode="on"] [class*="ic-Dashboard-header"] {
-  background-color: var(--cc-dark-page-bg) !important;
-  border-color: transparent !important;
+  background: rgba(25, 25, 25, 0.76) !important;
+  background-color: rgba(25, 25, 25, 0.76) !important;
+  border-color: var(--cc-dark-border) !important;
+  backdrop-filter: blur(14px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(125%) !important;
+}
+
+html[data-cc-dark-mode="on"] #dashboard_header_container > :is(.ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"]) {
+  background: rgba(25, 25, 25, 0.76) !important;
+  background-color: rgba(25, 25, 25, 0.76) !important;
 }
 
 /* ===== Layer 2 — Sidebar / top nav: distinct darker surface ===== */
@@ -4426,6 +4484,23 @@ html[data-cc-dark-mode="on"] #header .ic-app-header__menu-list-item:has(#global_
   color: var(--cc-dark-icon) !important;
 }
 
+/* Keep Canvas nav/hamburger controls visually minimal in dark mode too. */
+[data-cc-dark-mode="on"] :is(#header .mobile-header-hamburger, .ic-app-nav-toggle-and-crumbs .mobile-header-hamburger) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-cc-dark-mode="on"] :is(#header .mobile-header-hamburger, .ic-app-nav-toggle-and-crumbs .mobile-header-hamburger):hover,
+[data-cc-dark-mode="on"] :is(#header .mobile-header-hamburger, .ic-app-nav-toggle-and-crumbs .mobile-header-hamburger):focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 /* Notification badge on sidebar icons (Inbox unread, etc.) — keep Canvas's
    accent red so counts are readable, but paint explicitly so the blanket
    doesn't wipe the fill. Prefixed with #header to clear (0,7,3). */
@@ -4467,7 +4542,25 @@ html[data-cc-dark-mode="on"] #nav-tray-portal [role="region"] {
   background-color: var(--cc-dark-surface) !important;
   border-color: var(--cc-dark-border) !important;
   color: var(--cc-dark-text) !important;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: none !important;
+}
+
+/* Outer Tray panel only: force full viewport height + a single soft halo
+   shadow. The previous rule applied a `box-shadow: 0 18px 48px` to every
+   nested wrapper, which (a) compounded into 5+ overlapping drop-shadows
+   and (b) drew downward, so when the panel's content ended mid-viewport
+   the shadow appeared as a visible horizontal band at the panel's bottom.
+   Forcing min-height: 100vh on the panel + Canvas's tray container also
+   prevents the underlying page bg (#191919) from peeking through where
+   the panel sized to content rather than viewport. */
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="Tray__"],
+html[data-cc-dark-mode="on"] #nav-tray-portal .navigation-tray-container,
+html[data-cc-dark-mode="on"] #nav-tray-portal [role="dialog"] {
+  min-height: 100vh !important;
+  box-sizing: border-box !important;
+}
+html[data-cc-dark-mode="on"] #nav-tray-portal [class*="Tray__"] {
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.4) !important;
 }
 
 html[data-cc-dark-mode="on"] #nav-tray-portal *:not(svg):not(svg *) {
@@ -4494,18 +4587,75 @@ html[data-cc-dark-mode="on"] #nav-tray-portal [role="menuitem"]:focus {
   color: var(--cc-dark-text) !important;
 }
 
-[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger) {
+/* Buttons in main content / right-side / breadcrumbs get a "raised" pill so
+   secondary actions (Edit / Manage / Settings) read correctly. Excludes:
+     - Primary / danger buttons (keep their accent color)
+     - Our own widgets and Ally chrome
+     - The Course Nav hamburger (#courseMenuToggle / .ic-app-course-nav-toggle)
+       — this is icon-only and the icon-button rule below intends transparent.
+       The gray rule's `:is(#... id selectors ...)` elevates specificity to
+       (1, n, 1), out-ranking the icon-button rule (1, 3, 2), so without an
+       explicit exclusion the hamburger wrongly gets the surface-raised pill.
+     - InstUI IconButton (`data-cid="… IconButton …"`) — same reason: meant
+       to render as a transparent icon, painting it gray is wrong.
+     - Any button whose only child is an `<i class="icon-…">` or `<svg>` —
+       belt to catch icon-only Canvas buttons we haven't enumerated. */
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs, #nav-tray-portal, #flash_message_holder) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not([class*="cc-"]):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):not(#courseMenuToggle):not(.ic-app-course-nav-toggle):not([data-cid*="IconButton"]) {
   background-color: var(--cc-dark-surface-raised) !important;
   border-color: var(--cc-dark-border) !important;
   color: var(--cc-dark-text) !important;
   box-shadow: none !important;
 }
 
-[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):hover,
-[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not(.cc-task-link):not(.cc-feedback-item):not(.cc-section-toggle):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):focus {
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs, #nav-tray-portal, #flash_message_holder) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not([class*="cc-"]):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):not(#courseMenuToggle):not(.ic-app-course-nav-toggle):not([data-cid*="IconButton"]):hover,
+[data-cc-dark-mode="on"] :is(#course_show_secondary, #content, #right-side, .ic-app-main-content, .ic-app-nav-toggle-and-crumbs, #nav-tray-portal, #flash_message_holder) :is(a.Button, .Button, a.btn, .btn, button, [role="button"]):not(.Button--primary):not(.btn-primary):not(.Button--danger):not(.btn-danger):not([class*="cc-"]):not(.ally-accessible-versions):not([class*="ally-"]):not(.al-trigger):not(#courseMenuToggle):not(.ic-app-course-nav-toggle):not([data-cid*="IconButton"]):focus {
   background-color: #2a2a2a !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   color: #ffffff !important;
+}
+
+/* Course Nav hamburger toggle: the icon-button rule below covers it via
+   `.ic-app-nav-toggle-and-crumbs :is(button)…:has(svg, i[class*="icon-"]…)`,
+   but its specificity (1,3,2) loses to the gray-button rule (1,12,1) when
+   both apply. We've excluded the hamburger from the gray rule above; this
+   rule is a belt that re-asserts transparent + light icon color in case
+   another future rule tries to claim it. */
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle),
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle):hover,
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle):focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--cc-dark-icon) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle) :is(i[class*="icon-"], svg, svg path) {
+  color: var(--cc-dark-icon) !important;
+  fill: currentColor !important;
+}
+
+/* Canvas icon-only chrome stays transparent in light mode; keep that behavior
+   in dark mode too rather than giving dashboard/course-nav controls a pill. */
+html[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"], .ic-app-nav-toggle-and-crumbs) :is(button, a, [role="button"]):has(svg, i[class*="icon-"], i.icon-hamburger),
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--cc-dark-icon) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+html[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"], .ic-app-nav-toggle-and-crumbs) :is(button, a, [role="button"]):has(svg, i[class*="icon-"], i.icon-hamburger):hover,
+html[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"], .ic-app-nav-toggle-and-crumbs) :is(button, a, [role="button"]):has(svg, i[class*="icon-"], i.icon-hamburger):focus,
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle):hover,
+html[data-cc-dark-mode="on"] :is(#courseMenuToggle, .ic-app-course-nav-toggle):focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
 }
 
 /* Canvas SVG icons served as <img> tags — their paths are dark and invisible
@@ -4616,6 +4766,94 @@ html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg * {
   border-right-color: transparent !important;
   box-shadow: none !important;
 }
+/* ===== List-item title fade gradient =====
+   Canvas paints `.ig-title::after` (and similar wrappers) with a right-edge
+   linear-gradient ending in solid white to fake an ellipsis fade-out for
+   long titles. In dark mode the white terminus is visually a bright smear
+   over the title text — this is what reads as "text layers overlapping" on
+   module items, the recent-feedback list, and similar list views. Repaint
+   the gradient to terminate in our dark page bg instead. The fade still
+   works (titles still soft-clip), but it blends correctly. */
+[data-cc-dark-mode="on"] .ic-app :is(.ig-title, .ig-title-wrapper, .item_name, .item-name, .module-item-title)::after,
+[data-cc-dark-mode="on"] .ic-app .name::after,
+[data-cc-dark-mode="on"] .ic-app .event-details::after {
+  background: linear-gradient(to right, rgba(25, 25, 25, 0) 0%, var(--cc-dark-page-bg) 80%) !important;
+  background-image: linear-gradient(to right, rgba(25, 25, 25, 0) 0%, var(--cc-dark-page-bg) 80%) !important;
+}
+
+/* Defensive: kill text-shadow on common title elements. Canvas occasionally
+   uses 1px white text-shadow for emboss in light mode, which becomes a
+   visible duplicate ghost in dark mode (another source of "overlapping
+   layers"). Also re-pin .screenreader-only positioning so any stylesheet
+   that overrode `position: absolute` doesn't reveal the duplicate SR text
+   that lives next to .name in module item links. */
+[data-cc-dark-mode="on"] .ic-app :is(.ig-title, .name, .item_name, .item-name, .module-item-title, .ig-row, .ig-header) {
+  text-shadow: none !important;
+}
+[data-cc-dark-mode="on"] .ic-app .screenreader-only {
+  position: absolute !important;
+  left: -10000em !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
+/* ===== DesignPLUS content containers =====
+   Layer 0 exempts `[class*="dp-"]` so the UNL red `dp-header` banner survives
+   in dark mode — but the same exemption preserves every other dp-* content
+   container's bg, including the tan/light backgrounds DesignPLUS gives to
+   `dp-content-block`, `dp-callout`, `dp-card`, `dp-quote`. Those read as
+   mismatched panels against `--cc-dark-page-bg`. Force them transparent so
+   they sit flush against our dark surface, while leaving truly chrome-y
+   DesignPLUS regions (header banner, image hero strips) alone. The `kl_*`
+   patterns are UNL-institution custom classes that follow the same shape
+   as DesignPLUS content blocks. */
+[data-cc-dark-mode="on"] .ic-app :is(
+  .dp-content-block,
+  .dp-content-text-block,
+  .dp-content-list-block,
+  .dp-content-grid-block,
+  .dp-content-toggle,
+  .dp-content-table,
+  .dp-callout,
+  .dp-card,
+  .dp-quote,
+  .dp-info-box,
+  .dp-table-scroll,
+  [class*="dp-content-block"],
+  [class*="kl_"]
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+  box-shadow: none !important;
+}
+
+/* DesignPLUS table chrome inside content blocks — Canvas's .ic-Table--striped
+   nested inside dp-table-scroll keeps its alternating row tint via inline-ish
+   styles that survive Layer 0. Force every cell transparent so the table
+   reads as a flat dark grid with subtle dividers. */
+[data-cc-dark-mode="on"] .ic-app :is(
+  .dp-content-block,
+  [class*="dp-content-block"],
+  .dp-table-scroll
+) :is(table, thead, tbody, tfoot, tr, th, td) {
+  background-color: transparent !important;
+  border-color: var(--cc-dark-border) !important;
+  color: var(--cc-dark-text) !important;
+}
+
+/* DesignPLUS section headings inside content blocks (`<h3 class="dp-has-icon">…`)
+   — explicit text + icon paint so they match the surrounding dark text. */
+[data-cc-dark-mode="on"] .ic-app :is(.dp-has-icon, [class*="dp-has-icon"]) :is(i, [class*="icon-"]) {
+  color: var(--cc-dark-icon) !important;
+}
+
 /* hr elements — Canvas defaults them to near-red on some surfaces.
    Use a higher opacity than --cc-dark-border so horizontal rules are
    actually visible as dividers rather than invisible lines. */
@@ -4671,6 +4909,22 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container [class*="item_count"] {
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
   box-shadow: 0 0 0 2px var(--cc-dark-surface-raised) !important;
+}
+
+/* Dashboard-header notification pills. Match enumerated Canvas badge classes
+   plus BEM-style child suffixes (`__badge`, `__count`, `__counter`) — never a
+   bare `Badge` / `NotificationBadge` wrapper. Reason: InstUI's Badge wraps
+   the button it describes, so painting the wrapper red bleeds behind the
+   icon (e.g. the IconAlerts button rendered as a red rectangle).
+     - `:not(:has(button)):not(:has([role="button"]))` is a safety net so any
+       wrapper that still slips through doesn't paint.
+     - `:not(button):not([role="button"])` keeps the rule from painting the
+       button itself if Canvas ever attaches one of these classes directly. */
+html[data-cc-dark-mode="on"] :is(#dashboard_header_container, .ic-Dashboard-header__layout, [class*="Dashboard-header__layout"], [class*="ic-Dashboard-header"]) :is(.nav-badge, .unread-count, .ic-unread-badge, .ic-unread-badge__total-count, [class*="__badge"], [class*="__count"], [class*="__counter"], [class*="item_count"]):not(button):not([role="button"]):not(:has(button)):not(:has([role="button"])) {
+  background-color: #e0062f !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0 0 2px rgba(25, 25, 25, 0.76) !important;
 }
 
 /* Activity feed stream-type icons — Canvas draws colored circles to indicate
@@ -4770,13 +5024,107 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
   border-color: var(--cc-dark-border) !important;
 }
 
-/* Form inputs */
-[data-cc-dark-mode="on"] input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not(.cc-modal-root input),
+/* Form inputs. Skip native-rendered controls (color, range, checkbox, radio,
+   submit/reset/image/file/button) so the browser draws them with its dark
+   color-scheme defaults. Forcing a background on those distorts the native
+   widget — radios become flat squares, file pickers lose their button half, etc. */
+[data-cc-dark-mode="on"] input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="reset"]):not([type="button"]):not([type="image"]):not([type="file"]):not(.cc-modal-root input),
 [data-cc-dark-mode="on"] select:not(.cc-modal-root select),
 [data-cc-dark-mode="on"] textarea:not(.cc-modal-root textarea) {
   background-color: var(--cc-dark-surface) !important;
   color: var(--cc-dark-text) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* InstUI inputs render their visible "box" via a wrapping `__facade` span,
+   not the semantic <input> / <textarea> inside it. Canvas paints the facade
+   white with a light border; Layer 0 clears that bg to transparent, which
+   leaves a visible-but-empty rectangle floating on the dark page. The inner
+   <input> is InstUI-transparent by design, so painting it (above) doesn't
+   show — the facade is what the user sees.
+
+   This rule covers TextInput, TextArea, SimpleSelect, NumberInput, DateInput,
+   TimeInput — all of which use the same `__facade` BEM child convention.
+   Targets the BEM child (`__facade`) so it never matches an InstUI wrapper
+   class like `TextInput` (no `__` separator). */
+[data-cc-dark-mode="on"] .ic-app :is(
+  [class*="textInput__facade"],
+  [class*="textArea__facade"],
+  [class*="select__facade"],
+  [class*="numberInput__facade"],
+  [class*="dateInput__facade"],
+  [class*="timeInput__facade"],
+  [class*="textInput__layout"],
+  [class*="textInput__inputLayout"]
+) {
+  background-color: var(--cc-dark-surface) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Inner SimpleSelect / TextInput chrome: arrow icon, prefix/suffix elements.
+   Force the icon to paint with our dark-icon color so the arrow is visible. */
+[data-cc-dark-mode="on"] .ic-app :is(
+  [class*="textInput__afterElement"],
+  [class*="textInput__beforeElement"],
+  [class*="select__icon"]
+) :is(svg, svg *) {
+  color: var(--cc-dark-icon) !important;
+  fill: currentColor !important;
+}
+
+/* InstUI IconButton focus ring in dark mode. Light mode shows the browser's
+   default red focus outline (Canvas brand colour); in dark mode that ring is
+   often invisible against the page bg because color-scheme: dark renders the
+   default focus halo as muted dark blue. Force a clear accent-coloured ring
+   so the X close button on the profile tray (and every other icon-only button)
+   has a visible focus state matching the light-mode Canvas behaviour. */
+[data-cc-dark-mode="on"] .ic-app [data-cid*="IconButton"]:focus-visible,
+[data-cc-dark-mode="on"] #nav-tray-portal [data-cid*="IconButton"]:focus-visible,
+[data-cc-dark-mode="on"] #flash_message_holder [data-cid*="IconButton"]:focus-visible {
+  outline: 2px solid #fc5050 !important;
+  outline-offset: 2px !important;
+  border-radius: 6px !important;
+}
+
+/* InstUI ToggleFacade — the Checkbox component rendered as a slide-toggle
+   ("Use High Contrast UI", "Use a Dyslexia Friendly Font", etc.). Same root
+   problem as the textInput facade family: the visible widget is a wrapping
+   `__facade` span, not the semantic <input>. Layer 0 wipes the facade's bg,
+   the inner <input> is hidden via opacity:0, so the toggle becomes invisible
+   in dark mode. Paint the track and the thumb so the off-state widget reads;
+   when checked, swap the track to the accent colour via input:checked. */
+[data-cc-dark-mode="on"] .ic-app [class*="toggleFacade__facade"] {
+  background-color: var(--cc-dark-surface) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+[data-cc-dark-mode="on"] .ic-app [class*="toggleFacade__iconToggle"] {
+  background-color: var(--cc-dark-surface-raised) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+[data-cc-dark-mode="on"] .ic-app [class*="toggleFacade__icon"] :is(svg, svg *) {
+  color: var(--cc-dark-text) !important;
+  fill: currentColor !important;
+}
+/* Checked state: InstUI's checkbox <input> sits as a sibling immediately
+   before the <label> that contains the facade. When the input is :checked,
+   tint the track with our accent colour so the on-state reads. */
+[data-cc-dark-mode="on"] .ic-app [class*="checkbox__input"]:checked + label [class*="toggleFacade__facade"] {
+  background-color: #fc5050 !important;
+  border-color: #fc5050 !important;
+}
+
+/* InstUI Checkbox (non-toggle variant — square check). Anchor on the BEM
+   child `__facade` so only the visible square gets painted, never the
+   `checkboxFacade` *wrapper* that contains the square AND the label text
+   (painting the wrapper makes the entire checkbox row appear as a dark
+   filled rectangle — same wrapper-vs-child trap as the Badge bug, P1). */
+[data-cc-dark-mode="on"] .ic-app [class*="checkboxFacade__facade"] {
+  background-color: var(--cc-dark-surface) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+[data-cc-dark-mode="on"] .ic-app [class*="checkbox__input"]:checked + label [class*="checkboxFacade__facade"] {
+  background-color: #fc5050 !important;
+  border-color: #fc5050 !important;
 }
 
 /* ===== Layer 3 (portals) — Canvas dropdowns / menus / tooltips / dialogs
@@ -4800,6 +5148,16 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
 [data-cc-dark-mode="on"] :is([role="menu"], [role="listbox"], [role="tooltip"], [role="dialog"], .ui-menu, .ui-dialog, .ui-widget-content, [class*="Menu__menu"], [class*="Popover__content"], [class*="Tooltip__content"], [class*="Modal__"], [class*="Tray__"]) *:not(svg):not(svg *):not([class*="cc-"]):not([class*="cc-"] *) {
   color: var(--cc-dark-text) !important;
   border-color: var(--cc-dark-border) !important;
+}
+
+/* Canvas flash/portal content can sit outside the modal/tray selector family. */
+[data-cc-dark-mode="on"] :is(#flash_message_holder, #flash_message_holder *, .ReactModalPortal, .ReactModalPortal *):not(svg):not(svg *) {
+  color: var(--cc-dark-text) !important;
+  border-color: var(--cc-dark-border) !important;
+}
+
+html[data-cc-dark-mode="on"] body :is(#flash_message_holder, .ReactModalPortal, [role="dialog"], .ui-dialog, .ui-dialog .ui-dialog-content, .ui-widget-content) :is(h1, h2, h3, h4, h5, h6, p, span, div, label, legend, li, strong, em, small, button):not(svg):not(svg *) {
+  color: var(--cc-dark-text) !important;
 }
 /* Links inside dialogs/modals/trays — the scoped rule below only covers
    #content/#dashboard/#right-side, so portal-mounted content keeps Canvas's
@@ -5060,7 +5418,7 @@ html[data-cc-dark-mode="on"] #DashboardCard_Container .ic-DashboardCard .icon-mo
 
 /* Completed tasks */
 [data-cc-dark-mode="on"] #cc-weekly-tasks .cc-done .cc-task-title {
-  color: #666666 !important;
+  color: #9e9e9e !important;
 }
 
 /* Due date chips — plain muted, no color coding */

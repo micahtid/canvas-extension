@@ -41,7 +41,6 @@ const DEFAULTS = {
   // Theme
   accentColor: '#008ee2',
   density: 'cozy',            // 'compact' | 'cozy' | 'comfortable'
-  borderRadius: 8,            // global radius for buttons/inputs/panels
 
   // Background
   bgColor: '',
@@ -559,7 +558,7 @@ const CC_CSS_VARS = [
   '--cc-card-radius', '--cc-card-image-opacity', '--cc-card-header-height',
   '--cc-card-bg', '--cc-card-text',
   '--cc-sidebar-icon-size', '--cc-sidebar-label-size',
-  '--cc-accent', '--cc-radius',
+  '--cc-accent',
   '--cc-bg-color', '--cc-bg-image', '--cc-bg-blur',
   '--cc-text-color', '--cc-font-family', '--cc-modal-accent',
   '--cc-sidebar-bg', '--cc-sidebar-text', '--cc-sidebar-active', '--cc-sidebar-active-text',
@@ -617,7 +616,6 @@ function applySettings(s) {
   set('--cc-sidebar-active-text', s.sidebarActiveTextColor || sidebarDefaults.activeText || sidebarDefaults.text || '#ffffff');
 
   set('--cc-accent', s.accentColor);
-  set('--cc-radius', s.borderRadius + 'px');
 
   set('--cc-bg-color', s.bgColor || 'transparent');
   set('--cc-bg-image', s.bgImage ? `url("${s.bgImage.replace(/"/g, '\\"')}")` : 'none');
@@ -3600,7 +3598,7 @@ function skinPlannerGroupings() {
     group.style.setProperty('overflow', 'visible', 'important');
     group.style.setProperty('border-radius', '8px', 'important');
     group.style.setProperty('margin-bottom', '10px', 'important');
-    group.style.setProperty('box-shadow', '0 1px 3px rgba(0, 0, 0, 0.1)', 'important');
+    group.style.setProperty('box-shadow', 'var(--cc-planner-group-shadow, 0 1px 3px rgba(0, 0, 0, 0.1))', 'important');
 
     const title = group.querySelector('[class*="Grouping-styles__title"]');
     if (title) {
@@ -3655,7 +3653,7 @@ function skinPlannerGroupings() {
       : [];
     if (items) {
       items.style.setProperty('border-top', 'none', 'important');
-      items.style.setProperty('background', '#f8f9fa', 'important');
+      items.style.setProperty('background', 'var(--cc-planner-group-shell-bg, #f8f9fa)', 'important');
       items.style.setProperty('padding', '8px', 'important');
       items.style.setProperty('display', 'block', 'important');
       items.style.setProperty('min-height', '0', 'important');
@@ -3667,6 +3665,16 @@ function skinPlannerGroupings() {
 
       Array.from(items.children).forEach((child, index) => {
         if (child.matches('.cc-completed-toggle-row')) return;
+        // Skip Canvas's native completed-items toggle row too. Its margin is
+        // managed exclusively by the nativeRow block below — letting this
+        // loop set `6px` here creates a transient incorrect value that
+        // sometimes survives to the rendered frame when React's re-commit
+        // races with our tick (the conditional below would not always fire
+        // before the next paint, so the loop's 6 px would stick after
+        // expand → collapse cycles, producing the "margin shrinks after
+        // toggling" symptom).
+        if (child.matches('.planner-completed-items, [class*="CompletedItemsFacade-styles__root"]')) return;
+        if (child.querySelector('[data-testid="completed-items-toggle"]')) return;
         child.style.setProperty('display', 'block', 'important');
         child.style.setProperty('margin-top', index === 0 ? '0' : '6px', 'important');
         child.style.setProperty('margin-bottom', '0', 'important');
@@ -3699,7 +3707,7 @@ function skinPlannerGroupings() {
       nativeCompletedToggle.style.setProperty('border', 'none', 'important');
       nativeCompletedToggle.style.setProperty('border-radius', '0', 'important');
       nativeCompletedToggle.style.setProperty('background', 'transparent', 'important');
-      nativeCompletedToggle.style.setProperty('color', '#2a6fbe', 'important');
+      nativeCompletedToggle.style.setProperty('color', 'var(--cc-dark-link, #d9d9d9)', 'important');
       nativeCompletedToggle.style.setProperty('font-size', '12px', 'important');
       nativeCompletedToggle.style.setProperty('font-weight', '600', 'important');
       nativeCompletedToggle.style.setProperty('line-height', '1.2', 'important');
@@ -3711,11 +3719,25 @@ function skinPlannerGroupings() {
 
       const nativeRow = nativeCompletedToggle.closest('li');
       if (nativeRow) {
+        // `isOnlyItem` is true when the native completed-items row is the
+        // only child of the items container — i.e. a Daily Course Card whose
+        // only entry is the "Show N Completed Items" facade. In that case
+        // we centre the toggle vertically against the group's hero (the
+        // course-card image / day header on the left) instead of pinning
+        // it at the top of an empty card.
+        //
+        // This branch was removed two changes back to fix a different bug
+        // (margin variance during React re-renders), but its loss broke the
+        // only-item layout. Reintroducing it carefully: the margin stays
+        // case-stable (always 14 px when not isOnlyItem, always 0 when it
+        // is — within either case the margin doesn't fluctuate across
+        // expand → collapse cycles, which was the original concern).
         const isOnlyItem = wrappers.length === 1 && wrappers[0] === nativeRow;
+
         nativeRow.style.setProperty('display', 'block', 'important');
         nativeRow.style.setProperty('list-style', 'none', 'important');
         nativeRow.style.setProperty('margin', '0', 'important');
-        nativeRow.style.setProperty('margin-top', isOnlyItem ? '0' : '6px', 'important');
+        nativeRow.style.setProperty('margin-top', isOnlyItem ? '0' : '14px', 'important');
         nativeRow.style.setProperty('margin-bottom', '0', 'important');
         nativeRow.style.setProperty('margin-left', '0', 'important');
         nativeRow.style.setProperty('border', 'none', 'important');
@@ -3723,10 +3745,38 @@ function skinPlannerGroupings() {
         nativeRow.style.setProperty('background', 'transparent', 'important');
         nativeRow.style.setProperty('padding', '0', 'important');
         nativeRow.style.setProperty('padding-left', '0', 'important');
+
         if (items) {
-          items.style.setProperty('display', isOnlyItem ? 'flex' : 'block', 'important');
-          items.style.setProperty('flex-direction', isOnlyItem ? 'column' : 'initial', 'important');
-          items.style.setProperty('justify-content', isOnlyItem ? 'center' : 'initial', 'important');
+          if (isOnlyItem) {
+            // Force items to the hero's height so flex-centre has free
+            // space to distribute. Without setting `height` (not just
+            // `min-height`), the earlier `items.height = 'auto' !important`
+            // line at 3660 stays in effect and the flex container collapses
+            // to the toggle row's intrinsic height — making `justify-content:
+            // center` a visual no-op. We mirror `min-height` for safety in
+            // case the parent flex-row doesn't stretch.
+            const heroEl = group.querySelector('[class*="Grouping-styles__hero"], [class*="Grouping-styles__title"]');
+            const heroH = heroEl ? heroEl.offsetHeight : group.offsetHeight;
+            if (heroH > 0) {
+              items.style.setProperty('height', `${heroH}px`, 'important');
+              items.style.setProperty('min-height', `${heroH}px`, 'important');
+            }
+            items.style.setProperty('display', 'flex', 'important');
+            items.style.setProperty('flex-direction', 'column', 'important');
+            items.style.setProperty('justify-content', 'center', 'important');
+            items.style.setProperty('align-items', 'flex-start', 'important');
+            group.dataset.ccCompletedOnlyToggle = 'true';
+          } else {
+            // Items above the toggle — plain block flow, drop the height
+            // override + flex props so this group renders normally.
+            items.style.removeProperty('height');
+            items.style.removeProperty('min-height');
+            items.style.setProperty('display', 'block', 'important');
+            items.style.removeProperty('flex-direction');
+            items.style.removeProperty('justify-content');
+            items.style.removeProperty('align-items');
+            delete group.dataset.ccCompletedOnlyToggle;
+          }
         }
       }
 
@@ -3779,9 +3829,9 @@ function skinPlannerGroupings() {
     }
 
     group.querySelectorAll('[class*="Grouping-styles__items"] [class*="PlannerItem-styles__root"]').forEach(row => {
-      row.style.setProperty('background', '#ffffff', 'important');
+      row.style.setProperty('background', 'var(--cc-planner-group-item-bg, #ffffff)', 'important');
       row.style.setProperty('border-radius', '10px', 'important');
-      row.style.setProperty('box-shadow', '0 1px 4px rgba(0, 0, 0, 0.09)', 'important');
+      row.style.setProperty('box-shadow', 'var(--cc-planner-group-item-shadow, 0 1px 4px rgba(0, 0, 0, 0.09))', 'important');
       row.style.setProperty('border', 'none', 'important');
       row.style.setProperty('display', 'flex', 'important');
       row.style.setProperty('align-items', 'flex-start', 'important');
@@ -3949,12 +3999,59 @@ function syncPlannerCompletedCollapseControls() {
       else child.style.removeProperty('display');
     });
 
-    const visibleTaskCount = completedWrappers.filter(child => child.style.getPropertyValue('display') !== 'none').length;
-    group.dataset.ccCompletedOnlyToggle = visibleTaskCount === 0 ? 'true' : 'false';
-    items.style.setProperty('display', visibleTaskCount === 0 ? 'flex' : 'block', 'important');
-    items.style.setProperty('flex-direction', visibleTaskCount === 0 ? 'column' : 'initial', 'important');
-    items.style.setProperty('justify-content', visibleTaskCount === 0 ? 'center' : 'initial', 'important');
-    toggleRow.style.setProperty('margin-top', visibleTaskCount === 0 ? '0' : '6px', 'important');
+    // Count visible NON-TOGGLE children (active items + currently-visible
+    // completed items). The previous logic used `visibleTaskCount` which
+    // counted only completed items — wrong, because when active items exist
+    // above + completed items collapsed, `visibleTaskCount` is 0 (no visible
+    // completed) and the code wrongly took the "only toggle visible" branch
+    // and zeroed the margin. The right test is "is anything besides the
+    // toggle currently visible in this group?".
+    const visibleNonToggleCount = wrappers.filter(w =>
+      w.style.getPropertyValue('display') !== 'none'
+    ).length;
+    group.dataset.ccCompletedOnlyToggle = visibleNonToggleCount === 0 ? 'true' : 'false';
+
+    if (visibleNonToggleCount === 0) {
+      // Truly only the toggle is visible (Daily Course Card with no active
+      // items, all completed items collapsed). Vertically centre the toggle
+      // against the group's hero/title block.
+      //
+      // skinPlannerGroupings() runs first in the tick and sets items.height
+      // = 'auto' !important. Without overriding that here, flex-centring has
+      // no free space to distribute (container collapses to toggle height)
+      // and the centring is visually a no-op. We measure the hero's
+      // offsetHeight and force BOTH height and min-height to that value so
+      // the items column reliably has the same height as the hero on every
+      // tick — even though skin's auto resets it for a microsecond before
+      // sync re-applies the explicit value, the rendered frame after each
+      // tick is the explicit value (sync runs second).
+      const hero = group.querySelector('[class*="Grouping-styles__hero"], [class*="Grouping-styles__title"]');
+      const heroHeight = hero ? hero.offsetHeight : 0;
+      const targetHeight = heroHeight > 0 ? heroHeight : group.offsetHeight;
+      if (targetHeight > 0) {
+        items.style.setProperty('height', `${targetHeight}px`, 'important');
+        items.style.setProperty('min-height', `${targetHeight}px`, 'important');
+      }
+      items.style.setProperty('display', 'flex', 'important');
+      items.style.setProperty('flex-direction', 'column', 'important');
+      items.style.setProperty('justify-content', 'center', 'important');
+      items.style.setProperty('align-items', 'flex-start', 'important');
+      // Centring handles vertical spacing; an extra 14 px would shift the
+      // toggle off-centre. Use 0 here — the centred toggle is the visual
+      // anchor, not the row margin.
+      toggleRow.style.setProperty('margin-top', '0', 'important');
+    } else {
+      // Visible non-toggle items above the toggle. Stable 14 px top margin
+      // regardless of expanded/collapsed state. Items container in plain
+      // block flow.
+      items.style.removeProperty('height');
+      items.style.removeProperty('min-height');
+      items.style.setProperty('display', 'block', 'important');
+      items.style.removeProperty('flex-direction');
+      items.style.removeProperty('justify-content');
+      items.style.removeProperty('align-items');
+      toggleRow.style.setProperty('margin-top', '14px', 'important');
+    }
     toggleRow.style.setProperty('margin-bottom', '0', 'important');
 
     const button = toggleRow.querySelector('.cc-completed-toggle-btn');
