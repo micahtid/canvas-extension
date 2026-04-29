@@ -3658,7 +3658,7 @@ function skinPlannerGroupings() {
       : [];
     if (items) {
       items.style.setProperty('border-top', 'none', 'important');
-      items.style.setProperty('background', 'var(--cc-planner-group-items-bg, #ffffff)', 'important');
+      items.style.setProperty('background', 'var(--cc-planner-group-items-bg, #fafbfd)', 'important');
       items.style.setProperty('padding', '8px', 'important');
       items.style.setProperty('display', 'block', 'important');
       items.style.setProperty('min-height', '0', 'important');

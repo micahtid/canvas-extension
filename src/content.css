@@ -1339,13 +1339,15 @@ html[data-cc-dark-mode="on"][data-cc-page="course-grades"] .ic-app-main-content_
   display: none !important;
 }
 
-/* Items tray: white surface that the (now flat) task rows sit directly on,
-   so the whole items column reads as a single card panel rather than a row of
-   individually-bordered cards. Remove the colored top border Canvas injects
-   between the hero and items. Variable swaps to a dark surface in dark mode. */
+/* Items tray: soft-gray surface that the (now flat) task rows sit directly
+   on, so the whole items column reads as a single card panel rather than a
+   row of individually-bordered cards — and a clearly visible card edge
+   against Canvas's white page bg. Variable swaps to a dark surface in dark
+   mode. Remove the colored top border Canvas injects between the hero and
+   items. */
 [class*="Grouping-styles__items"] {
   border-top: none !important;
-  background: var(--cc-planner-group-items-bg, #ffffff) !important;
+  background: var(--cc-planner-group-items-bg, #fafbfd) !important;
   padding: 8px !important;
   display: block !important;
   min-height: 0 !important;
@@ -4933,10 +4935,11 @@ html[data-cc-dark-mode="on"] #application :is([class*="Icon__"]) svg * {
 }
 
 /* hr elements — Canvas defaults them to near-red on some surfaces.
-   Use a higher opacity than --cc-dark-border so horizontal rules are
-   actually visible as dividers rather than invisible lines. */
+   Use a soft gray that's clearly visible as a divider but doesn't read as
+   "white glare" against the dark page bg. The previous 0.16 alpha was too
+   harsh on the eyes; 0.10 still defines the line without the bright cast. */
 [data-cc-dark-mode="on"] .ic-app hr {
-  background-color: rgba(255, 255, 255, 0.16) !important;
+  background-color: rgba(255, 255, 255, 0.10) !important;
   border: none !important;
   height: 1px !important;
 }

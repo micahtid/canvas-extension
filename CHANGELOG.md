@@ -6,6 +6,68 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-29 (26)
+
+### Planner — Items tray pushed even closer to white (`#f5f7fa` → `#fafbfd`)
+- **Where:** `src/content.css` Grouping-styles__items rule + `src/content.js` items inline-write.
+- **What:** Default tray bg from `#f5f7fa` (~97% L) to `#fafbfd` (~98.5% L). Barely-perceptible cool tint that registers as "not quite white" only when set against pure white.
+- **Why:** Per-user request for an even softer surface than 25.
+
+## 2026-04-29 (25)
+
+### Planner — Items tray softened further (`#e6eaf0` → `#f5f7fa`, near-white)
+- **Where:** `src/content.css` (Grouping-styles__items rule, ~line 1346) and `src/content.js` (items inline-write, ~line 3656).
+- **What:** `Grouping-styles__items` light-mode default jumped from `#e6eaf0` (~92% L) to `#f5f7fa` (~97% L). Now a near-white surface with just a hair of cool tint — the kind of "is this gray or just white?" you only register against another white surface adjacent to it.
+- **Why:** User said `#e6eaf0` was "way too dark" once it actually landed on the items tray and asked for "a lot closer to white." `#f5f7fa` is the value Canvas itself uses for various near-white card surfaces — it reads as white at a glance but creates a faint visible edge against pure-white siblings.
+
+## 2026-04-29 (24)
+
+### Planner — Items tray softened back to first iteration's value (`#e8ecf2` → `#e6eaf0`)
+- **Where:** `src/content.css` (Grouping-styles__items rule, ~line 1346) and `src/content.js` (`skinPlannerGroupings()` items inline-write, ~line 3656).
+- **What:** Changed the `Grouping-styles__items` light-mode default from `#e8ecf2` to `#e6eaf0` — the literal first-darker iteration (matching what was used on Day-styles in change 19, before the element-target was corrected). Both the CSS rule and the JS inline-write updated in lockstep.
+- **Why:** User reported the previous `#e8ecf2` reading "way too dark" once it landed on the right element, since none of the prior dark iterations (#d8dde6, #b8c2d0) were ever visible to them — the perceived "default" was Canvas's white. Stepping back to the gentlest of the values previously attempted.
+
+## 2026-04-29 (23)
+
+### Planner — Wrong element. Items tray (`Grouping-styles__items`) is what gets the gray, not Day-styles
+- **Where:** `src/content.css` (Grouping-styles__items rule ~line 1346 + JS inline-write ~line 3656; Day-styles rule scope/value reverted ~line 1217 / ~line 5108 / ~line 1257); `src/content.js` (`skinPlannerGroupings()` items inline-style writer).
+- **What:**
+  - **Reverted Day-styles changes from 19 / 20 / 21 / 22.** Scope swapped back from `[data-cc-dashboard-view="list"]` → `[data-cc-planner-layout="grouped"]`; default fallback restored to `#f5f7fa`. Same revert applied to dark-mode equivalent and `[data-cc-planner-item-bg="on"]` compound override.
+  - **Light-mode items-tray default darkened.** `Grouping-styles__items` light-mode bg fallback changed from `#ffffff` to `#e8ecf2` (~93% L, soft slate-gray) — both in the CSS rule and the JS inline-write that runs every observer tick. Dark-mode value (`#252525`) unchanged.
+- **Why:** User pasted the `<ol class="Grouping-styles__items">` markup and explicitly said "this is what I am referring to" — confirmation that all the prior darkening attempts on the surrounding Day-styles surface were on the wrong element. The actual visual the user wanted was the *items tray itself* (the panel containing the task rows) to be a soft gray instead of pure white, so its edge would be visible against Canvas's white page bg.
+- **Pattern (P21):** When a user keeps reporting "no visible difference" after multiple value tweaks AND the build/cache are confirmed, ask for the exact element they're looking at (or its DOM markup) before making a third value change. Element-identification mistakes don't get caught by inspector-style debugging on my end — only the user can disambiguate which surface they're actually pointing at. Rule of thumb: after two unsuccessful tweaks to the same selector, change the question from "what value?" to "what element?".
+
+## 2026-04-29 (22)
+
+### Planner — Day surface: `#d8dde6` → `#b8c2d0` (real contrast against white items tray)
+- **Where:** `src/content.css` — light-mode Day-container default fallback (~line 1224).
+- **What:** Bumped `--cc-planner-item-bg` light-mode default from `#d8dde6` (~87% L, ~1.2:1 against white) to `#b8c2d0` (~76% L, ~1.6:1 against white). Now a clearly visible soft slate gray.
+- **Why:** Even after fixing the scope bug in 21, the resulting color was still too light to register as a separate surface. User wanted dark-mode-level differentiation between Day surface and the white items tray sitting on it. `#b8c2d0` is solidly in "soft gray panel" territory — distinct from white at a glance, not so dark it reads as a heavy panel.
+
+## 2026-04-29 (21)
+
+### Planner — Day-bg rule re-scoped from `[planner-layout="grouped"]` → `[dashboard-view="list"]` (root cause of the "no change" reports)
+- **Where:** `src/content.css` — light-mode Day-container rule (~line 1217), dark-mode equivalent (~line 5108), and the `[data-cc-planner-item-bg="on"]` compound override (~line 1261).
+- **What:** Three rules previously keyed on `[data-cc-planner-layout="grouped"]` now key on `[data-cc-dashboard-view="list"]`. The `<html>` data-attr `data-cc-dashboard-view` is set to `list` by `applyDashboardView()` whenever Canvas's planner list is the active view, regardless of which sub-style (Cards / Rows / Compact / Grouped) the user has selected in our settings modal.
+- **Why:** The earlier "I don't see a difference" reports weren't a contrast problem — they were a scope problem. The rule was gated to `[data-cc-planner-layout="grouped"]`, which only fires when the user explicitly picks "Grouped" in the layout selector. Users on the default `cards` (or `rows` / `compact`) layouts never had the rule fire, so the Day surface stayed at Canvas's white default no matter what hex value we put in the rule. Bumping `#f5f7fa → #e6eaf0 → #d8dde6` made no difference because none of those rules ever applied. Re-scoping to `[data-cc-dashboard-view="list"]` (which Canvas's `Grouping-styles__root` / `Day-styles__root` always render under, in any sub-layout) makes the `#d8dde6` Day surface actually visible.
+- **Pattern (P20):** When a CSS change "doesn't appear to do anything" and you've already verified the build shipped + the cache is bypassed, suspect the *selector*'s scope before suspecting the *value*. A perfectly tuned color is invisible if the rule is gated behind a data-attr the user doesn't have set. Inspector → Styles tab → look for the rule under "Inactive" or struck-through to confirm. The two scope variables in this codebase are easy to confuse: `data-cc-planner-layout` is a user setting (one of cards/rows/compact/grouped); `data-cc-dashboard-view` is a runtime detection (list/card/none). For "applies whenever the planner list is on screen," use the second.
+
+## 2026-04-29 (20)
+
+### Planner — Day surface darker (round 2); dark-mode `<hr>` divider softer
+- **Where:** `src/content.css` — grouped Day-container rule (~line 1217); dark-mode `hr` rule (~line 4938).
+- **What:**
+  - **Day bg:** Bumped the default fallback from `#e6eaf0` (~92% lightness) to `#d8dde6` (~87%). Previous attempt was too close to white to distinguish from the white items tray on most monitors. New value is still well into "very subtle gray" territory but actually visible as a separate surface.
+  - **Dark-mode `<hr>`:** Dropped the alpha on `[data-cc-dark-mode="on"] .ic-app hr { background-color: rgba(255, 255, 255, 0.16) }` to `0.10`. The 0.16 read as a bright white glare against `--cc-dark-page-bg` and was sharp enough to fatigue the user's eyes. 0.10 still defines the line clearly but reads as a soft gray instead of glowing white.
+- **Why:** First user complaint: 19's `#e6eaf0` Day bg wasn't visible enough — they wanted "very subtle gray" but with enough contrast to show. Second complaint: dark-mode horizontal dividers were "too white" and hard on the eyes — wanted "softer gray, not fully white." Both addressed.
+
+## 2026-04-29 (19)
+
+### Planner — Light-mode Day surface darkened so Daily Course Cards stand out
+- **Where:** `src/content.css` — grouped-layout Day container rule (`[data-cc-planner-layout="grouped"] [class*="Day-styles__root"]` / `[class*="Day-styles__day"]`, ~line 1217). Default value of `--cc-planner-item-bg` changed from `#f5f7fa` to `#e6eaf0`.
+- **What:** Bumped the Day-container's default fallback bg from a near-white `#f5f7fa` to a slightly cooler-gray `#e6eaf0` — still very light, but now distinct enough from the white items tray that each Daily Course Card visibly floats on the surface around it. Variable name unchanged so any user who set `plannerItemBg` in settings still wins.
+- **Why:** User reported the white items tray was reading flush with the surrounding page in light mode (`#f5f7fa` vs `#ffffff` is only a ~3-step lightness difference and barely visible on most monitors). `#e6eaf0` adds a few more steps of contrast without going dark enough to feel like a panel.
+
 ## 2026-04-29 (18)
 
 ### Branding — Modal logo backdrop matches settings page; extension name simplified to "CustomCanvas"
