@@ -4,5 +4,5 @@
   <rect x="36" y="38" width="46" height="46" rx="9" fill="#fc5050"/>
   <text x="124" y="78"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-        font-size="42" font-weight="700" letter-spacing="-1.2" fill="#1a1a1a">Custom Canvas</text>
+        font-size="42" font-weight="700" letter-spacing="-1.2" fill="#1a1a1a">CustomCanvas</text>
 </svg>

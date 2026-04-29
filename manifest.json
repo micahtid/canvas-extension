@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Custom Canvas — Weekly Tasks",
+  "name": "CustomCanvas",
   "version": "0.2.0",
-  "description": "Customize the appearance of Canvas LMS — dashboard cards, sidebar, theme, and a weekly task list.",
+  "description": "CustomCanvas — customize the appearance of Canvas LMS: dashboard cards, sidebar, planner, dark mode, and an integrated weekly task list.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5UjJ3+SHQ4uto4tdy1a4yQaMZsw4psXpJakZz1w1ODBCVuUb2At2pyVr6Gzjp49UEF8mJdOWWIfjfv0PLTgBo80PAXtC+n41P2jyohFxYfu3XLCizk/y8dKdGa43TkZGrmbHh+d7dVCsbTSUPYDGos+sEi+nzmTTmRBsHBQZAl1AEMHYchX2CtVdWnSq9EAxseuQ+vvyAw7Hc66W/PCwO+RI7brh25h8Vvd+9QclPvWEtYIjXfxdDXTlfcGWPc6/UE9HdZq0ClpX7GPpNBieN66kPQP/LNlBTyN1atVkhZx1u2dK0zqx82i4XRfB11xY9fC164tzao+T9GmNSn+2WwIDAQAB",
   "permissions": ["storage", "identity", "scripting"],
   "host_permissions": [
@@ -45,7 +45,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "custom-canvas@micah.local",
+      "id": "customcanvas@micah.local",
       "strict_min_version": "115.0"
     }
   }

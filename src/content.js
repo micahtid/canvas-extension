@@ -1,4 +1,4 @@
-// Custom Canvas — content script
+// CustomCanvas — content script
 // Two responsibilities:
 //   1. Replace the dashboard's native "To Do" sidebar with a weekly task list.
 //   2. Render an in-page customization modal (opened from the toolbar icon)
@@ -199,7 +199,7 @@ async function gcalGetOrCreateCalendar(token) {
 
   const cal = await gcalRequest(token, 'POST', 'calendars', {
     summary: 'Canvas',
-    description: 'Assignments and due dates synced from Canvas LMS by Custom Canvas.',
+    description: 'Assignments and due dates synced from Canvas LMS by CustomCanvas.',
   });
   // Explicitly reset the event map — if the old calendar was deleted the
   // map was cleared above, but creating a fresh calendar also invalidates
@@ -1980,8 +1980,13 @@ function buildModal() {
     <div class="cc-modal" role="dialog" aria-modal="true" aria-labelledby="cc-modal-title">
       <header class="cc-modal-header">
         <div class="cc-modal-brand">
-          <div class="cc-modal-logo">CC</div>
-          <h1 id="cc-modal-title">Custom Canvas</h1>
+          <div class="cc-modal-logo" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" focusable="false">
+              <rect x="30" y="38" width="61" height="61" rx="12" fill="#b53838"/>
+              <rect x="38" y="30" width="61" height="61" rx="12" fill="#fc5050"/>
+            </svg>
+          </div>
+          <h1 id="cc-modal-title">CustomCanvas</h1>
         </div>
         <button class="cc-modal-close" aria-label="Close customization panel">×</button>
       </header>
@@ -2328,7 +2333,7 @@ function tabGeneral() {
     preview: null,
     groups: [
       { title: 'Extension', rows: [
-        row('Enable Custom Canvas', toggleControl('extensionEnabled'), 'Master switch. Turn off to restore Canvas defaults everywhere.'),
+        row('Enable CustomCanvas', toggleControl('extensionEnabled'), 'Master switch. Turn off to restore Canvas defaults everywhere.'),
         row('Dark Mode', toggleControl('darkMode'), 'Force a dark theme across all Canvas pages.'),
       ]},
       { title: 'Productivity', rows: [

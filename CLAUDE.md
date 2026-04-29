@@ -1,4 +1,4 @@
-# Custom Canvas — Project Instructions
+# CustomCanvas — Project Instructions
 
 This is a Chrome MV3 extension (Vite + vanilla JS/CSS) that customizes the
 Canvas LMS UI for `canvas.unl.edu`. Source lives in `src/`, build output in `dist/`.

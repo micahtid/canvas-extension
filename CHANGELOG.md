@@ -6,6 +6,24 @@ Each entry records **what** changed, **where** in Canvas it applies, and the
 
 ---
 
+## 2026-04-29 (18)
+
+### Branding — Modal logo backdrop matches settings page; extension name simplified to "CustomCanvas"
+- **Where:** `src/content.js` (modal logo SVG body); `src/content.css` (`.cc-modal-logo` rule); `manifest.json` (`name`, `description`, `browser_specific_settings.gecko.id`); `package.json` + `package-lock.json` (npm `name`).
+- **What:**
+  - **Logo backdrop.** Removed the outer `<rect width="128" height="128" rx="22" fill="#191919"/>` from the inline modal SVG so only the two cube rectangles remain. `.cc-modal-logo` reset to `background: transparent` and lost its `border-radius` + `overflow: hidden` (no longer needed without an outer fill to clip). Result: the cube mark sits directly on the modal header's `var(--cc-ds-surface)` — white in light mode, `var(--cc-dark-surface)` (`#202020`) in dark mode — so the frame around the logo always matches the settings page bg automatically through the existing CSS-variable cascade.
+  - **Extension name.** `manifest.json` `name` shortened from `CustomCanvas — Weekly Tasks` to `CustomCanvas`. Description rewritten to lead with the product name and reflect the broader feature surface (planner, dark mode, dashboard cards, sidebar, weekly tasks). Firefox `gecko.id` updated `custom-canvas@micah.local` → `customcanvas@micah.local`. `package.json` npm `name` and the regenerated `package-lock.json` updated `custom-canvas` → `customcanvas` to match.
+- **Why:** User asked the logo's outer fill to match the settings page bg (instead of being a fixed dark `#191919` slab against the white modal header) and asked the extension name to be just "CustomCanvas" with all related metadata aligned.
+
+## 2026-04-29 (17)
+
+### Branding — Renamed "Custom Canvas" → "CustomCanvas" everywhere; settings logo now uses the cube mark
+- **Where:** `manifest.json` (extension `name`); `src/content.js` (file header, modal `<h1>`, "Enable" toggle row label, weekly-task calendar description); `src/content.css` (file header comment + `.cc-modal-logo` styles); `src/background.js` (file header); `logo/lockup.svg` (wordmark `<text>`); `.env.example` (header); `CLAUDE.md` (project-instructions title).
+- **What:**
+  - Replaced every product-name occurrence of `Custom Canvas` (with space) with `CustomCanvas` (no space). CHANGELOG.md historical entries left untouched intentionally — those are records of past wording.
+  - Settings modal header: replaced the placeholder `<div class="cc-modal-logo">CC</div>` text mark with an inline SVG copy of `logo/icon-filled.svg` (dark `#191919` 22-px-radius rounded square + offset red `#fc5050` / `#b53838` cubes). Inlined rather than `<img>`-loaded so it stays sharp at any DPI without needing a build-step rasterization. `.cc-modal-logo` CSS simplified: dropped the `background`/`color`/font-centring rules that positioned the "CC" glyph; added `overflow: hidden` so the SVG is clipped to the 8-px outer radius, plus `.cc-modal-logo svg { width: 100%; height: 100%; display: block; }` so it scales to the 30-px box.
+- **Why:** User requested the rename + asked all branded chrome inside the settings UI to use the actual cube mark instead of placeholder text. Modal logo was the only on-screen branding using the "CC" letter mark; the toolbar action icon already pulled from `dist/icons/icon{16,32,48,128}.png` via the manifest, so no separate change needed there.
+
 ## 2026-04-29 (16)
 
 ### Planner — Reverted "Show N Completed Items" pill back to plain text link (REVERTS 8 / 8.1)

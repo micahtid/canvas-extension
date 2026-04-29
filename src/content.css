@@ -1,4 +1,4 @@
-/* Custom Canvas — Weekly Tasks widget */
+/* CustomCanvas — Weekly Tasks widget */
 
 /* FOUC guard — hide Canvas body until the extension has applied settings.
    The content script adds `cc-ready` to <html> once early init finishes,
@@ -2029,15 +2029,19 @@ a.Button--link, .Button--link, .ic-Login__link {
 .cc-modal-logo {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  background: var(--cc-ds-primary);
-  color: var(--cc-ds-surface);
-  font-weight: 700;
-  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: 0.5px;
+  flex: 0 0 auto;
+  /* No background — the cube mark sits directly on the modal header's
+     surface (`var(--cc-ds-surface)`) so the frame around it always matches
+     the settings page bg in both light and dark mode. */
+  background: transparent;
+}
+.cc-modal-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .cc-modal-header h1 {

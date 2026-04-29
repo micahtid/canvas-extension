@@ -1,4 +1,4 @@
-// Custom Canvas — background service worker
+// CustomCanvas — background service worker
 // Responsibilities:
 //   1. Toolbar icon click → toggle modal in active Canvas tab.
 //   2. Proxy Google OAuth for the content script via launchWebAuthFlow.
